@@ -245,7 +245,7 @@
         },
         {
           "name": "AUTO_ROTATE",
-          "description": "Specifies whether not to rotate media based on EXIF data.",
+          "description": "Specifies whether not to rotate media based on EXIF data or video metadata.",
           "type": "BOOLEAN",
           "defaultValue": "false"
         },
@@ -314,8 +314,8 @@
       ]
     },
     {
-      "name": "SUBSENSE MOTION DETECTION (WITH EXIF) PREPROCESSOR ACTION",
-      "description": "Executes an instance of the SuBSENSE motion detection algorithm tuned for pre-processing with rotation and/or flipping based on EXIF data.",
+      "name": "SUBSENSE MOTION DETECTION (WITH AUTO-ROTATE) PREPROCESSOR ACTION",
+      "description": "Executes an instance of the SuBSENSE motion detection algorithm tuned for pre-processing with rotation and/or flipping based on EXIF data or video metadata.",
       "algorithm": "SUBSENSE",
       "properties": [
         {
@@ -369,10 +369,10 @@
       ]
     },
     {
-      "name": "SUBSENSE MOTION DETECTION (WITH EXIF) PREPROCESSOR TASK",
-      "description": "Performs SubSENSE motion detection as a preprocessor with rotation and/or flipping based on EXIF data with rotation and/or flipping based on EXIF data.",
+      "name": "SUBSENSE MOTION DETECTION (WITH AUTO-ROTATE) PREPROCESSOR TASK",
+      "description": "Performs SubSENSE motion detection as a preprocessor with rotation and/or flipping based on EXIF data with rotation and/or flipping based on EXIF data or video metadata.",
       "actions": [
-        "SUBSENSE MOTION DETECTION (WITH EXIF) PREPROCESSOR ACTION"
+        "SUBSENSE MOTION DETECTION (WITH AUTO-ROTATE) PREPROCESSOR ACTION"
       ]
     },
     {
