@@ -296,7 +296,7 @@
       ]
     },
     {
-      "name": "MOG MOTION DETECTION (WITH AUTO-ROTATE) PREPROCESSOR ACTION",
+      "name": "MOG MOTION DETECTION (WITH AUTO-ORIENTATION) PREPROCESSOR ACTION",
       "description": "Executes an instance of the MOG motion detection algorithm tuned for pre-processing with rotation and/or flipping based on EXIF data or video metadata.",
       "algorithm": "MOG",
       "properties": [
@@ -351,10 +351,10 @@
       ]
     },
     {
-      "name": "MOG MOTION DETECTION (WITH AUTO-ROTATE) PREPROCESSOR TASK",
+      "name": "MOG MOTION DETECTION (WITH AUTO-ORIENTATION) PREPROCESSOR TASK",
       "description": "Performs MOG motion detection as a preprocessor with rotation and/or flipping based on EXIF data or video metadata.",
       "actions": [
-        "MOG MOTION DETECTION (WITH AUTO-ROTATE) PREPROCESSOR ACTION"
+        "MOG MOTION DETECTION (WITH AUTO-ORIENTATION) PREPROCESSOR ACTION"
       ]
     },
     {
