@@ -41,7 +41,7 @@
         },
         {
           "name": "MIN_GAP_BETWEEN_SEGMENTS",
-          "description": "In the context of videos, the minimum number of frames or time between segments which are not adjacent. Value must be greater than or equal to 1. Default value is defined by the MPF properties file.",
+          "description": "In the context of videos, the minimum number of frames between segments which are not adjacent. Value must be greater than or equal to 1. Default value is defined by the MPF properties file.",
           "type": "INT",
           "propertiesKey": "detection.segment.minimum.gap"
         },
