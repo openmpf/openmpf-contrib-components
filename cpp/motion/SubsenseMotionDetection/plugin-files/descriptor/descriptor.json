@@ -181,7 +181,7 @@
           "name": "DILATE_ITERATIONS",
           "description": "The number of times dilation is applied.",
           "type": "INT",
-          "defaultValue": "1"
+          "defaultValue": "4"
         },
         {
           "name": "MEDIAN_BLUR_K_SIZE",
@@ -199,7 +199,7 @@
           "name": "GROUP_RECTANGLES_EPS",
           "description": "Relative difference between sides of the rectangles to merge them into a group (definition from OpenCV).",
           "type": "DOUBLE",
-          "defaultValue": "0.2"
+          "defaultValue": "0.4"
         },
         {
           "name": "TRACKING_MAX_OBJECT_PERCENTAGE",
