@@ -247,10 +247,12 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         //	Load the image.
         MPFImageReader image_reader(job);
         cv::Mat image = image_reader.GetImage();
-        if (!image.data) {
+
+        if (image.empty()) {
             LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The image did not load properly.");
             return MPF_IMAGE_READ_ERROR;
         }
+
         cvtColor(image, image_gray, CV_BGR2GRAY);
 
         //	Get the detections.

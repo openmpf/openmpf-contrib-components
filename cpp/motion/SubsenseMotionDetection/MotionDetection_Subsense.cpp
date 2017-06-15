@@ -36,7 +36,7 @@
 #include <log4cxx/xml/domconfigurator.h>
 
 #include <Utils.h>
-//#include <MPFImageReader.h>
+#include <MPFImageReader.h>
 #include <MPFSimpleConfigLoader.h>
 
 #include "MotionDetection_Subsense.h"
@@ -404,17 +404,11 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job
         // (although no actual motion detection is performed)
         if (parameters["USE_PREPROCESSOR"].toInt() == 1) {
             MPFImageLocation detection;
-            // TODO: Revert this after upgrading to OpenCV 3.2
-            // MPFImageReader image_reader(job);
-            // cv::Mat cv_image = image_reader.GetImage();
-            MPFVideoCapture cap(job);
-            cv::Mat cv_image;
-            bool success = false;
-            if (cap.IsOpened()) {
-                success = cap.Read(cv_image);
-            }
-            //need to make sure it is a valid image
-            if (!success || !cv_image.data) {
+            MPFImageReader image_reader(job);
+            cv::Mat cv_image = image_reader.GetImage();
+
+            // need to make sure it is a valid image
+            if (cv_image.empty()) {
                 LOG4CXX_ERROR(motion_logger, "[" << job.job_name << "] failed to read image file");
                 return MPF_IMAGE_READ_ERROR;
             }
@@ -426,8 +420,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job
             locations.push_back(detection);
 
             for (auto &location : locations) {
-                // image_reader.ReverseTransform(location);
-                cap.ReverseTransform(location);
+                image_reader.ReverseTransform(location);
             }
         }
 
