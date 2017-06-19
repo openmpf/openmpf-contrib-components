@@ -53,5 +53,10 @@ target_link_libraries(mpfMogMotionDetection STRUCK ${OpenCV_LIBS} mpfComponentIn
 
 configure_mpf_component(MogMotionDetection mpfMogMotionDetection)
 
+
 add_subdirectory(test)
 
+
+# Build sample executable
+add_executable(sample_mog_motion_detector sample_mog_motion_detector.cpp)
+target_link_libraries(sample_mog_motion_detector mpfMogMotionDetection)

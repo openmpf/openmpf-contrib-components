@@ -87,7 +87,7 @@ bool MotionDetection_MOG2::Close() {
 
 MPFDetectionError MotionDetection_MOG2::GetDetections(const MPFVideoJob &job, std::vector<MPFVideoTrack> &tracks) {
     try {
-        LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Starting motion detection");
+        /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Starting motion detection");
 
         LoadConfig(GetRunDirectory() + "/MogMotionDetection/config/mpfMogMotionDetection.ini", parameters);
         GetPropertySettings(job.job_properties);
@@ -135,7 +135,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
 
 
     // Create background subtractor
-    LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Creating background subtractor");
+    /*LOG4CXX_TRACE*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Creating background subtractor");
     int history_length = parameters["HISTORY_LENGTH"].toInt();
     int var_threshold = parameters["VAR_THRESHOLD"].toInt();
     int detectShadows = parameters["BACKGROUND_SHADOW_DETECTION"].toInt();
@@ -147,9 +147,9 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
     // Create video capture and set start frame
 
     int frame_count = video_capture.GetFrameCount();
-    LOG4CXX_DEBUG(motion_logger, "frame count = " << frame_count);
-    LOG4CXX_DEBUG(motion_logger, "begin frame = " << job.start_frame);
-    LOG4CXX_DEBUG(motion_logger, "end frame = " << job.stop_frame);
+    /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "frame count = " << frame_count);
+    /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "begin frame = " << job.start_frame);
+    /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "end frame = " << job.stop_frame);
 
     // If the segment we are working on does not start at frame 0 of
     // the video, then we use the previous frame to initialize the
@@ -175,8 +175,14 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
     // Calculate downsample rate
     video_capture.SetFramePosition(init_frame_index);
     video_capture >> orig_frame;
-    if (orig_frame.rows == 0 || orig_frame.cols == 0)
+
+    cv::imshow("Any key to continue; 'q'' to quit", orig_frame);
+    cv::waitKey();
+
+    if (orig_frame.rows == 0 || orig_frame.cols == 0) {
+        LOG4CXX_INFO(motion_logger, "MPF_BAD_FRAME_SIZE, init_frame_index: " << init_frame_index << ", orig_frame.rows: " << orig_frame.rows << ", orig_frame.cols: " << orig_frame.cols);
         return MPF_BAD_FRAME_SIZE;
+    }
 
     orig_frame.copyTo(frame);
     while (frame.rows > parameters["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters["MAXIMUM_FRAME_WIDTH"].toInt()) {
@@ -190,13 +196,13 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
     int frame_index = init_frame_index+1;
     video_capture.SetFramePosition(frame_index);
 
-    LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Starting video processing");
+    /*LOG4CXX_TRACE*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Starting video processing");
     while (frame_index < qMin(video_capture.GetFrameCount(), job.stop_frame + 1)) {
         std::vector<cv::Rect> rects;
-        LOG4CXX_DEBUG(motion_logger, "frame index = " << frame_index);
+        /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "frame index = " << frame_index);
         video_capture >> frame;
         if (frame.empty() || frame.rows == 0 || frame.cols == 0) {
-            LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
+            /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
             break;
         }
 
@@ -240,7 +246,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
         } else {
 
             // Make motion larger objects
-            LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Eroding and blurring background");
+            /*LOG4CXX_TRACE*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Eroding and blurring background");
             cv::erode(fore, fore, cv::Mat(), cv::Point(parameters["ERODE_ANCHOR_X"].toInt(), parameters["ERODE_ANCHOR_Y"].toInt()),
                       parameters["ERODE_ITERATIONS"].toInt());
             cv::dilate(fore, fore, cv::Mat(), cv::Point(parameters["DILATE_ANCHOR_X"].toInt(), parameters["DILATE_ANCHOR_Y"].toInt()),
@@ -248,7 +254,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
             cv::medianBlur(fore, fore, parameters["MEDIAN_BLUR_K_SIZE"].toInt());
 
             // Find the contours and then make bounding rects
-            LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Finding contours and combine overlaps");
+            /*LOG4CXX_TRACE*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Finding contours and combine overlaps");
             cv::findContours(fore, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
 
 
@@ -259,11 +265,11 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                 }
 
             // Combines overlapping rects together
-            LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Converting contours to rects");
+            /*LOG4CXX_TRACE*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Converting contours to rects");
 
             cv::groupRectangles(rects, parameters["GROUP_RECTANGLES_GROUP_THRESHOLD"].toInt(), parameters["GROUP_RECTANGLES_EPS"].toDouble());
 
-            LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Writing rects to VideoTrack");
+            /*LOG4CXX_TRACE*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Writing rects to VideoTrack");
             std::vector<cv::Rect> resized_rects;
                     foreach (cv::Rect rect, rects) {
                     if ((rect.width * pow(2, downsample_count)) >= parameters["MIN_RECT_WIDTH"].toInt() &&
@@ -305,7 +311,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                         it--;
                     } else {
                         track_map.find(it.key()).value().stop_frame = frame_index;
-                        LOG4CXX_DEBUG(motion_logger, __LINE__ << " stop_frame = " << track_map.find(it.key()).value().stop_frame);
+                        /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, __LINE__ << " stop_frame = " << track_map.find(it.key()).value().stop_frame);
                         track_map.find(it.key()).value().frame_locations.insert(
                                 std::pair<int, MPFImageLocation>(frame_index, MPFImageLocation(track.x, track.y,
                                                                                                track.width, track.height)));
@@ -385,20 +391,20 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
         // Now print tracks if available
         if (!tracks.empty()) {
             for (unsigned int i=0; i<tracks.size(); i++) {
-                LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track index: " << i);
-                LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
-                LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
+                /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Track index: " << i);
+                /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
+                /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
 
                 for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
-                    LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Frame num: " << it->first);
-                    LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
+                    /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Frame num: " << it->first);
+                    /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
                                                      it->second.y_left_upper << ", " << it->second.width << ", " << it->second.height <<
                                                      ")");
-                    LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Confidence: " << it->second.confidence);
+                    /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Confidence: " << it->second.confidence);
                 }
             }
         } else {
-            LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] No tracks found");
+            /*LOG4CXX_DEBUG*/ LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] No tracks found");
         }
     }
 
