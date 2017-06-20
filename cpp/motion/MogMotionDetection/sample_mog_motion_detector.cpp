@@ -52,13 +52,7 @@ int main(int argc, char* argv[]) {
 
     Properties algorithm_properties;
 
-    /*
-    algorithm_properties["SEARCH_REGION_TOP_LEFT_X_DETECTION"] = to_string(0);
-    algorithm_properties["SEARCH_REGION_TOP_LEFT_Y_DETECTION"] = to_string(0);
-    algorithm_properties["SEARCH_REGION_BOTTOM_RIGHT_X_DETECTION"] = to_string(200);
-    algorithm_properties["SEARCH_REGION_BOTTOM_RIGHT_Y_DETECTION"] = to_string(200);
-    algorithm_properties["SEARCH_REGION_ENABLE_DETECTION"] = "true";
-    */
+    algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
 
     Properties media_properties;
     std::string job_name("Test MOG Motion");

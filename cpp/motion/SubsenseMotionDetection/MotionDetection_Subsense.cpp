@@ -258,20 +258,17 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
                     foreach (cv::Rect rect, rects) {
                     if ((rect.width * pow(2, downsample_count)) >= parameters["MIN_RECT_WIDTH"].toInt() &&
                         rect.height * pow(2, downsample_count) >= parameters["MIN_RECT_HEIGHT"].toInt()) {
+
                         if (parameters["USE_MOTION_TRACKING"].toInt() == 1) {
-                            resized_rects.push_back(cv::Rect(rect.x * pow(2, downsample_count), rect.y * pow(2, downsample_count),
-                                                             rect.width * pow(2, downsample_count), rect.height * pow(2, downsample_count)));
+                            resized_rects.push_back(Upscale(rect, orig_frame, downsample_count));
                         } else {
                             MPFVideoTrack track;
                             track.start_frame = frame_index;
                             track.stop_frame = track.start_frame;
+                            cv::Rect resized = Upscale(rect, orig_frame, downsample_count);
                             track.frame_locations.insert(
                                     std::pair<int, MPFImageLocation>(frame_index,
-                                                                     MPFImageLocation(
-                                                                             static_cast<int>(rect.x * pow(2, downsample_count)),
-                                                                             static_cast<int>(rect.y * pow(2, downsample_count)),
-                                                                             static_cast<int>(rect.width * pow(2, downsample_count)),
-                                                                             static_cast<int>(rect.height * pow(2, downsample_count)))));
+                                                                     MPFImageLocation(resized.x, resized.y, resized.width, resized.height)));
 
                             tracks.push_back(track);
                         }
@@ -303,35 +300,35 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 
                 // Create new tracks
                 if (tracked_rects.size() != resized_rects.size()) {
-                            foreach (cv::Rect rect, resized_rects) {
-                            if (!tracked_rects.keys().contains(rect)) {
-                                if ((orig_frame.rows * orig_frame.cols * parameters["TRACKING_MAX_OBJECT_PERCENTAGE"].toDouble()) < rect.area()) {
-                                    continue;
-                                }
-                                tracker_map.insert(++tracker_id, STRUCK());
-                                tracker_map.find(tracker_id).value().initialize(orig_frame, rect, parameters["TRACKING_THRESHOLD"].toDouble(), parameters["TRACKING_MIN_OVERLAP_PERCENTAGE"].toDouble());
-                                MPFVideoTrack temp(frame_index, frame_index);
-                                temp.frame_locations.insert(
-                                        std::pair<int, MPFImageLocation>(frame_index,
-                                                                         MPFImageLocation(rect.x, rect.y, rect.width, rect.height)));
-
-                                track_map.insert(tracker_id, temp);
-                                tracked_rects.insert(rect, tracker_id);
+                    foreach (cv::Rect rect, resized_rects) {
+                        if (!tracked_rects.keys().contains(rect)) {
+                            if ((orig_frame.rows * orig_frame.cols * parameters["TRACKING_MAX_OBJECT_PERCENTAGE"].toDouble()) < rect.area()) {
+                                continue;
                             }
+                            tracker_map.insert(++tracker_id, STRUCK());
+                            tracker_map.find(tracker_id).value().initialize(orig_frame, rect, parameters["TRACKING_THRESHOLD"].toDouble(), parameters["TRACKING_MIN_OVERLAP_PERCENTAGE"].toDouble());
+                            MPFVideoTrack temp(frame_index, frame_index);
+                            temp.frame_locations.insert(
+                                    std::pair<int, MPFImageLocation>(frame_index,
+                                                                     MPFImageLocation(rect.x, rect.y, rect.width, rect.height)));
+
+                            track_map.insert(tracker_id, temp);
+                            tracked_rects.insert(rect, tracker_id);
                         }
+                    }
                 }
 
                 // Remove merged tracks
-                        foreach (cv::Rect rect, tracked_rects.keys()) {
-                        for (int x = 1; x < tracked_rects.values(rect).size(); x++) {
-                            int id = tracked_rects.values(rect)[x];
-                            tracks.push_back(track_map.value(id));
+                foreach (cv::Rect rect, tracked_rects.keys()) {
+                    for (int x = 1; x < tracked_rects.values(rect).size(); x++) {
+                        int id = tracked_rects.values(rect)[x];
+                        tracks.push_back(track_map.value(id));
 
-                            tracker_map.erase(tracker_map.find(id));
-                            track_map.erase(track_map.find(id));
-                            tracked_rects.erase(tracked_rects.find(rect, id));
-                        }
+                        tracker_map.erase(tracker_map.find(id));
+                        track_map.erase(track_map.find(id));
+                        tracked_rects.erase(tracked_rects.find(rect, id));
                     }
+                }
             }
         }
         // Change the frame index based on the detection interval
@@ -460,8 +457,7 @@ void displayTracks(QString origPath, std::vector<MPFVideoTrack> tracks) {
     }
 }
 
-void MotionDetection_Subsense::GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties)
-{
+void MotionDetection_Subsense::GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties) {
     std::string property;
     std::string str_value;
 
@@ -470,6 +466,28 @@ void MotionDetection_Subsense::GetPropertySettings(const std::map<std::string, s
         str_value = imap->second;
         parameters.insert(QString::fromStdString(property), QString::fromStdString(str_value));
     }
+}
+
+cv::Rect MotionDetection_Subsense::Upscale(const cv::Rect rect, const cv::Mat orig_frame, int downsample_count) {
+    cv::Rect resized(rect.x * pow(2, downsample_count), rect.y * pow(2, downsample_count),
+                     rect.width * pow(2, downsample_count), rect.height * pow(2, downsample_count));
+
+    // NOTE: When pyrDown() is used to downsample an image with a width and/or height that is not a
+    // power of 2, the resulting width and/or height value will be rounded up to the nearest integer.
+    // Thus, when we calculate the resized rectangle it may extend beyond the bounds of the original
+    // image, so we have to correct for the overflow.
+
+    int overflow_x = resized.x + resized.width - orig_frame.cols;
+    if (overflow_x > 0) {
+        resized.width -= overflow_x;
+    }
+
+    int overflow_y = resized.y + resized.height - orig_frame.rows;
+    if (overflow_y > 0) {
+        resized.height -= overflow_y;
+    }
+
+    return resized;
 }
 
 bool operator <(const cv::Rect &r1, const cv::Rect &r2) {

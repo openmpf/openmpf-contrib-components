@@ -75,6 +75,8 @@ private:
             std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
     void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties);
+
+    cv::Rect Upscale(const cv::Rect rect, const cv::Mat orig_frame, int downsample_count);
 };
 
 
