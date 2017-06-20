@@ -168,9 +168,10 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
     video_capture.SetFramePosition(init_frame_index);
     video_capture >> frame;
     frame.copyTo(orig_frame);
-    if (frame.rows == 0 || frame.cols == 0)
-        return MPF_BAD_FRAME_SIZE;
 
+    if (frame.empty()) {
+        return MPF_BAD_FRAME_SIZE;
+    }
 
     // Downsample frame
     while (frame.rows > parameters["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters["MAXIMUM_FRAME_WIDTH"].toInt()) {
