@@ -191,7 +191,8 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
         std::vector<cv::Rect> rects;
         LOG4CXX_DEBUG(motion_logger, "frame index = " << frame_index);
         video_capture >> frame;
-        if (frame.empty() || frame.rows == 0 || frame.cols == 0) {
+
+        if (frame.empty()) {
             LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
             break;
         }
@@ -469,7 +470,7 @@ void MotionDetection_Subsense::GetPropertySettings(const std::map<std::string, s
     }
 }
 
-cv::Rect MotionDetection_Subsense::Upscale(const cv::Rect rect, const cv::Mat orig_frame, int downsample_count) {
+cv::Rect MotionDetection_Subsense::Upscale(const cv::Rect &rect, const cv::Mat &orig_frame, int downsample_count) {
     cv::Rect resized(rect.x * pow(2, downsample_count), rect.y * pow(2, downsample_count),
                      rect.width * pow(2, downsample_count), rect.height * pow(2, downsample_count));
 
