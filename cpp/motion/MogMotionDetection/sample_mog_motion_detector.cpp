@@ -52,7 +52,9 @@ int main(int argc, char* argv[]) {
 
     Properties algorithm_properties;
 
-    algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
+    // algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
+    // algorithm_properties["VERBOSE"] = to_string(2);
+    // algorithm_properties["ROTATION"] = to_string(270);
 
     Properties media_properties;
     std::string job_name("Test MOG Motion");
