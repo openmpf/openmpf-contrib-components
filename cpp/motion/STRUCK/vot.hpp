@@ -58,7 +58,7 @@ public:
 
 		std::string line;
 		std::getline (p_images_stream, line);
-		img = cv::imread(line, CV_LOAD_IMAGE_COLOR);
+		img = cv::imread(line, CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
 
 		printf("Processing");
 		printf(line.c_str());

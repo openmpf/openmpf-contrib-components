@@ -35,7 +35,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 include(../../ComponentSetup.cmake)
 
-find_package(OpenCV 3.1 EXACT REQUIRED PATHS /opt/opencv-3.1.0
+find_package(OpenCV 3.2 EXACT REQUIRED PATHS /opt/opencv-3.2.0
     COMPONENTS opencv_objdetect opencv_ml opencv_video opencv_highgui)
 
 find_package(mpfComponentInterface REQUIRED)
@@ -53,5 +53,8 @@ target_link_libraries(mpfMogMotionDetection STRUCK ${OpenCV_LIBS} mpfComponentIn
 
 configure_mpf_component(MogMotionDetection mpfMogMotionDetection)
 
+
 add_subdirectory(test)
 
+add_executable(sample_mog_motion_detector sample_mog_motion_detector.cpp)
+target_link_libraries(sample_mog_motion_detector mpfMogMotionDetection)
