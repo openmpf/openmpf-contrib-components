@@ -77,7 +77,7 @@ void ImageDataReader::readImg(Mat& frame)
 	frame.data=NULL;
 	if (_file_counter>=_m_fileNames.size())
 		return;
-	frame = imread(_directory+_m_fileNames[_file_counter], CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
+	frame=imread(_directory+_m_fileNames[_file_counter]);
 	_file_counter++;
 }
 
