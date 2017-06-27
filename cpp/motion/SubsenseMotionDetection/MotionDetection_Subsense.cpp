@@ -49,7 +49,7 @@ using namespace MPF;
 using namespace COMPONENT;
 
 
-void displayTracks(QString origPath, std::vector<MPFVideoTrack> tracks);
+void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks);
 
 MotionDetection_Subsense::MotionDetection_Subsense() {
 }
@@ -109,6 +109,10 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job
         MPFDetectionError detections_result = GetDetectionsFromVideoCapture(job, frame_skip, video_capture, tracks);
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
+        }
+
+        if (parameters["VERBOSE"].toInt() > 1) {
+            displayTracks(QString::fromStdString(job.data_uri), video_capture.GetFrameCount(), tracks);
         }
 
         return detections_result;
@@ -187,7 +191,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 
     LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Starting video processing");
 
-    while (frame_index < qMin(video_capture.GetFrameCount(), job.stop_frame + 1)) {
+    while (frame_index < qMin(frame_count, job.stop_frame + 1)) {
         std::vector<cv::Rect> rects;
         LOG4CXX_DEBUG(motion_logger, "frame index = " << frame_index);
         video_capture >> frame;
@@ -385,10 +389,6 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
         }
     }
 
-    if (parameters["VERBOSE"].toInt() > 1) {
-        displayTracks(QString::fromStdString(job.data_uri), tracks);
-    }
-
     LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " detections.");
 
     return MPF_DETECTION_SUCCESS;
@@ -433,13 +433,14 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job
     }
 }
 
-void displayTracks(QString origPath, std::vector<MPFVideoTrack> tracks) {
+// NOTE: This only draws a bounding box around the first detection in each track
+void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks) {
     cv::VideoCapture capture(qPrintable(origPath));
 
     cv::Mat frame;
     std::vector<MPFVideoTrack>::iterator it = tracks.begin();
 
-    while (capture.get(CV_CAP_PROP_POS_FRAMES) < capture.get(CV_CAP_PROP_FRAME_COUNT)) {
+    while (capture.get(CV_CAP_PROP_POS_FRAMES) < frameCount) {
         capture >> frame;
 
         while (it != tracks.end() && it->start_frame == capture.get(CV_CAP_PROP_POS_FRAMES)-1) {

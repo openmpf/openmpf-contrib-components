@@ -92,6 +92,7 @@ private:
     void writeDetectionToVideo(const int start_frame,
                                const int stop_frame,
                                const std::string &data_uri,
+                               const int frame_count,
                                const int frame_interval,
                                const std::string& job_name,
                                std::vector <MPF::COMPONENT::MPFVideoTrack> &detections);

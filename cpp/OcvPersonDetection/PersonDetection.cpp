@@ -134,6 +134,11 @@ MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<
             video_capture.ReverseTransform(track);
         }
 
+        //	Write the video.
+        if (output_video) {
+            writeDetectionToVideo(job.start_frame, job.stop_frame, job.data_uri, video_capture.GetFrameCount(), frame_skip, job.job_name, tracks);
+        }
+
         return detection_result;
     }
     catch (...) {
@@ -176,8 +181,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     }
 
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Starting video processing");
-    while (video_capture.GetCurrentFramePosition() <
-           qMin(video_capture.GetFrameCount(), job.stop_frame + 1)) {
+    while (video_capture.GetCurrentFramePosition() < qMin(total_frames, job.stop_frame + 1)) {
         //  Get the frame.
         video_capture >> frame;
         if (frame.empty() || frame.rows == 0 || frame.cols == 0) {
@@ -215,11 +219,6 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
 
     //  Report.
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Total_detections_count: " << tracks.size());
-
-    //	Write the video.
-    if (output_video) {
-        writeDetectionToVideo(job.start_frame, job.stop_frame, job.data_uri, frame_skip, job.job_name, tracks);
-    }
 
     LOG4CXX_INFO(personLogger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " detections.");
 
@@ -275,33 +274,28 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
             locations.push_back(this_face);
         }
 
+        for (auto &location : locations) {
+            image_reader.ReverseTransform(location);
+        }
+
         //	Display the image with detections.
         if (imshow_on || output_image) {
-            for (unsigned int j = 0; j < found.size(); j++) {
-                cv::Rect person = found[j];
-                int ix, iy, iw, ih;
-                ix = (found[j].x >= 0) ? found[j].x : 0;
-                iy = (found[j].y >= 0) ? found[j].y : 0;
-                iw = (found[j].x + found[j].width < image.cols) ? found[j].width : image.cols - 1;
-                ih = (found[j].y + found[j].height < image.rows) ? found[j].height : image.rows - 1;
-                rectangle(image, Rect(ix, iy, iw, ih), Scalar(255, 255, 0));
+            cv::Mat raw_image = cv::imread(job.data_uri, CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
+            for (auto &location : locations) {
+                rectangle(raw_image, Rect(location.x_left_upper, location.y_left_upper, location.width, location.height), Scalar(255, 255, 0));
             }
             if (imshow_on) {
-                imshow("PersonTracker", image);
+                imshow("PersonTracker", raw_image);
                 cvWaitKey(1000);
             }
             if (output_image) {
-                imwrite(output_base_path + "/out.jpg", image);
+                imwrite(output_base_path + "/out.jpg", raw_image);
             }
         }
 
         //	Release resources.
         if (imshow_on) {
             cv::destroyWindow("PersonTracker");
-        }
-
-        for (auto &location : locations) {
-            image_reader.ReverseTransform(location);
         }
 
         // Report.
@@ -349,8 +343,7 @@ vector <Rect> PersonDetection::GetRectsAtFrameIndex(int frame_index, const std::
     int track_index = 0;
     for (vector<MPFVideoTrack>::const_iterator it = tracks.begin(); it != tracks.end(); ++it) {
         if (frame_index >= it->start_frame && frame_index <= it->stop_frame) {
-            int start_frame_diff = frame_index - it->start_frame;
-            Rect object_rect(ImageLocationToCvRect(it->frame_locations.at(start_frame_diff)));
+            Rect object_rect(ImageLocationToCvRect(it->frame_locations.at(frame_index)));
             object_rects.push_back(object_rect);
             track_indexes.push_back(track_index);
         }
@@ -364,8 +357,7 @@ vector <Rect> PersonDetection::GetRectsAtFrameIndex(int frame_index, const std::
     int track_index = 0;
     for (vector<MPFVideoTrack>::const_iterator object_track = tracks.begin(); object_track != tracks.end(); ++object_track) {
         if (frame_index >= object_track->start_frame && frame_index <= object_track->stop_frame) {
-            int start_frame_diff = frame_index - object_track->start_frame;
-            Rect object_rect(ImageLocationToCvRect(object_track->frame_locations.at(start_frame_diff)));
+            Rect object_rect(ImageLocationToCvRect(object_track->frame_locations.at(frame_index)));
             object_rects.push_back(object_rect);
         }
         ++track_index;
@@ -393,9 +385,9 @@ void PersonDetection::logTrack(const MPFVideoTrack& track, const std::string& jo
     }
 }
 
-void PersonDetection::writeDetectionToVideo(const int start_index, const int stop_index, const std::string& data_uri, const int frame_interval,
-                                            const std::string& job_name, std::vector<MPFVideoTrack>& detections) {
-    LOG4CXX_DEBUG(personLogger, "[" << job_name << "] Image file: " << data_uri);
+void PersonDetection::writeDetectionToVideo(const int start_index, const int stop_index, const std::string& data_uri, const int frame_count,
+                                            const int frame_interval, const std::string& job_name, std::vector<MPFVideoTrack>& detections) {
+    LOG4CXX_DEBUG(personLogger, "[" << job_name << "] Video file: " << data_uri);
 
     // Check that the input arguments are sensible
     if (data_uri.empty()) {
@@ -421,7 +413,8 @@ void PersonDetection::writeDetectionToVideo(const int start_index, const int sto
     string name = output_base_path + "/out.avi";
     int fourcc = CV_FOURCC('M', 'J', 'P', 'G');
     double fps = cap.get(CV_CAP_PROP_FPS) / static_cast<double>(frame_interval);
-    LOG4CXX_ERROR(personLogger, "[" << job_name << "] FPS: " << fps);
+    LOG4CXX_DEBUG(personLogger, "[" << job_name << "] FPS: " << fps);
+
     int width = static_cast<int>(cap.get(CV_CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(cap.get(CV_CAP_PROP_FRAME_HEIGHT));
     Size size = Size(width, height);
@@ -432,7 +425,7 @@ void PersonDetection::writeDetectionToVideo(const int start_index, const int sto
         return;
     }
 
-    while (cap.get(CV_CAP_PROP_POS_FRAMES) < qMin(cap.get(CV_CAP_PROP_FRAME_COUNT), static_cast<double>(stop))) {
+    while (cap.get(CV_CAP_PROP_POS_FRAMES) < qMin(frame_count, stop)) {
         //  Get the frame.
         cap >> frame;
         if (frame.empty()) {
@@ -455,8 +448,6 @@ void PersonDetection::writeDetectionToVideo(const int start_index, const int sto
         frame_index += frame_interval;
     }
 }
-
-
 
 MPF_COMPONENT_CREATOR(PersonDetection);
 MPF_COMPONENT_DELETER();
