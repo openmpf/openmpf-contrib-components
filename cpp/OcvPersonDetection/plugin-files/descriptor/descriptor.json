@@ -18,6 +18,7 @@
     "name": "PERSONCV",
     "description": "Detects people (pedestrians) in images and videos using the Open Computer Vision (OCV) library.",
     "actionType": "DETECTION",
+    "supportsBatchProcessing": true,
     "requiresCollection": {
       "states": []
     },

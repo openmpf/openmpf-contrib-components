@@ -17,6 +17,7 @@
     "name": "MOG",
     "description": "Detects motion in videos using a Mixture of Gaussians (MOG) model.",
     "actionType": "DETECTION",
+    "supportsBatchProcessing": true,
     "requiresCollection": {
       "states": []
     },

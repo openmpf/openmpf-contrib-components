@@ -17,6 +17,7 @@
     "name": "SUBSENSE",
     "description": "Detects motion in videos using a Self-Balanced SENsitivity SEgmenter (SuBSENSE).",
     "actionType": "DETECTION",
+    "supportsBatchProcessing": true,
     "requiresCollection": {
       "states": []
     },
