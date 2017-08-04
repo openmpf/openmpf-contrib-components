@@ -1,7 +1,7 @@
 {
   "componentName": "MogMotionDetection",
-  "componentVersion": "0.9.0",
-  "middlewareVersion": "0.9.0",
+  "componentVersion": "0.10.0",
+  "middlewareVersion": "0.10.0",
   "sourceLanguage": "c++",
   "pathName": "amq_detection_component",
   "launchArgs": [
@@ -28,6 +28,24 @@
       ],
       "properties": [
         {
+          "name": "FRAME_INTERVAL",
+          "description": "Controls whether the component performs detection on every frame in the video segment, or skips some frames at a regular interval. Must be greater than or equal to 0. If the frame_interval is set to 0 or 1, a frame_interval of 1 will be used, so that detections are performed on every frame. For a frame interval N > 1, every N-1 frames will be skipped. Default value is defined by the MPF properties file.",
+          "type": "INT",
+          "propertiesKey": "detection.sampling.interval"
+        },
+        {
+          "name": "CONFIDENCE_THRESHOLD",
+          "description": "The minimum confidence score which must be met or exceeded. Detections below this threshold are silently discarded. Default value is defined by the MPF properties file.",
+          "type": "DOUBLE",
+          "propertiesKey": "detection.confidence.threshold"
+        },
+        {
+          "name": "MIN_GAP_BETWEEN_SEGMENTS",
+          "description": "In the context of videos, the minimum number of frames between segments which are not adjacent. Value must be greater than or equal to 1. Default value is defined by the MPF properties file.",
+          "type": "INT",
+          "propertiesKey": "detection.segment.minimum.gap"
+        },
+        {
           "name": "TARGET_SEGMENT_LENGTH",
           "description": "In the context of videos, the preferred length of segments which are to be processed by this algorithm. Value is expected to be greater than 10. Default value is defined by the MPF properties file.",
           "type": "INT",
@@ -40,28 +58,82 @@
           "propertiesKey": "detection.segment.minimum.length"
         },
         {
-          "name": "MIN_GAP_BETWEEN_SEGMENTS",
-          "description": "In the context of videos, the minimum number of frames or time between segments which are not adjacent. Value must be greater than or equal to 1. Default value is defined by the MPF properties file.",
-          "type": "INT",
-          "propertiesKey": "detection.segment.minimum.gap"
-        },
-        {
-          "name": "FRAME_INTERVAL",
-          "description": "Controls whether the component performs detection on every frame in the video segment, or skips some frames at a regular interval. Must be greater than or equal to 0. If the frame_interval is set to 0 or 1, a frame_interval of 1 will be used, so that detections are performed on every frame. For a frame interval N > 1, every N-1 frames will be skipped.",
-          "type": "INT",
-          "defaultValue": "1"
-        },
-        {
           "name": "MERGE_TRACKS",
-          "description": "When set to true, the detection response handler will merge tracks spanning segment boundaries.",
+          "description": "In the context of videos, when set to true, attempt to merge tracks spanning segment boundaries. Default value is defined by the MPF properties file.",
+          "type": "BOOLEAN",
+          "propertiesKey": "detection.track.merging.enabled"
+        },
+        {
+          "name": "MIN_GAP_BETWEEN_TRACKS",
+          "description": "In the context of videos, similar tracks with less than this number of frames between them will be merged into a single track. If MERGE_TRACKS is false, this has no effect. Default value is defined by the MPF properties file.",
+          "type": "INT",
+          "propertiesKey": "detection.track.min.gap"
+        },
+        {
+          "name": "MIN_TRACK_LENGTH",
+          "description": "In the context of videos, defines the minimum track length in frames. Tracks shorter than this minimum length will be silently discarded. Default value is defined by the MPF properties file.",
+          "type": "INT",
+          "propertiesKey": "detection.track.minimum.length"
+        },
+        {
+          "name": "MIN_OVERLAP",
+          "description": "In the context of videos, the minimum overlap between detection bounding boxes for adjacent tracks to be considered continuous. Value is expected to be between 0 and 1. Default value is defined by the MPF properties file.",
+          "type": "DOUBLE",
+          "propertiesKey": "detection.track.overlap.threshold"
+        },
+        {
+          "name": "SEARCH_REGION_ENABLE_DETECTION",
+          "description": "Enable cropping.",
           "type": "BOOLEAN",
           "defaultValue": "false"
         },
         {
-          "name": "EXTRACT_TRACK_DATA_FROM_MEDIA",
-          "description": "When set to true, track frames will be extracted from images and videos.",
+          "name": "SEARCH_REGION_TOP_LEFT_X_DETECTION",
+          "description": "X coordinate for top left corner of cropped frame. If negative, 0 will be used.",
+          "type": "INT",
+          "defaultValue": "-1"
+        },
+        {
+          "name": "SEARCH_REGION_TOP_LEFT_Y_DETECTION",
+          "description": "Y coordinate for top left corner of cropped frame. If negative, 0 will be used.",
+          "type": "INT",
+          "defaultValue": "-1"
+        },
+        {
+          "name": "SEARCH_REGION_BOTTOM_RIGHT_X_DETECTION",
+          "description": "X coordinate for bottom right corner of cropped frame. If negative, bottom right X of input media will be used.",
+          "type": "INT",
+          "defaultValue": "-1"
+        },
+        {
+          "name": "SEARCH_REGION_BOTTOM_RIGHT_Y_DETECTION",
+          "description": "Y coordinate for bottom right corner of cropped frame. If negative, bottom right Y of input media. will be used.",
+          "type": "INT",
+          "defaultValue": "-1"
+        },
+        {
+          "name": "ROTATION",
+          "description": "Specifies the number of degrees in the clockwise direction that the media will be rotated. Only 90, 180 and 270 degrees are supported.",
+          "type": "INT",
+          "defaultValue": "0"
+        },
+        {
+          "name": "HORIZONTAL_FLIP",
+          "description": "Specifies whether or not the original media is flipped. Rotation occurs before flipping.",
           "type": "BOOLEAN",
-          "defaultValue": "true"
+          "defaultValue": "false"
+        },
+        {
+          "name": "AUTO_ROTATE",
+          "description": "Specifies whether not to rotate media based on EXIF data or video metadata.",
+          "type": "BOOLEAN",
+          "defaultValue": "false"
+        },
+        {
+          "name": "AUTO_FLIP",
+          "description": "Specifies whether or not to flip media based on EXIF data.",
+          "type": "BOOLEAN",
+          "defaultValue": "false"
         },
         {
           "name": "USE_MOTION_TRACKING",
@@ -151,7 +223,7 @@
           "name": "DILATE_ITERATIONS",
           "description": "The number of times dilation is applied.",
           "type": "INT",
-          "defaultValue": "1"
+          "defaultValue": "4"
         },
         {
           "name": "MEDIAN_BLUR_K_SIZE",
@@ -169,7 +241,7 @@
           "name": "GROUP_RECTANGLES_EPS",
           "description": "Relative difference between sides of the rectangles to merge them into a group (definition from OpenCV).",
           "type": "DOUBLE",
-          "defaultValue": "0.2"
+          "defaultValue": "0.4"
         },
         {
           "name": "TRACKING_MAX_OBJECT_PERCENTAGE",
@@ -182,60 +254,6 @@
           "description": "The threshold for STRUCK when determining if a track should stop.",
           "type": "DOUBLE",
           "defaultValue": "-1"
-        },
-        {
-          "name": "SEARCH_REGION_ENABLE_DETECTION",
-          "description": "Enable cropping.",
-          "type": "BOOLEAN",
-          "defaultValue": "false"
-        },
-        {
-          "name": "SEARCH_REGION_TOP_LEFT_X_DETECTION",
-          "description": "X coordinate for top left corner of cropped frame. If negative, 0 will be used.",
-          "type": "INT",
-          "defaultValue": "-1"
-        },
-        {
-          "name": "SEARCH_REGION_TOP_LEFT_Y_DETECTION",
-          "description": "Y coordinate for top left corner of cropped frame. If negative, 0 will be used.",
-          "type": "INT",
-          "defaultValue": "-1"
-        },
-        {
-          "name": "SEARCH_REGION_BOTTOM_RIGHT_X_DETECTION",
-          "description": "X coordinate for bottom right corner of cropped frame. If negative, bottom right X of input media will be used.",
-          "type": "INT",
-          "defaultValue": "-1"
-        },
-        {
-          "name": "SEARCH_REGION_BOTTOM_RIGHT_Y_DETECTION",
-          "description": "Y coordinate for bottom right corner of cropped frame. If negative, bottom right Y of input media. will be used.",
-          "type": "INT",
-          "defaultValue": "-1"
-        },
-        {
-          "name": "ROTATION",
-          "description": "Specifies the number of degrees in the clockwise direction that the media will be rotated. Only 90, 180 and 270 degrees are supported.",
-          "type": "INT",
-          "defaultValue": "0"
-        },
-        {
-          "name": "HORIZONTAL_FLIP",
-          "description": "Specifies whether or not the original media is flipped. Rotation occurs before flipping.",
-          "type": "BOOLEAN",
-          "defaultValue": "false"
-        },
-        {
-          "name": "AUTO_ROTATE",
-          "description": "Specifies whether not to rotate media based on EXIF data.",
-          "type": "BOOLEAN",
-          "defaultValue": "false"
-        },
-        {
-          "name": "AUTO_FLIP",
-          "description": "Specifies whether or not to flip media based on EXIF data.",
-          "type": "BOOLEAN",
-          "defaultValue": "false"
         },
         {
           "name": "VERBOSE",
@@ -260,7 +278,7 @@
       "properties": [
         {
           "name": "USE_MOTION_TRACKING",
-          "value" : 1
+          "value": 1
         }
       ]
     },
@@ -271,58 +289,58 @@
       "properties": [
         {
           "name": "TARGET_SEGMENT_LENGTH",
-          "value" : 500
+          "value": 500
         },
         {
           "name": "MIN_SEGMENT_LENGTH",
-          "value" : 25
+          "value": 25
         },
         {
           "name": "FRAME_INTERVAL",
-          "value" : 1
+          "value": 1
         },
         {
           "name": "MIN_GAP_BETWEEN_SEGMENTS",
-          "value" : 10
+          "value": 10
         },
         {
           "name": "USE_MOTION_TRACKING",
-          "value" : 0
+          "value": 0
         },
         {
           "name": "USE_PREPROCESSOR",
-          "value" : 1
+          "value": 1
         }
       ]
     },
     {
-      "name": "MOG MOTION DETECTION (WITH EXIF) PREPROCESSOR ACTION",
-      "description": "Executes an instance of the MOG motion detection algorithm tuned for pre-processing with rotation and/or flipping based on EXIF data.",
+      "name": "MOG MOTION DETECTION (WITH AUTO-ORIENTATION) PREPROCESSOR ACTION",
+      "description": "Executes an instance of the MOG motion detection algorithm tuned for pre-processing with rotation and/or flipping based on EXIF data or video metadata.",
       "algorithm": "MOG",
       "properties": [
         {
           "name": "TARGET_SEGMENT_LENGTH",
-          "value" : 500
+          "value": 500
         },
         {
           "name": "MIN_SEGMENT_LENGTH",
-          "value" : 25
+          "value": 25
         },
         {
           "name": "FRAME_INTERVAL",
-          "value" : 1
+          "value": 1
         },
         {
           "name": "MIN_GAP_BETWEEN_SEGMENTS",
-          "value" : 10
+          "value": 10
         },
         {
           "name": "USE_MOTION_TRACKING",
-          "value" : 0
+          "value": 0
         },
         {
           "name": "USE_PREPROCESSOR",
-          "value" : 1
+          "value": 1
         },
         {
           "name": "AUTO_ROTATE",
@@ -330,7 +348,7 @@
         },
         {
           "name": "AUTO_FLIP",
-          "value":  "true"
+          "value": "true"
         }
       ]
     }
@@ -351,10 +369,10 @@
       ]
     },
     {
-      "name": "MOG MOTION DETECTION (WITH EXIF) PREPROCESSOR TASK",
-      "description": "Performs MOG motion detection as a preprocessor with rotation and/or flipping based on EXIF data.",
+      "name": "MOG MOTION DETECTION (WITH AUTO-ORIENTATION) PREPROCESSOR TASK",
+      "description": "Performs MOG motion detection as a preprocessor with rotation and/or flipping based on EXIF data or video metadata.",
       "actions": [
-        "MOG MOTION DETECTION (WITH EXIF) PREPROCESSOR ACTION"
+        "MOG MOTION DETECTION (WITH AUTO-ORIENTATION) PREPROCESSOR ACTION"
       ]
     },
     {

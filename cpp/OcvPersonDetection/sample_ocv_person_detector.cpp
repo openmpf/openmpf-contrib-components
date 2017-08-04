@@ -5,7 +5,7 @@
  * under contract, and is subject to the Rights in Data-General Clause        *
  * 52.227-14, Alt. IV (DEC 2007).                                             *
  *                                                                            *
- * Copyright 2016 The MITRE Corporation. All Rights Reserved.                 *
+ * Copyright 2017 The MITRE Corporation. All Rights Reserved.                 *
  ******************************************************************************/
 
 /******************************************************************************
@@ -79,12 +79,16 @@ int main(int argc, char* argv[]) {
     printf("\tDetection Interval: %d\n", detectionInterval);
 
     printf("\nchecking for tracks... \n\n");
+
+    // algorithm_properties["ROTATION"] = std::to_string(270);
+
     if (argc == 4 || argc == 5) {
 
         std::ostringstream stringStream;
         stringStream << detectionInterval;
-        algorithm_properties.insert(std::pair<std::string, std::string>(
-                "FRAME_INTERVAL", stringStream.str()));
+
+        algorithm_properties["FRAME_INTERVAL"] = stringStream.str();
+
         MPFVideoJob job("Testing", uri, startFrame, stopFrame, algorithm_properties, { });
 
         if (detection->GetDetections(job, tracks) != 0) {

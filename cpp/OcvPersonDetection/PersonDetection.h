@@ -5,7 +5,7 @@
  * under contract, and is subject to the Rights in Data-General Clause        *
  * 52.227-14, Alt. IV (DEC 2007).                                             *
  *                                                                            *
- * Copyright 2016 The MITRE Corporation. All Rights Reserved.                 *
+ * Copyright 2017 The MITRE Corporation. All Rights Reserved.                 *
  ******************************************************************************/
 
 /******************************************************************************
@@ -92,6 +92,7 @@ private:
     void writeDetectionToVideo(const int start_frame,
                                const int stop_frame,
                                const std::string &data_uri,
+                               const int frame_count,
                                const int frame_interval,
                                const std::string& job_name,
                                std::vector <MPF::COMPONENT::MPFVideoTrack> &detections);
