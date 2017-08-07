@@ -122,13 +122,13 @@ MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<
         }
         int frame_skip = (frame_interval > 0) ? frame_interval : 1;
 
-        MPFVideoCapture video_capture(job);
+        MPFVideoCapture video_capture(job, true, true);
         if (!video_capture.IsOpened()) {
             LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] Video failed to open.");
             return MPF_COULD_NOT_OPEN_DATAFILE;
         }
 
-        MPFDetectionError detection_result = GetDetectionsFromVideoCapture(job, frame_skip, video_capture, tracks);
+        MPFDetectionError detection_result = GetDetectionsFromVideoCapture(job, video_capture, tracks);
 
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
@@ -149,20 +149,15 @@ MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<
 
 
 MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJob &job,
-                                                                 const int frame_skip,
                                                                  MPFVideoCapture &video_capture,
                                                                  vector<MPFVideoTrack> &tracks) {
 
-    //get frame count -  use total_frames to check the start_index and stop_index
-    //to make sure they are within the video bounds
     int total_frames = video_capture.GetFrameCount();
-    LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Total video frames: " << total_frames);
-
-    video_capture.SetFramePosition(job.start_frame);
+    LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Video frames: " << total_frames);
 
     // Do some initialization
     Mat frame, frame_draw, gray, prev_gray;
-    int frame_index = job.start_frame;
+    int frame_index = 0;
 
     if (imshow_on) {
         cv::namedWindow("PersonTracker", 1);
@@ -181,9 +176,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     }
 
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Starting video processing");
-    while (video_capture.GetCurrentFramePosition() < qMin(total_frames, job.stop_frame + 1)) {
-        //  Get the frame.
-        video_capture >> frame;
+    while (video_capture.Read(frame)) {
         if (frame.empty() || frame.rows == 0 || frame.cols == 0) {
             LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Empty frame encountered at frame " << video_capture.GetCurrentFramePosition());
             break;
@@ -201,9 +194,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
             cvWaitKey(10);
         }
 
-        //  Proceed to the correct next frame.
-        video_capture.SetFramePosition(video_capture.GetCurrentFramePosition() + frame_skip - 1);
-        frame_index += frame_skip;
+        frame_index++;
     }
 
     //  There can still be running tracks when the video ends or the stop index has been hit
