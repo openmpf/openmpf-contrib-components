@@ -85,15 +85,9 @@ bool PersonDetection::Init() {
         initialized = true;
 
         imshow_on = parameters["IMSHOW_ON"].toUInt();
-        output_video = parameters["OUTPUT_VIDEO"].toUInt();
-        output_image = parameters["OUTPUT_IMAGE"].toUInt();
-        output_base_path = parameters["OUTPUT_BASE_PATH"].toUtf8().constData();
 
 
         LOG4CXX_DEBUG(personLogger, "Imshow_on: " << imshow_on);
-        LOG4CXX_DEBUG(personLogger, "Output_video: " << output_video);
-        LOG4CXX_DEBUG(personLogger, "Output_image: " << output_image);
-        LOG4CXX_DEBUG(personLogger, "Output_base_path: " << output_base_path);
     } else {
         LOG4CXX_DEBUG(personLogger, "Previously initialized");
     }
@@ -109,8 +103,6 @@ bool PersonDetection::Close() {
 
 MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
     try {
-        int frame_interval = DetectionComponentUtils::GetProperty<int>(job.job_properties, "FRAME_INTERVAL", 1);
-
         LOG4CXX_TRACE(personLogger, "[" << job.job_name << "] Beginning the GetDetectionsFromVideo() function");
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Data_uri: " << job.data_uri);
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Start_index: " << job.start_frame);
@@ -120,23 +112,17 @@ MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<
             LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] Input video file path is empty");
             return MPF_INVALID_DATAFILE_URI;
         }
-        int frame_skip = (frame_interval > 0) ? frame_interval : 1;
 
-        MPFVideoCapture video_capture(job);
+        MPFVideoCapture video_capture(job, true, true);
         if (!video_capture.IsOpened()) {
             LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] Video failed to open.");
             return MPF_COULD_NOT_OPEN_DATAFILE;
         }
 
-        MPFDetectionError detection_result = GetDetectionsFromVideoCapture(job, frame_skip, video_capture, tracks);
+        MPFDetectionError detection_result = GetDetectionsFromVideoCapture(job, video_capture, tracks);
 
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
-        }
-
-        //	Write the video.
-        if (output_video) {
-            writeDetectionToVideo(job.start_frame, job.stop_frame, job.data_uri, video_capture.GetFrameCount(), frame_skip, job.job_name, tracks);
         }
 
         return detection_result;
@@ -149,20 +135,15 @@ MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<
 
 
 MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJob &job,
-                                                                 const int frame_skip,
                                                                  MPFVideoCapture &video_capture,
                                                                  vector<MPFVideoTrack> &tracks) {
 
-    //get frame count -  use total_frames to check the start_index and stop_index
-    //to make sure they are within the video bounds
     int total_frames = video_capture.GetFrameCount();
-    LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Total video frames: " << total_frames);
-
-    video_capture.SetFramePosition(job.start_frame);
+    LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Video frames: " << total_frames);
 
     // Do some initialization
     Mat frame, frame_draw, gray, prev_gray;
-    int frame_index = job.start_frame;
+    int frame_index = 0;
 
     if (imshow_on) {
         cv::namedWindow("PersonTracker", 1);
@@ -181,9 +162,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     }
 
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Starting video processing");
-    while (video_capture.GetCurrentFramePosition() < qMin(total_frames, job.stop_frame + 1)) {
-        //  Get the frame.
-        video_capture >> frame;
+    while (video_capture.Read(frame)) {
         if (frame.empty() || frame.rows == 0 || frame.cols == 0) {
             LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Empty frame encountered at frame " << video_capture.GetCurrentFramePosition());
             break;
@@ -201,9 +180,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
             cvWaitKey(10);
         }
 
-        //  Proceed to the correct next frame.
-        video_capture.SetFramePosition(video_capture.GetCurrentFramePosition() + frame_skip - 1);
-        frame_index += frame_skip;
+        frame_index++;
     }
 
     //  There can still be running tracks when the video ends or the stop index has been hit
@@ -279,22 +256,13 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         }
 
         //	Display the image with detections.
-        if (imshow_on || output_image) {
+        if (imshow_on) {
             cv::Mat raw_image = cv::imread(job.data_uri, CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
             for (auto &location : locations) {
                 rectangle(raw_image, Rect(location.x_left_upper, location.y_left_upper, location.width, location.height), Scalar(255, 255, 0));
             }
-            if (imshow_on) {
-                imshow("PersonTracker", raw_image);
-                cvWaitKey(1000);
-            }
-            if (output_image) {
-                imwrite(output_base_path + "/out.jpg", raw_image);
-            }
-        }
-
-        //	Release resources.
-        if (imshow_on) {
+            imshow("PersonTracker", raw_image);
+            cvWaitKey(1000);
             cv::destroyWindow("PersonTracker");
         }
 
@@ -337,33 +305,6 @@ Rect PersonDetection::ImageLocationToCvRect(const MPFImageLocation &detection) {
                 detection.height);
 }
 
-vector <Rect> PersonDetection::GetRectsAtFrameIndex(int frame_index, const std::vector <MPFVideoTrack> &tracks,
-                                                    std::vector <int> &track_indexes) {
-    vector <Rect> object_rects;
-    int track_index = 0;
-    for (vector<MPFVideoTrack>::const_iterator it = tracks.begin(); it != tracks.end(); ++it) {
-        if (frame_index >= it->start_frame && frame_index <= it->stop_frame) {
-            Rect object_rect(ImageLocationToCvRect(it->frame_locations.at(frame_index)));
-            object_rects.push_back(object_rect);
-            track_indexes.push_back(track_index);
-        }
-        ++track_index;
-    }
-    return object_rects;
-}
-
-vector <Rect> PersonDetection::GetRectsAtFrameIndex(int frame_index, const std::vector <MPFVideoTrack> &tracks) {
-    vector <Rect> object_rects;
-    int track_index = 0;
-    for (vector<MPFVideoTrack>::const_iterator object_track = tracks.begin(); object_track != tracks.end(); ++object_track) {
-        if (frame_index >= object_track->start_frame && frame_index <= object_track->stop_frame) {
-            Rect object_rect(ImageLocationToCvRect(object_track->frame_locations.at(frame_index)));
-            object_rects.push_back(object_rect);
-        }
-        ++track_index;
-    }
-    return object_rects;
-}
 
 
 void PersonDetection::logPerson(const MPFImageLocation& detection, const std::string& job_name) {
@@ -385,69 +326,6 @@ void PersonDetection::logTrack(const MPFVideoTrack& track, const std::string& jo
     }
 }
 
-void PersonDetection::writeDetectionToVideo(const int start_index, const int stop_index, const std::string& data_uri, const int frame_count,
-                                            const int frame_interval, const std::string& job_name, std::vector<MPFVideoTrack>& detections) {
-    LOG4CXX_DEBUG(personLogger, "[" << job_name << "] Video file: " << data_uri);
-
-    // Check that the input arguments are sensible
-    if (data_uri.empty()) {
-        LOG4CXX_ERROR(personLogger, "[" << job_name << "] The data_uri was empty.");
-        return;
-    }
-
-    //  Open the input video.
-    cv::VideoCapture cap;
-    cap.open(data_uri);
-    if (!cap.isOpened()) {
-        LOG4CXX_ERROR(personLogger, "[" << job_name << "] Video failed to open.");
-        return;
-    }
-    cap.set(CV_CAP_PROP_POS_FRAMES, start_index);
-
-    //	Do some initialization.
-    int frame_index = start_index;
-    int stop = (stop_index == 0) ? INT_MAX : stop_index;
-    VideoWriter outputVideo;
-    Mat frame;
-
-    string name = output_base_path + "/out.avi";
-    int fourcc = CV_FOURCC('M', 'J', 'P', 'G');
-    double fps = cap.get(CV_CAP_PROP_FPS) / static_cast<double>(frame_interval);
-    LOG4CXX_DEBUG(personLogger, "[" << job_name << "] FPS: " << fps);
-
-    int width = static_cast<int>(cap.get(CV_CAP_PROP_FRAME_WIDTH));
-    int height = static_cast<int>(cap.get(CV_CAP_PROP_FRAME_HEIGHT));
-    Size size = Size(width, height);
-    outputVideo.open(name, fourcc, fps, size);
-
-    if (!outputVideo.isOpened()) {
-        LOG4CXX_ERROR(personLogger, "[" << job_name << "] Output video failed to open.");
-        return;
-    }
-
-    while (cap.get(CV_CAP_PROP_POS_FRAMES) < qMin(frame_count, stop)) {
-        //  Get the frame.
-        cap >> frame;
-        if (frame.empty()) {
-            LOG4CXX_ERROR(personLogger, "[" << job_name << "] The frame was not properly retrieved from the video.");
-            return;
-        }
-
-        //	Draw the detections onto the frame.
-        vector <Rect> results = GetRectsAtFrameIndex(frame_index, detections);
-        for (int i = 0; i < results.size(); i++) {
-            rectangle(frame, results[i], Scalar(255, 255, 0));
-        }
-
-        //	Write the frame to video.
-        LOG4CXX_TRACE(personLogger, "[" << job_name << "] Writing frame to video.");
-        outputVideo << frame;
-
-        //  Proceed to the correct next frame.
-        cap.set(CV_CAP_PROP_POS_FRAMES, cap.get(CV_CAP_PROP_POS_FRAMES) + (frame_interval - 1));
-        frame_index += frame_interval;
-    }
-}
 
 MPF_COMPONENT_CREATOR(PersonDetection);
 MPF_COMPONENT_DELETER();
