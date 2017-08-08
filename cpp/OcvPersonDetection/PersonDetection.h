@@ -86,8 +86,6 @@ private:
             std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
     bool imshow_on;
-    bool output_image;
-    std::string output_base_path;
 };
 
 #endif //OPENMPF_CONTRIB_COMPONENTS_PERSONDETECTION_H

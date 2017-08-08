@@ -85,13 +85,9 @@ bool PersonDetection::Init() {
         initialized = true;
 
         imshow_on = parameters["IMSHOW_ON"].toUInt();
-        output_image = parameters["OUTPUT_IMAGE"].toUInt();
-        output_base_path = parameters["OUTPUT_BASE_PATH"].toUtf8().constData();
 
 
         LOG4CXX_DEBUG(personLogger, "Imshow_on: " << imshow_on);
-        LOG4CXX_DEBUG(personLogger, "Output_image: " << output_image);
-        LOG4CXX_DEBUG(personLogger, "Output_base_path: " << output_base_path);
     } else {
         LOG4CXX_DEBUG(personLogger, "Previously initialized");
     }
@@ -260,22 +256,13 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         }
 
         //	Display the image with detections.
-        if (imshow_on || output_image) {
+        if (imshow_on) {
             cv::Mat raw_image = cv::imread(job.data_uri, CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
             for (auto &location : locations) {
                 rectangle(raw_image, Rect(location.x_left_upper, location.y_left_upper, location.width, location.height), Scalar(255, 255, 0));
             }
-            if (imshow_on) {
-                imshow("PersonTracker", raw_image);
-                cvWaitKey(1000);
-            }
-            if (output_image) {
-                imwrite(output_base_path + "/out.jpg", raw_image);
-            }
-        }
-
-        //	Release resources.
-        if (imshow_on) {
+            imshow("PersonTracker", raw_image);
+            cvWaitKey(1000);
             cv::destroyWindow("PersonTracker");
         }
 
