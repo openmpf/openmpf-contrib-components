@@ -24,84 +24,119 @@
  * limitations under the License.                                             *
  ******************************************************************************/
 
-#include <string>
-#include <vector>
-#include <iostream>
 #include "MotionDetection_MOG2.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string>
+#include <iostream>
+
+#include <QCoreApplication>
+#include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
+
+using namespace std;
 
 using namespace MPF;
 using namespace COMPONENT;
 
-using std::to_string;
+// Main program to run the MOG motion detection in standalone mode.
+
+int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
+int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
 
 int main(int argc, char* argv[]) {
 
-    if ((4 != argc)) {
-        std::cout << "Usage: " << argv[0] << " VIDEO_FILE_URI START_FRAME STOP_FRAME" << std::endl;
-        return 0;
+    if (argc < 2 || argc > 5) {
+        printf("Usage (IMAGE): %s <uri>\n", argv[0]);
+        printf("Usage (VIDEO): %s <uri> <start_index> <end_index> <detection_interval (optional)>\n", argv[0]);
+        return 1;
     }
 
-    std::string uri(argv[1]);
-    int start_frame = atoi(argv[2]);
-    int stop_frame = atoi(argv[3]);
+    QCoreApplication *this_app = new QCoreApplication(argc, argv);
+    string app_dir = (this_app->applicationDirPath()).toStdString();
+    delete this_app;
 
-    if ((start_frame < 0) || (stop_frame <= start_frame)) {
-        std::cerr << "Start frame must be greater than or equal 0, and stop_frame must be greater than start_frame" << std::endl;
-        return MPF_INVALID_STOP_FRAME;
+    MotionDetection_MOG2 mog_motion_detection;
+    MPFDetectionComponent *detection_engine = &mog_motion_detection;
+    detection_engine->SetRunDirectory(app_dir + "/plugin");
+
+    if (!detection_engine->Init()) {
+        printf("Failed to initialize.\n");
+        return 1;
     }
 
-    Properties algorithm_properties;
+    int rc;
+    if (argc == 2) {
+        rc = processImage(detection_engine, argc, argv);
+    } else {
+        rc = processVideo(detection_engine, argc, argv);
+    }
 
-    // algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
+    if (!detection_engine->Close()) {
+        printf("Failed to close.\n");
+    }
+
+    return rc;
+}
+
+int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
+
+    MPFImageJob job("Testing", argv[1], { }, { });
+    vector<MPFImageLocation> locations;
+
+    MPFDetectionError rc = detection_engine->GetDetections(job, locations);
+
+    if (rc != MPF_DETECTION_SUCCESS) {
+        printf("Failed to get detections: rc = %i\n", rc);
+    }
+
+    printf("Number of detections: %i\n", locations.size());
+
+    return rc;
+}
+
+int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
+
+    // get detection interval if argument is present
+    int detection_interval = 1;
+    if (argc > 4) {
+        detection_interval = stoi(argv[4]);
+    }
+    printf("Using detection interval: %i\n", detection_interval);
+
+    map<string, string> algorithm_properties;
+    algorithm_properties["FRAME_INTERVAL"] = to_string(detection_interval);
+
+    algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
     // algorithm_properties["VERBOSE"] = to_string(2);
     // algorithm_properties["ROTATION"] = to_string(270);
 
-    Properties media_properties;
-    std::string job_name("Test MOG Motion");
-    MPFVideoJob job(job_name, uri, start_frame, stop_frame, algorithm_properties, media_properties);
+    MPFVideoJob job("Testing", argv[1], stoi(argv[2]), stoi(argv[3]), algorithm_properties, { });
+    vector<MPFVideoTrack> tracks;
 
-    // Instantiate the component
-    MotionDetection_MOG2 component;
+    MPFDetectionError rc = detection_engine->GetDetections(job, tracks);
 
-    component.SetRunDirectory("plugin");
-
-    if (!component.Init()) {
-        std::cout << "Component initialization failed, exiting." << std::endl;
-        return EXIT_FAILURE;
+    if (rc != MPFDetectionError::MPF_DETECTION_SUCCESS) {
+        printf("Failed to get detections: rc = %i\n", rc);
     }
 
-    // Declare the vector of tracks to be filled in by the component.
-    std::vector<MPFVideoTrack> tracks;
+    cout << "Number of video tracks = " << tracks.size() << endl;
+    for (int i = 0; i < tracks.size(); i++) {
+        cout << "\nVideo track " << i << "\n"
+                  << "   start frame = " << tracks[i].start_frame << "\n"
+                  << "   stop frame = " << tracks[i].stop_frame << "\n"
+                  << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
+                  << "   confidence = " << tracks[i].confidence << endl;
 
-    // Pass the job to the video capture component
-    MPFDetectionError rc = MPF_DETECTION_SUCCESS;
-
-    rc = component.GetDetections(job, tracks);
-    if (rc == MPF_DETECTION_SUCCESS) {
-        std::cout << "Number of video tracks = " << tracks.size() << std::endl;
-
-        for (int i = 0; i < tracks.size(); i++) {
-            std::cout << "Video track number " << i << "\n"
-                      << "   start frame = " << tracks[i].start_frame << "\n"
-                      << "   stop frame = " << tracks[i].stop_frame << "\n"
-                      << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
-                      << "   confidence = " << tracks[i].confidence << std::endl;
-
-            for (auto it : tracks[i].frame_locations) {
-                std::cout << "   Image location frame = " << it.first << "\n"
-                          << "      x left upper = " << it.second.x_left_upper << "\n"
-                          << "      y left upper = " << it.second.y_left_upper << "\n"
-                          << "      width = " << it.second.width << "\n"
-                          << "      height = " << it.second.height << "\n"
-                          << "      confidence = " << it.second.confidence << std::endl;
-            }
+        for (auto it : tracks[i].frame_locations) {
+            cout << "   Image location frame = " << it.first << "\n"
+                      << "      x left upper = " << it.second.x_left_upper << "\n"
+                      << "      y left upper = " << it.second.y_left_upper << "\n"
+                      << "      width = " << it.second.width << "\n"
+                      << "      height = " << it.second.height << "\n"
+                      << "      confidence = " << it.second.confidence << endl;
         }
     }
-    else {
-        std::cout << "GetDetections failed: " << rc << std::endl;
-    }
 
-    return 0;
+    return rc;
 }
-
-
