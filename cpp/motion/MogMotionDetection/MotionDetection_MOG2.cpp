@@ -155,6 +155,8 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
 
     int frame_index;
     const std::vector<cv::Mat> &init_frames = video_capture.GetInitializationFramesIfAvailable(1);
+    // Attempt to use the frame before the start of the segment to initialize the foreground.
+    // If one is not available, use frame 0 and start processing at frame 1.
     if (init_frames.empty()) {
         frame_index = 1;
         video_capture.Read(orig_frame);
