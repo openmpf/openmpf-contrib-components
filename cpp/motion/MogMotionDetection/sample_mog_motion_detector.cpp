@@ -32,7 +32,6 @@
 #include <iostream>
 
 #include <QCoreApplication>
-#include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
 
 using namespace std;
 
@@ -43,13 +42,14 @@ using namespace COMPONENT;
 
 int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
 int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
+bool parseLong(const char *str, long &val);
 
 int main(int argc, char* argv[]) {
 
-    if (argc < 2 || argc > 5) {
-        printf("Usage (IMAGE): %s <uri>\n", argv[0]);
-        printf("Usage (VIDEO): %s <uri> <start_index> <end_index> <detection_interval (optional)>\n", argv[0]);
-        return 1;
+    if (argc != 2 && argc != 4 && argc != 5) {
+        cout << "Usage (IMAGE): " << argv[0] << " <uri>" << endl;
+        cout << "Usage (VIDEO): " << argv[0] << " <uri> <start_index> <end_index> <detection_interval (optional)>" << endl;
+        return EXIT_FAILURE;
     }
 
     QCoreApplication *this_app = new QCoreApplication(argc, argv);
@@ -61,8 +61,8 @@ int main(int argc, char* argv[]) {
     detection_engine->SetRunDirectory(app_dir + "/plugin");
 
     if (!detection_engine->Init()) {
-        printf("Failed to initialize.\n");
-        return 1;
+        cerr << "Failed to initialize." << endl;
+        return EXIT_FAILURE;
     }
 
     int rc;
@@ -73,10 +73,14 @@ int main(int argc, char* argv[]) {
     }
 
     if (!detection_engine->Close()) {
-        printf("Failed to close.\n");
+        cerr << "Failed to close." << endl;
     }
 
-    return rc;
+    if (rc == MPF_DETECTION_SUCCESS) {
+        return EXIT_SUCCESS;
+    } else {
+        return EXIT_FAILURE;
+    }
 }
 
 int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
@@ -87,10 +91,10 @@ int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]
     MPFDetectionError rc = detection_engine->GetDetections(job, locations);
 
     if (rc != MPF_DETECTION_SUCCESS) {
-        printf("Failed to get detections: rc = %i\n", rc);
+        cerr << "Failed to get detections: rc = " << rc << endl;
+    } else {
+        cout << "Number of detections: " << locations.size() << endl;
     }
-
-    printf("Number of detections: %i\n", locations.size());
 
     return rc;
 }
@@ -98,14 +102,16 @@ int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]
 int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
 
     // get detection interval if argument is present
-    int detection_interval = 1;
+    long detection_interval = 1;
     if (argc > 4) {
-        detection_interval = stoi(argv[4]);
+        if (!parseLong(argv[4], detection_interval)) {
+            return MPF_OTHER_DETECTION_ERROR_TYPE;
+         }
     }
-    printf("Using detection interval: %i\n", detection_interval);
+    cout << "Using detection interval: " << detection_interval << endl;
 
     map<string, string> algorithm_properties;
-    algorithm_properties["FRAME_INTERVAL"] = to_string(detection_interval);
+    algorithm_properties.insert(pair<string, string>("FRAME_INTERVAL", to_string(detection_interval)));
 
     algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
     // algorithm_properties["VERBOSE"] = to_string(2);
@@ -117,26 +123,40 @@ int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]
     MPFDetectionError rc = detection_engine->GetDetections(job, tracks);
 
     if (rc != MPFDetectionError::MPF_DETECTION_SUCCESS) {
-        printf("Failed to get detections: rc = %i\n", rc);
-    }
+        cerr << "Failed to get detections: rc = " << rc << endl;
+    } else {
+        cout << "Number of video tracks = " << tracks.size() << endl;
+        for (int i = 0; i < tracks.size(); i++) {
+            cout << "\nVideo track " << i << "\n"
+                      << "   start frame = " << tracks[i].start_frame << "\n"
+                      << "   stop frame = " << tracks[i].stop_frame << "\n"
+                      << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
+                      << "   confidence = " << tracks[i].confidence << endl;
 
-    cout << "Number of video tracks = " << tracks.size() << endl;
-    for (int i = 0; i < tracks.size(); i++) {
-        cout << "\nVideo track " << i << "\n"
-                  << "   start frame = " << tracks[i].start_frame << "\n"
-                  << "   stop frame = " << tracks[i].stop_frame << "\n"
-                  << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
-                  << "   confidence = " << tracks[i].confidence << endl;
-
-        for (auto it : tracks[i].frame_locations) {
-            cout << "   Image location frame = " << it.first << "\n"
-                      << "      x left upper = " << it.second.x_left_upper << "\n"
-                      << "      y left upper = " << it.second.y_left_upper << "\n"
-                      << "      width = " << it.second.width << "\n"
-                      << "      height = " << it.second.height << "\n"
-                      << "      confidence = " << it.second.confidence << endl;
+            for (auto it : tracks[i].frame_locations) {
+                cout << "   Image location frame = " << it.first << "\n"
+                          << "      x left upper = " << it.second.x_left_upper << "\n"
+                          << "      y left upper = " << it.second.y_left_upper << "\n"
+                          << "      width = " << it.second.width << "\n"
+                          << "      height = " << it.second.height << "\n"
+                          << "      confidence = " << it.second.confidence << endl;
+            }
         }
     }
 
     return rc;
+}
+
+bool parseLong(const char *str, long &val) {
+
+    errno = 0;
+    char *temp;
+    val = strtol(str, &temp, 0);
+
+    if (temp == str || *temp != '\0' || ((val == LONG_MIN || val == LONG_MAX) && errno == ERANGE)) {
+        cerr << "Could not convert '" << str << "' to long." << endl;
+        return false;
+    }
+
+    return true;
 }
