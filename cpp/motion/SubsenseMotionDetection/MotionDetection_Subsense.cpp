@@ -92,21 +92,18 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job
         LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
         GetPropertySettings(job.job_properties);
 
-        int detection_interval = parameters["FRAME_INTERVAL"].toInt();
-
         if (job.data_uri.empty()) {
             LOG4CXX_ERROR(motion_logger, "[" << job.job_name << "] Input video file path is empty");
             return (MPF_INVALID_DATAFILE_URI);
         }
 
-        int frame_skip = (detection_interval > 0) ? detection_interval : 1;
 
-        MPFVideoCapture video_capture(job);
+        MPFVideoCapture video_capture(job, true, true);
         if (!video_capture.IsOpened()) {
             return MPF_COULD_NOT_OPEN_DATAFILE;
         }
 
-        MPFDetectionError detections_result = GetDetectionsFromVideoCapture(job, frame_skip, video_capture, tracks);
+        MPFDetectionError detections_result = GetDetectionsFromVideoCapture(job, video_capture, tracks);
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
         }
@@ -123,10 +120,8 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job
 }
 
 MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const MPFVideoJob &job,
-                                                                          const int frame_skip,
                                                                           MPFVideoCapture &video_capture,
                                                                           std::vector<MPFVideoTrack> &tracks) {
-
     int stop, downsample_count = 0;
     cv::Mat orig_frame, frame, fore;
     std::vector<std::vector<cv::Point> > contours;
@@ -147,36 +142,25 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
                                     static_cast<size_t>(parameters["N_REQUIRED_BG_SAMPLES"].toInt()), static_cast<size_t>(parameters["N_SAMPLES_FOR_MOVING_AVGS"].toInt()));
 
 
-    int frame_count = video_capture.GetFrameCount();
-
-    // If the segment we are working on does not start at frame 0 of
-    // the video, then we use the previous frame to initialize the
-    // foreground. Otherwise, we use frame 0 to initialize, and then
-    // start processing at frame 1.
-
-    /*** NOTE
-         This means that we will never see a detection in frame
-         0. Furthermore, the frame interval will be added to 1
-         (instead of 0) at the start of the first segment of the
-         video, but in subsequent segments it will be added to
-         job.start_frame. For example, if the segment size is 20, and
-         the frame interval is 5, you will get a sequence of
-         detections that looks something like this:
-         1,6,11,16, 20,25,30,35,...
-    ***/
-
-    int init_frame_index = 0;
-    if (job.start_frame > 0) {
-        init_frame_index = job.start_frame - 1;
+    int frame_index;
+    const std::vector<cv::Mat> &init_frames = video_capture.GetInitializationFramesIfAvailable(1);
+    // Attempt to use the frame before the start of the segment to initialize the foreground.
+    // If one is not available, use frame 0 and start processing at frame 1.
+    if (init_frames.empty()) {
+        frame_index = 1;
+        video_capture.Read(frame);
     }
-    video_capture.SetFramePosition(init_frame_index);
-    video_capture >> frame;
-    frame.copyTo(orig_frame);
+    else {
+        frame_index = 0;
+        frame = init_frames.at(0);
+    }
+
 
     if (frame.empty()) {
         return MPF_BAD_FRAME_SIZE;
     }
 
+    frame.copyTo(orig_frame);
     // Downsample frame
     while (frame.rows > parameters["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters["MAXIMUM_FRAME_WIDTH"].toInt()) {
         cv::pyrDown(frame, frame);
@@ -186,15 +170,12 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
     cv::Mat Roi;
     bg.initialize(frame, Roi);
 
-    int frame_index = init_frame_index + 1;
-    video_capture.SetFramePosition(frame_index);
 
     LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Starting video processing");
 
-    while (frame_index < qMin(frame_count, job.stop_frame + 1)) {
+    while (video_capture.Read(frame)) {
         std::vector<cv::Rect> rects;
         LOG4CXX_DEBUG(motion_logger, "frame index = " << frame_index);
-        video_capture >> frame;
 
         if (frame.empty()) {
             LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
@@ -337,19 +318,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
                 }
             }
         }
-        // Change the frame index based on the detection interval
-        frame_index = frame_index + frame_skip;
-
-        // Setting CV_CAP_POS_FRAME may result in not capturing the
-        // last frame of the video. This has been observed on some,
-        // but not all, VM architectures. The issue may be related to
-        // http://code.opencv.org/issues/1419 and/or
-        // http://code.opencv.org/issues/1335. Thus, only set the
-        // frame position if necessary, otherwise use >> to capture
-        // the next frame.
-        if (frame_skip > 1) {
-            video_capture.SetFramePosition(frame_index);
-        }
+        frame_index++;
     }
 
     // Finish the last track if we ended iteration through the video with an open track.
