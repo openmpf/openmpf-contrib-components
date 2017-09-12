@@ -1,22 +1,66 @@
-# Overview
+# OpenMPF Contrib Components
 
-This repository contains source code for Open Media Processing Framework (OpenMPF) components 
-licensed under a copyleft license, such as GPL, a restrictive license, or a license that is not 
-compatible with Apache 2.0. 
+Welcome to the Open Media Processing Framework (OpenMPF) Contrib Component Project!
 
-# Building the C++ Components
-* In order to build the C++ components you must first install the 
-  [OpenMPF C++ Component SDK](https://github.com/openmpf/openmpf-cpp-component-sdk).
-* cd into the `openmpf-contrib-components/cpp` directory.
-* Run the following commands:
+## What is the OpenMPF?
+
+The OpenMPF performs content detection and extraction (such as face detection, text extraction, and object classification) on bulk image, video, and audio files, enabling content analysis and search through the extraction of objects, keywords, thumbnails, and other contextual information.
+
+This scalable, web-friendly platform enables users to build configurable multimedia processing pipelines, enabling the rapid development and deployment of analytic algorithms and large-scale media processing applications.
+
+## Overview
+
+This repository contains source code for Open Media Processing Framework (OpenMPF) components licensed under a copyleft license, such as GPL, a restrictive license, or a license that is not compatible with Apache 2.0.
+
+Included in this repository are the following C++ algorithms:
+- OpenCV-based person
+- OpenCV-based motion detection
+
+## Where Am I?
+
+- [Parent OpenMPF Project](https://github.com/openmpf/openmpf-projects)
+- [OpenMPF Core](https://github.com/openmpf/openmpf)
+- Components
+    * [Openmpf Standard Components](https://github.com/openmpf/openmpf-components)
+    * [Openmpf Contributed Components](https://github.com/openmpf/openmpf-contrib-components) ( **You are here** )
+- Component APIs:
+    * [Openmpf C++ Component sdk](https://github.com/openmpf/openmpf-cpp-component-sdk)
+    * [Openmpf Java Component sdk](https://github.com/openmpf/openmpf-java-component-sdk)
+- [Openmpf Build Tools](https://github.com/openmpf/openmpf-build-tools)
+- [OpenMPF Web Site Source](https://github.com/openmpf/openmpf.github.io)
+
+## Getting Started
+
+### Building All C++ Components
+
+- In order to build the C++ components you must first install the  [OpenMPF C++ Component SDK](https://github.com/openmpf/openmpf-cpp-component-sdk).
+- cd into the `openmpf-contrib-components/cpp directory`.
+- Run the following commands:
 ```
 mkdir build
 cd build
 cmake3 ..
 make install
 ```
-* The built plugin packages will be created in `openmpf-contrib-components/cpp/build/plugin-packages`.
 
-### Building Individual C++ Components
-If you would like to only build a single component, you can cd into that component's directory and run the
-build commands listed above.
+- The built plugin packages will be created in `openmpf-contrib-components/cpp/build/plugin-packages`.
+
+**Building Individual C++ Components**
+
+If you would like to only build a single component, you can cd into that component's directory and run the build commands listed above.
+
+### Installing and Registering a Component
+
+Once a component is built, follow the Installing and Registering a Component
+[Installing and Registering a Component](https://openmpf.github.io/docs/site/Packaging-and-Registering-a-Component/#installing-and-registering-a-component)
+instructions to utilize the component in OpenMPF
+
+### Project Website
+
+For more information about OpenMPF, including documentation, guides, and other material, visit our website: [https://openmpf.github.io/](https://openmpf.github.io/)
+
+### Project Workboard
+
+For a latest snapshot of what tasks are being worked on, what's available to pick up, and where the project stands as a whole, check out our   [workboard](https://overv.io/~/openmpf/).
+
+
