@@ -80,33 +80,12 @@ private:
     void UpdateTracks(int frame_index,
                       std::vector <MPF::COMPONENT::MPFVideoTrack> &tracks);
 
-    std::vector<cv::Rect>
-    GetRectsAtFrameIndex(int frame_index,
-                         const std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks,
-                         std::vector <int> &track_indexes);
-
-    std::vector <cv::Rect>
-    GetRectsAtFrameIndex(int frame_index,
-                         const std::vector <MPF::COMPONENT::MPFVideoTrack> &tracks);
-
-    void writeDetectionToVideo(const int start_frame,
-                               const int stop_frame,
-                               const std::string &data_uri,
-                               const int frame_count,
-                               const int frame_interval,
-                               const std::string& job_name,
-                               std::vector <MPF::COMPONENT::MPFVideoTrack> &detections);
-
     MPF::COMPONENT::MPFDetectionError GetDetectionsFromVideoCapture(
             const MPF::COMPONENT::MPFVideoJob &job,
-            const int frame_skip,
             MPF::COMPONENT::MPFVideoCapture &video_capture,
             std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
     bool imshow_on;
-    bool output_video;
-    bool output_image;
-    std::string output_base_path;
 };
 
 #endif //OPENMPF_CONTRIB_COMPONENTS_PERSONDETECTION_H
