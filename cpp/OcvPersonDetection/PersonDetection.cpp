@@ -149,16 +149,8 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     }
 
     //  Create the detector and track manager.
-    HogDetector *detector = new HogDetector();
-    if (detector == NULL) {
-        LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The HogDetector failed to initialize");
-        return MPF_OTHER_DETECTION_ERROR_TYPE;
-    }
-    TrakerManager *mTrack = new TrakerManager(detector, frame, 5);
-    if (mTrack == NULL) {
-        LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The Tracker failed to initialize");
-        return MPF_OTHER_DETECTION_ERROR_TYPE;
-    }
+    HogDetector detector;
+    TrakerManager mTrack(&detector, frame, 5);
 
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Starting video processing");
     while (video_capture.Read(frame)) {
@@ -168,7 +160,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
         }
 
         //  Look for people.
-        mTrack->doWork(frame, frame_index, tracks);
+        mTrack.doWork(frame, frame_index, tracks);
 
         //  Update the tracks.
         UpdateTracks(frame_index, tracks);
@@ -186,8 +178,6 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     CloseAnyOpenTracks(frame_index, tracks);
 
     //  Release resources.
-    delete detector;
-    delete mTrack;
     video_capture.Release();
     if (imshow_on) {
         cv::destroyWindow("PersonTracker");
