@@ -141,8 +141,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     int total_frames = video_capture.GetFrameCount();
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Video frames: " << total_frames);
 
-    // Do some initialization
-    Mat frame, frame_draw, gray, prev_gray;
+    Mat frame;
     int frame_index = 0;
 
     if (imshow_on) {
@@ -214,8 +213,6 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
             return MPF_INVALID_DATAFILE_URI;
         }
 
-        //	Do some initialization.
-        cv::Mat image_gray;
         if (imshow_on) {
             cv::namedWindow("PersonTracker", 1);
         }
@@ -228,8 +225,6 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
             LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The image did not load properly.");
             return MPF_IMAGE_READ_ERROR;
         }
-
-        cvtColor(image, image_gray, CV_BGR2GRAY);
 
         //	Get the detections.
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Getting detections");
