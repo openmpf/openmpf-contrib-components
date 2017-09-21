@@ -127,7 +127,7 @@ void XMLDetector::detect(const Mat& f)
 
 /* ****** ****** */
 
-HogDetector::HogDetector():Detector(HOG),cpu_hog(Size(64,128), Size(16, 16), Size(8, 8), Size(8, 8), 9, 1, -1, 
+HogDetector::HogDetector():Detector(HOG),cpu_hog(Size(64,128), Size(16, 16), Size(8, 8), Size(8, 8), 9, 1, -1,
 	HOGDescriptor::L2Hys, 0.2, false, cv::HOGDescriptor::DEFAULT_NLEVELS)
 {
 	detector = HOGDescriptor::getDefaultPeopleDetector();
@@ -135,12 +135,15 @@ HogDetector::HogDetector():Detector(HOG),cpu_hog(Size(64,128), Size(16, 16), Siz
 }
 void HogDetector::detect(const Mat& frame)
 {
-	cpu_hog.detectMultiScale(frame, detection, response, 0.0, Size(8,8),Size(0, 0), 1.05, 2);//-0.2
-	for (vector<Rect>::iterator it=detection.begin(); it<detection.end(); it++)
-	{
-		it->x=(int)(it->x/1.0);
-		it->y=(int)(it->y/1.0);
-		it->width=(int)(it->width/1.0);
-		it->height=(int)(it->height/1.0);
-	}
+	// Padding was originally always set to Size(0, 0), but cpu_hog.detectMultiScale was causing a segmentation fault
+	// when the frame size was less than the window size. To prevent the segmentation fault,
+	// we add enough padding so that the resulting size is equal to the window size.
+
+    cv::Size sizeDiff = cpu_hog.winSize - frame.size();
+    // A negative dimension means there is already enough space so that dimension gets set to 0.
+    cv::Size extraSpaceNeeded(std::max(0, sizeDiff.width), std::max(0, sizeDiff.height));
+    // Padding gets applied to both sides.
+	cv::Size padding = extraSpaceNeeded / 2;
+
+	cpu_hog.detectMultiScale(frame, detection, response, 0.0, Size(8,8), padding, 1.05, 2);
 }
