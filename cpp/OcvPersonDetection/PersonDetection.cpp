@@ -238,17 +238,10 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         vector<cv::Rect> found;
         hog.detectMultiScale(image, found, 0, cv::Size(8, 8), cv::Size(32, 32), 1.05, 2);
 
-        //	Record the detections.
-        for (unsigned int j = 0; j < found.size(); j++) {
-            cv::Rect person = found[j];
-            int ix, iy, iw, ih;
-            ix = (found[j].x >= 0) ? found[j].x : 0;
-            iy = (found[j].y >= 0) ? found[j].y : 0;
-            iw = (found[j].x + found[j].width < image.cols) ? found[j].width : image.cols - 1;
-            ih = (found[j].y + found[j].height < image.rows) ? found[j].height : image.rows - 1;
-
-            MPFImageLocation this_face(ix, iy, iw, ih, static_cast<float>(-1));
-            locations.push_back(this_face);
+        cv::Rect imageRect(cv::Point(0, 0), image.size());
+        for (const cv::Rect &detection : found) {
+            cv::Rect intersection = detection & imageRect;
+            locations.emplace_back(intersection.x, intersection.y, intersection.width, intersection.height);
         }
 
         for (auto &location : locations) {
