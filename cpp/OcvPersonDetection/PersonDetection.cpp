@@ -141,8 +141,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     int total_frames = video_capture.GetFrameCount();
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Video frames: " << total_frames);
 
-    // Do some initialization
-    Mat frame, frame_draw, gray, prev_gray;
+    Mat frame;
     int frame_index = 0;
 
     if (imshow_on) {
@@ -150,16 +149,8 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     }
 
     //  Create the detector and track manager.
-    HogDetector *detector = new HogDetector();
-    if (detector == NULL) {
-        LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The HogDetector failed to initialize");
-        return MPF_OTHER_DETECTION_ERROR_TYPE;
-    }
-    TrakerManager *mTrack = new TrakerManager(detector, frame, 5);
-    if (mTrack == NULL) {
-        LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The Tracker failed to initialize");
-        return MPF_OTHER_DETECTION_ERROR_TYPE;
-    }
+    HogDetector detector;
+    TrakerManager mTrack(&detector, frame, 5);
 
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Starting video processing");
     while (video_capture.Read(frame)) {
@@ -169,7 +160,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
         }
 
         //  Look for people.
-        mTrack->doWork(frame, frame_index, tracks);
+        mTrack.doWork(frame, frame_index, tracks);
 
         //  Update the tracks.
         UpdateTracks(frame_index, tracks);
@@ -187,8 +178,6 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     CloseAnyOpenTracks(frame_index, tracks);
 
     //  Release resources.
-    delete detector;
-    delete mTrack;
     video_capture.Release();
     if (imshow_on) {
         cv::destroyWindow("PersonTracker");
@@ -214,8 +203,6 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
             return MPF_INVALID_DATAFILE_URI;
         }
 
-        //	Do some initialization.
-        cv::Mat image_gray;
         if (imshow_on) {
             cv::namedWindow("PersonTracker", 1);
         }
@@ -229,8 +216,6 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
             return MPF_IMAGE_READ_ERROR;
         }
 
-        cvtColor(image, image_gray, CV_BGR2GRAY);
-
         //	Get the detections.
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Getting detections");
         cv::HOGDescriptor hog;
@@ -238,17 +223,10 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         vector<cv::Rect> found;
         hog.detectMultiScale(image, found, 0, cv::Size(8, 8), cv::Size(32, 32), 1.05, 2);
 
-        //	Record the detections.
-        for (unsigned int j = 0; j < found.size(); j++) {
-            cv::Rect person = found[j];
-            int ix, iy, iw, ih;
-            ix = (found[j].x >= 0) ? found[j].x : 0;
-            iy = (found[j].y >= 0) ? found[j].y : 0;
-            iw = (found[j].x + found[j].width < image.cols) ? found[j].width : image.cols - 1;
-            ih = (found[j].y + found[j].height < image.rows) ? found[j].height : image.rows - 1;
-
-            MPFImageLocation this_face(ix, iy, iw, ih, static_cast<float>(-1));
-            locations.push_back(this_face);
+        cv::Rect imageRect(cv::Point(0, 0), image.size());
+        for (const cv::Rect &detection : found) {
+            cv::Rect intersection = detection & imageRect;
+            locations.emplace_back(intersection.x, intersection.y, intersection.width, intersection.height);
         }
 
         for (auto &location : locations) {
