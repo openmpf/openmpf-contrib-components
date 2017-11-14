@@ -186,7 +186,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     //  Report.
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Total_detections_count: " << tracks.size());
 
-    LOG4CXX_INFO(personLogger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " detections.");
+    LOG4CXX_INFO(personLogger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
 
     return MPF_DETECTION_SUCCESS;
 }

@@ -377,7 +377,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
         }
     }
 
-    LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " detections.");
+    LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
 
     return MPF_DETECTION_SUCCESS;
 }
