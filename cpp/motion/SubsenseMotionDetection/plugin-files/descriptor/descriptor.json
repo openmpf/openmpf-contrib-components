@@ -3,10 +3,7 @@
   "componentVersion": "1.0.0",
   "middlewareVersion": "1.0.0",
   "sourceLanguage": "c++",
-  "pathName": "amq_detection_component",
-  "launchArgs": [
-    "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseMotionDetection.so"
-  ],
+  "batchLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseMotionDetection.so",
   "environmentVariables": [
     {
       "name": "LD_LIBRARY_PATH",
@@ -17,7 +14,6 @@
     "name": "SUBSENSE",
     "description": "Detects motion in videos using a Self-Balanced SENsitivity SEgmenter (SuBSENSE).",
     "actionType": "DETECTION",
-    "supportsBatchProcessing": true,
     "requiresCollection": {
       "states": []
     },
