@@ -60,7 +60,7 @@ target_link_libraries(mpfOcvPersonDetection mpfComponentInterface mpfDetectionCo
     ${OpenCV_LIBS})
 
 
-configure_mpf_component(OcvPersonDetection mpfOcvPersonDetection)
+configure_mpf_component(OcvPersonDetection TARGETS mpfOcvPersonDetection)
 
 add_subdirectory(test)
 

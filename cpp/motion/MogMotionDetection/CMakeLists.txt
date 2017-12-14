@@ -51,7 +51,7 @@ add_library(mpfMogMotionDetection SHARED ${MOG_MOTION_SOURCE_FILES})
 target_link_libraries(mpfMogMotionDetection STRUCK ${OpenCV_LIBS} mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils)
 
 
-configure_mpf_component(MogMotionDetection mpfMogMotionDetection)
+configure_mpf_component(MogMotionDetection TARGETS mpfMogMotionDetection)
 
 
 add_subdirectory(test)
