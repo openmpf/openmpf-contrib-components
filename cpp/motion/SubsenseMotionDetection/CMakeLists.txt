@@ -55,7 +55,7 @@ target_link_libraries(mpfSubsenseMotionDetection
     mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils)
 
 
-configure_mpf_component(SubsenseMotionDetection mpfSubsenseMotionDetection)
+configure_mpf_component(SubsenseMotionDetection TARGETS mpfSubsenseMotionDetection)
 
 add_subdirectory(test)
 
