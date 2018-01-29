@@ -5,7 +5,7 @@
  * under contract, and is subject to the Rights in Data-General Clause        *
  * 52.227-14, Alt. IV (DEC 2007).                                             *
  *                                                                            *
- * Copyright 2017 The MITRE Corporation. All Rights Reserved.                 *
+ * Copyright 2018 The MITRE Corporation. All Rights Reserved.                 *
  ******************************************************************************/
 
 /******************************************************************************
@@ -27,53 +27,16 @@
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
 
+#ifndef OPENMPF_CONTRIB_COMPONENTS_SUBSENSE_MOTIONDETECTION_UTILS_H
+#define OPENMPF_CONTRIB_COMPONENTS_SUBSENSE_MOTIONDETECTION_UTILS_H
 
-#ifndef OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
-#define OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
+#include <QHash>
+#include <QString>
 
-
-#include <string>
-#include <vector>
-
-#include <log4cxx/logmanager.h>
-#include <log4cxx/fileappender.h>
-#include <log4cxx/simplelayout.h>
-#include <log4cxx/consoleappender.h>
-
-#include <MPFDetectionComponent.h>
-#include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
-#include <MPFVideoCapture.h>
-#include "SubsenseMotionDetectionUtils.h"
-
-class MotionDetection_Subsense : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
-
-    log4cxx::LoggerPtr motion_logger;
-    QHash<QString, QString> parameters;
-
-public:
-    MotionDetection_Subsense();
-    ~MotionDetection_Subsense();
-    bool Init();
-    bool Close();
-
-    MPF::COMPONENT::MPFDetectionError GetDetections(
-            const MPF::COMPONENT::MPFVideoJob &job,
-            std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks) override;
-
-    MPF::COMPONENT::MPFDetectionError GetDetections(
-            const MPF::COMPONENT::MPFImageJob &job,
-            std::vector<MPF::COMPONENT::MPFImageLocation> &locations) override;
-
-    std::string GetDetectionType();
-
-private:
-    MPF::COMPONENT::MPFDetectionError GetDetectionsFromVideoCapture(
-            const MPF::COMPONENT::MPFVideoJob &job,
-            MPF::COMPONENT::MPFVideoCapture &video_capture,
-            std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
-
-    static cv::Rect Upscale(const cv::Rect &rect, const cv::Mat &orig_frame, int downsample_count);
-};
+void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties,
+                         QHash<QString, QString> &parameters);
+);
 
 
-#endif //OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
+
+#endif   // OPENMPF_CONTRIB_COMPONENTS_SUBSENSE_MOTIONDETECTION_UTILS_H

@@ -5,7 +5,7 @@
  * under contract, and is subject to the Rights in Data-General Clause        *
  * 52.227-14, Alt. IV (DEC 2007).                                             *
  *                                                                            *
- * Copyright 2017 The MITRE Corporation. All Rights Reserved.                 *
+ * Copyright 2018 The MITRE Corporation. All Rights Reserved.                 *
  ******************************************************************************/
 
 /******************************************************************************
@@ -90,7 +90,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job
         LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Starting motion detection");
 
         LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
-        GetPropertySettings(job.job_properties);
+        GetPropertySettings(job.job_properties, parameters);
 
         if (job.data_uri.empty()) {
             LOG4CXX_ERROR(motion_logger, "[" << job.job_name << "] Input video file path is empty");
@@ -366,7 +366,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job, std::vector<MPFImageLocation> &locations) {
     try {
         LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
-        GetPropertySettings(job.job_properties);
+        GetPropertySettings(job.job_properties, parameters);
 
         // if this component is used as a preprocessor then it will return that it detects motion in every image
         // (although no actual motion detection is performed)
@@ -429,16 +429,6 @@ void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> 
     }
 }
 
-void MotionDetection_Subsense::GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties) {
-    std::string property;
-    std::string str_value;
-
-    for (std::map<std::string,std::string>::const_iterator imap = algorithm_properties.begin(); imap != algorithm_properties.end(); imap++) {
-        property = imap->first;
-        str_value = imap->second;
-        parameters.insert(QString::fromStdString(property), QString::fromStdString(str_value));
-    }
-}
 
 cv::Rect MotionDetection_Subsense::Upscale(const cv::Rect &rect, const cv::Mat &orig_frame, int downsample_count) {
     cv::Rect resized(rect.x * pow(2, downsample_count), rect.y * pow(2, downsample_count),
