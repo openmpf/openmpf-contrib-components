@@ -27,22 +27,51 @@
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
 
+#ifndef OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
+#define OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
+
+#include <map>
+
 #include <opencv2/core.hpp>
-#include <opencv2/videoio.hpp>
 
-#include "SubsenseMotionDetectionUtils.h"
+#include <QHash>
+#include <QString>
+#include <QMap>
 
-using namespace MPF;
-using namespace COMPONENT;
+#include <log4cxx/logger.h>
+
+#include <MPFDetectionComponent.h>
+#include <struck.h>
 
 void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties,
-                         QHash<QString, QString> &parameters) {
-    std::string property;
-    std::string str_value;
+                         QHash<QString, QString> &parameters);
 
-    for (std::map<std::string,std::string>::const_iterator imap = algorithm_properties.begin(); imap != algorithm_properties.end(); imap++) {
-        property = imap->first;
-        str_value = imap->second;
-        parameters.insert(QString::fromStdString(property), QString::fromStdString(str_value));
-    }
-}
+
+void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
+                          int frame_cols, int frame_rows,
+                          MPF::COMPONENT::MPFVideoTrack &track,
+                          std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
+
+std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
+                                      const log4cxx::LoggerPtr &logger,
+                                      const QHash<QString, QString> &parameters,
+                                      cv::Mat &fore,
+                                      int frame_cols,
+                                      int frame_rows,
+                                      int downsample_count);
+
+void ProcessMotionTracks(const QHash<QString, QString> &parameters,
+                         const std::vector<cv::Rect> &resized_rects,
+                         const cv::Mat &orig_frame,
+                         int frame_index, int &tracker_id,
+                         QMap<int, STRUCK> &tracker_map,
+                         QMap<int, MPF::COMPONENT::MPFVideoTrack> &track_map,
+                         std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
+
+cv::Rect Upscale(const cv::Rect &rect,
+                 int frame_cols, int frame_rows,
+                 int downsample_count);
+    
+
+
+#endif   // OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H

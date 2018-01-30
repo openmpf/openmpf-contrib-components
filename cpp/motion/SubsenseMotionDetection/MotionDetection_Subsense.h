@@ -35,15 +35,14 @@
 #include <string>
 #include <vector>
 
-#include <log4cxx/logmanager.h>
-#include <log4cxx/fileappender.h>
-#include <log4cxx/simplelayout.h>
-#include <log4cxx/consoleappender.h>
+#include <log4cxx/logger.h>
+
+#include <QHash>
+#include <QString>
 
 #include <MPFDetectionComponent.h>
 #include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
 #include <MPFVideoCapture.h>
-#include "SubsenseMotionDetectionUtils.h"
 
 class MotionDetection_Subsense : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
 
@@ -72,7 +71,6 @@ private:
             MPF::COMPONENT::MPFVideoCapture &video_capture,
             std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
-    static cv::Rect Upscale(const cv::Rect &rect, const cv::Mat &orig_frame, int downsample_count);
 };
 
 
