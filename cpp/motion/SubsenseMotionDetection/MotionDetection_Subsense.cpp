@@ -123,11 +123,11 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
     cv::Mat orig_frame, frame, fore;
     QMap<int, STRUCK> tracker_map;
     QMap<int, MPFVideoTrack> track_map;
-    MPFVideoTrack track;
+    MPFVideoTrack preprocessor_track;
     int tracker_id = 0;
 
-    // Set track for default
-    track.start_frame = -1;
+    // Set track used for "preprocessing mode" to default
+    preprocessor_track.start_frame = -1;
 
 
     // Create background subtractor
@@ -186,7 +186,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
         if (parameters["USE_PREPROCESSOR"].toInt() == 1) {
             SetPreprocessorTrack(fore, frame_index,
                                  orig_frame.cols, orig_frame.rows,
-                                 track, tracks);
+                                 preprocessor_track, tracks);
         }
         else {
             std::vector<cv::Rect> resized_rects = GetResizedRects(job.job_name,
@@ -203,11 +203,10 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
                                     tracker_map, track_map, tracks);
             }
             else {
-                foreach(cv::Rect rect, resized_rects) {
+                foreach(const cv::Rect &rect, resized_rects) {
                     MPFVideoTrack track;
                     track.start_frame = frame_index;
                     track.stop_frame = track.start_frame;
-                    //                cv::Rect resized = Upscale(rect, orig_frame, downsample_count);
                     track.frame_locations.insert(
                         std::pair<int, MPFImageLocation>(frame_index,
                                                          MPFImageLocation(rect.x, rect.y,
@@ -222,8 +221,8 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
     }
 
     // Finish the last track if we ended iteration through the video with an open track.
-    if (parameters["USE_PREPROCESSOR"].toInt() == 1 && track.start_frame != -1) {
-        tracks.push_back(track);
+    if (parameters["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track.start_frame != -1) {
+        tracks.push_back(preprocessor_track);
     }
 
     // Complete open tracks

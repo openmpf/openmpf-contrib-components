@@ -108,7 +108,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
     cv::findContours(fore, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
 
 
-    foreach (std::vector<cv::Point> contour, contours) {
+    foreach (const std::vector<cv::Point> &contour, contours) {
         // Need to add the rect twice so that it doesnt get removed
         rects.push_back(cv::boundingRect(contour));
         rects.push_back(cv::boundingRect(contour));
@@ -121,7 +121,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
 
     LOG4CXX_TRACE(logger, "[" << job_name << "] Resizing rects");
     std::vector<cv::Rect> resized_rects;
-    foreach (cv::Rect rect, rects) {
+    foreach (const cv::Rect &rect, rects) {
         if ((rect.width * pow(2, downsample_count)) >= parameters["MIN_RECT_WIDTH"].toInt() &&
             rect.height * pow(2, downsample_count) >= parameters["MIN_RECT_HEIGHT"].toInt()) {
             resized_rects.push_back(Upscale(rect, frame_cols, frame_rows, downsample_count));
@@ -182,7 +182,7 @@ void ProcessMotionTracks(const QHash<QString, QString> &parameters,
     }
 
     // Remove merged tracks
-    foreach (cv::Rect rect, tracked_rects.keys()) {
+    foreach (const cv::Rect &rect, tracked_rects.keys()) {
         for (int x = 1; x < tracked_rects.values(rect).size(); x++) {
             int id = tracked_rects.values(rect)[x];
             tracks.push_back(track_map.value(id));
