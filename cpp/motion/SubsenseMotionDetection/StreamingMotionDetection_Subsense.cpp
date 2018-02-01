@@ -68,7 +68,7 @@ SubsenseStreamingDetection::SubsenseStreamingDetection(const MPFStreamingVideoJo
 
     GetPropertySettings(job.job_properties, parameters_);
 
-    activity_detected_ = false;
+    segment_activity_detected_ = false;
 
     // Create background subtractor
     LOG4CXX_TRACE(motion_logger_, msg_prefix_ << "Creating background subtractor");
@@ -80,6 +80,8 @@ SubsenseStreamingDetection::SubsenseStreamingDetection(const MPFStreamingVideoJo
                                      static_cast<size_t>(parameters_["N_REQUIRED_BG_SAMPLES"].toInt()),
                                      static_cast<size_t>(parameters_["N_SAMPLES_FOR_MOVING_AVGS"].toInt()));
     bg_initialized_ = false;
+    downsample_count_ = 0;
+    tracker_id_ = 0;
     previous_segment_number_ = -1;
 
 }
@@ -90,12 +92,16 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
     frame_height_ = segment_info.frame_height;
     current_segment_number_ = segment_info.segment_number;
     segment_frame_index_ = 0;
-    // If this segment is not in sequence with the previously
-    // processed segment (or its the first segment), then we need to
-    // initialize the background subtractor when we get the first
-    // frame of the segment.
-    if (current_segment_number_ == previous_segment_number_ + 1) {
+    tracks_.clear();
+    // If this is the first segment to be processed, then
+    // "bg_initialized_" will be set to false.
+    //
+    // If the background subtractor has already been initialized, then
+    // we will need to re-initialize it if the current segment is not
+    // in sequence with the previously processed segment.
+    if ((bg_initialized_) && (current_segment_number_ != previous_segment_number_ + 1)) {
         bg_initialized_ = false;
+        downsample_count_ = 0;
     }
     previous_segment_number_ = current_segment_number_;
 
@@ -107,36 +113,115 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &frame,
 
     bool activity_found = false;
     int downsample_count = 0;
-    cv::mat orig_frame;
+    cv::Mat orig_frame, fore;
 
-    frame.copyTo(orig_frame);
-    // Downsample frame
-    while (frame.rows > parameters["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters["MAXIMUM_FRAME_WIDTH"].toInt()) {
-        cv::pyrDown(frame, frame);
-        downsample_count++;
-    }
-
-    // If the background subtractor has not yet been initialized, we
-    // need to use this frame to do that. If it has already been
-    // initialized, but this is the first frame in the segment, and
-    // the segment number is equal to the previous segment number + 1,
-    // then we don't need to initialize and we can simply continue to
-    // use the foreground Mat computed during the processing of the
-    // last frame of the previous  segment. If the segments are not
-    // sequential, all we can do here is re-initialize the background
-    // subtractor, and wait for the next frame. This decision
-    // processing is done in BeginSegment().
-    if ((!bg_initialized_) {
-        cv::Mat roi;
-        bg_initialize(frame, roi);
+    // Initialization: Use the frame to initialize but don't do detection.
+    if (!bg_initialized_) {
+        // Downsample frame and initialize the downsample count
+        while (frame.rows > parameters_["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters_["MAXIMUM_FRAME_WIDTH"].toInt()) {
+            cv::pyrDown(frame, frame);
+            downsample_count_++;
+        }
+        bg_.initialize(frame, cv::Mat());
         bg_initialized_ = true;
+        segment_frame_index_++;
         // No motion detected because this frame had to be used to
         // initialize the background subtractor.
         return false;
     }
 
-    // Run the background subtractor.
-    bg_apply(frame, fore_);
+    // Steady state: Stash the original frame and then downsample
+    // before processing
+    frame.copyTo(orig_frame);
 
+    // Downsample frame
+    for (int x = 0; x < downsample_count_; ++x) {
+        cv::pyrDown(frame, frame);
+    }
+
+    // Run the background subtractor.
+    bg_.apply(frame, fore);
+
+    if (parameters_["USE_PREPROCESSOR"].toInt() == 1) {
+        SetPreprocessorTrack(fore, segment_frame_index_,
+                             frame_width_, frame_height_,
+                             preprocessor_track_, tracks_);
+        if (!segment_activity_detected_) {
+            // See if we started a track
+            if (preprocessor_track_.start_frame != -1) {
+                activity_found = true;
+                segment_activity_detected_ = true;
+            }
+        }
+    }
+    else {
+        vector<cv::Rect> resized_rects = GetResizedRects(job_name_,
+                                                         motion_logger_,
+                                                         parameters_,
+                                                         fore,
+                                                         frame_width_,
+                                                         frame_height_,
+                                                         downsample_count_);
+
+        if (parameters_["USE_MOTION_TRACKING"].toInt() == 1) {
+            ProcessMotionTracks(parameters_, resized_rects, orig_frame,
+                                segment_frame_index_, tracker_id_,
+                                tracker_map_, track_map_, tracks_);
+            if (!segment_activity_detected_) {
+                if (!tracks_.empty()) {
+                    activity_found = true;
+                    segment_activity_detected_ = true;
+                }
+            }
+        }
+        else {
+            if (!segment_activity_detected_) {
+                if (!resized_rects.empty()) {
+                    activity_found = true;
+                    segment_activity_detected_ = true;
+                }
+            }
+            foreach(const cv::Rect &rect, resized_rects) {
+                MPFVideoTrack track;
+                track.start_frame = segment_frame_index_;
+                track.stop_frame = track.start_frame;
+                track.frame_locations.insert(
+                    std::pair<int, MPFImageLocation>(segment_frame_index_,
+                                                     MPFImageLocation(rect.x, rect.y,
+                                                                      rect.width,
+                                                                      rect.height)));
+
+                tracks_.push_back(track);
+            }
+        }
+    }
+    segment_frame_index_++;
+
+    return activity_found;
 }
-vector<MPFVideoTrack> EndSegment() {}
+vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
+
+    segment_activity_detected_ = false;
+
+    // Finish the last track if we ended iteration through the video with an open track.
+    if (parameters_["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track_.start_frame != -1) {
+        tracks_.push_back(preprocessor_track_);
+    }
+    preprocessor_track_.frame_locations.clear();
+    preprocessor_track_.detection_properties.clear();
+    preprocessor_track_.start_frame = -1;
+    preprocessor_track_.stop_frame = -1;
+
+    // Complete open tracks
+    for(QMap<int, STRUCK>::iterator it= tracker_map_.begin(); it != tracker_map_.end(); it++) {
+        tracks_.push_back(track_map_.value(it.key()));
+        // track_map_.erase(track_map_.find(it.key()));
+        // it = tracker_map_.erase(it);
+        // it--;
+    }
+    track_map_.clear();
+    tracker_map_.clear();
+    tracker_id_ = 0;
+
+    return tracks_;
+}

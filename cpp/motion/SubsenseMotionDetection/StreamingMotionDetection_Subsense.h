@@ -33,9 +33,13 @@
 #include <opencv2/opencv.hpp>
 
 #include <QHash>
+#include <QMap>
 #include <QString>
 
 #include <log4cxx/logger.h>
+
+#include "SubSense/BackgroundSubtractorSuBSENSE.h"
+#include "struck.h"
 
 #include <MPFStreamingDetectionComponent.h>
 
@@ -59,21 +63,26 @@ class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionC
     std::string msg_prefix_;
     log4cxx::LoggerPtr motion_logger_;
     unsigned int verbose_;
-    bool activity_detected_;   // Set to true when activity has been
-                               // detected in a segment, so that
-                               // activity is only reported at most once.
+    bool segment_activity_detected_;   // Set to true when activity
+                                        // has been detected in a
+                                        // segment, so that activity
+                                        // is only reported at most
+                                        // once per segment.
     int frame_width_;
     int frame_height_;
     int previous_segment_number_;
     int current_segment_number_;
     int segment_frame_index_;
+    int downsample_count_;
+    int tracker_id_;
 
     BackgroundSubtractorSuBSENSE bg_;
     bool bg_initialized_;
-    cv::Mat fore_;    // Store the foreground so that if we are
-                      // processing sequential segments, we do not
-                      // need to reinitialize the background subtractor.
-    MPFVideoTrack preprocessor_track_;
+
+    MPF::COMPONENT::MPFVideoTrack preprocessor_track_;
+    std::vector<MPF::COMPONENT::MPFVideoTrack> tracks_;
+    QMap<int, STRUCK> tracker_map_;
+    QMap<int, MPF::COMPONENT::MPFVideoTrack> track_map_;
 
     QHash <QString, QString> parameters_;
 };
