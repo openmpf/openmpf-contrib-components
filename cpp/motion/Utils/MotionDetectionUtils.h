@@ -27,51 +27,51 @@
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
 
+#ifndef OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
+#define OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
 
-#ifndef OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
-#define OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
+#include <map>
 
-
-#include <string>
-#include <vector>
-
-#include <log4cxx/logger.h>
+#include <opencv2/core.hpp>
 
 #include <QHash>
 #include <QString>
+#include <QMap>
+
+#include <log4cxx/logger.h>
 
 #include <MPFDetectionComponent.h>
-#include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
-#include <MPFVideoCapture.h>
+#include <struck.h>
 
-class MotionDetection_Subsense : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
-
-    log4cxx::LoggerPtr motion_logger;
-    QHash<QString, QString> parameters;
-
-public:
-    MotionDetection_Subsense();
-    ~MotionDetection_Subsense();
-    bool Init();
-    bool Close();
-
-    MPF::COMPONENT::MPFDetectionError GetDetections(
-            const MPF::COMPONENT::MPFVideoJob &job,
-            std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks) override;
-
-    MPF::COMPONENT::MPFDetectionError GetDetections(
-            const MPF::COMPONENT::MPFImageJob &job,
-            std::vector<MPF::COMPONENT::MPFImageLocation> &locations) override;
-
-    std::string GetDetectionType();
-
-private:
-    MPF::COMPONENT::MPFDetectionError GetDetectionsFromVideoCapture(
-            const MPF::COMPONENT::MPFVideoJob &job,
-            MPF::COMPONENT::MPFVideoCapture &video_capture,
-            std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
-
-};
+void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties,
+                         QHash<QString, QString> &parameters);
 
 
-#endif //OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
+void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
+                          int frame_cols, int frame_rows,
+                          MPF::COMPONENT::MPFVideoTrack &track,
+                          std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
+
+std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
+                                      const log4cxx::LoggerPtr &logger,
+                                      const QHash<QString, QString> &parameters,
+                                      cv::Mat &fore,
+                                      int frame_cols,
+                                      int frame_rows,
+                                      int downsample_count);
+
+void ProcessMotionTracks(const QHash<QString, QString> &parameters,
+                         const std::vector<cv::Rect> &resized_rects,
+                         const cv::Mat &orig_frame,
+                         int frame_index, int &tracker_id,
+                         QMap<int, STRUCK> &tracker_map,
+                         QMap<int, MPF::COMPONENT::MPFVideoTrack> &track_map,
+                         std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
+
+cv::Rect Upscale(const cv::Rect &rect,
+                 int frame_cols, int frame_rows,
+                 int downsample_count);
+    
+
+
+#endif   // OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H

@@ -47,7 +47,9 @@ add_subdirectory(SubSense)
 
 include(../STRUCK/CMakeLists.txt)
 
-set(SUBSENSE_MOTION_SOURCE_FILES MotionDetection_Subsense.cpp MotionDetection_Subsense.h)
+set(MOTION_UTILS_SRC ${MOTION_UTILS_DIR}/MotionDetectionUtils.cpp ${MOTION_UTILS_DIR}/MotionDetectionUtils.h)
+
+set(SUBSENSE_MOTION_SOURCE_FILES MotionDetection_Subsense.cpp MotionDetection_Subsense.h ${MOTION_UTILS_SRC})
 
 add_library(mpfSubsenseMotionDetection SHARED ${SUBSENSE_MOTION_SOURCE_FILES})
 target_link_libraries(mpfSubsenseMotionDetection

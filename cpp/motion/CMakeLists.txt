@@ -29,6 +29,9 @@
 
 cmake_minimum_required(VERSION 3.6)
 
+set(MOTION_UTILS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Utils)
+include_directories(${MOTION_UTILS_DIR})
+
 add_subdirectory(STRUCK)
 add_subdirectory(MogMotionDetection)
 add_subdirectory(SubsenseMotionDetection)
