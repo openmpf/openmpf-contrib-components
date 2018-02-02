@@ -108,21 +108,36 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
 }
 
 
-bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &frame,
+bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
                                               int frame_number) {
 
     bool activity_found = false;
     int downsample_count = 0;
-    cv::Mat orig_frame, fore;
+    cv::Mat frame, fore;
 
     // Initialization: Use the frame to initialize but don't do detection.
     if (!bg_initialized_) {
-        // Downsample frame and initialize the downsample count
-        while (frame.rows > parameters_["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters_["MAXIMUM_FRAME_WIDTH"].toInt()) {
+        LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+
+        // Downsample frame and initialize the downsample count.
+        // Since the input frame is read only, the first call to
+        // pyrDown() needs to be out of place.
+        if (orig_frame.rows > parameters_["MAXIMUM_FRAME_HEIGHT"].toInt() ||
+            orig_frame.cols > parameters_["MAXIMUM_FRAME_WIDTH"].toInt()) {
+            cv::pyrDown(orig_frame, frame);
+            downsample_count_++;
+        }
+        else {
+            orig_frame.copyTo(frame);
+        }
+
+        while (frame.rows > parameters_["MAXIMUM_FRAME_HEIGHT"].toInt() ||
+               frame.cols > parameters_["MAXIMUM_FRAME_WIDTH"].toInt()) {
             cv::pyrDown(frame, frame);
             downsample_count_++;
         }
-        bg_.initialize(frame, cv::Mat());
+        cv::Mat roi;
+        bg_.initialize(frame, roi);
         bg_initialized_ = true;
         segment_frame_index_++;
         // No motion detected because this frame had to be used to
@@ -132,17 +147,20 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &frame,
 
     // Steady state: Stash the original frame and then downsample
     // before processing
-    frame.copyTo(orig_frame);
+    LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
 
     // Downsample frame
-    for (int x = 0; x < downsample_count_; ++x) {
+    cv::pyrDown(orig_frame, frame);
+    for (int x = 0; x < (downsample_count_ - 1); ++x) {
         cv::pyrDown(frame, frame);
     }
 
     // Run the background subtractor.
+    LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
     bg_.apply(frame, fore);
 
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1) {
+        LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
         SetPreprocessorTrack(fore, segment_frame_index_,
                              frame_width_, frame_height_,
                              preprocessor_track_, tracks_);
@@ -155,6 +173,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &frame,
         }
     }
     else {
+        LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
         vector<cv::Rect> resized_rects = GetResizedRects(job_name_,
                                                          motion_logger_,
                                                          parameters_,
@@ -164,6 +183,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &frame,
                                                          downsample_count_);
 
         if (parameters_["USE_MOTION_TRACKING"].toInt() == 1) {
+            LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
             ProcessMotionTracks(parameters_, resized_rects, orig_frame,
                                 segment_frame_index_, tracker_id_,
                                 tracker_map_, track_map_, tracks_);
@@ -175,6 +195,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &frame,
             }
         }
         else {
+            LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
             if (!segment_activity_detected_) {
                 if (!resized_rects.empty()) {
                     activity_found = true;
