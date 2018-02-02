@@ -246,3 +246,6 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
 
     return tracks_;
 }
+
+
+EXPORT_MPF_STREAMING_COMPONENT(SubsenseStreamingDetection)
