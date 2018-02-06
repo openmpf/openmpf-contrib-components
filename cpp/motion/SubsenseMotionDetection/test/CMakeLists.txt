@@ -54,7 +54,6 @@ if (${GTEST_FOUND})
 
     target_link_libraries(SubsenseStreamingMotionDetectionTest
         mpfSubsenseStreamingMotionDetection mpfComponentTestUtils
-        ${OpenCV_LIBS}
         GTest::GTest GTest::Main Qt4::QtCore)
 
     add_test(NAME SubsenseStreamingMotionDetectionTest

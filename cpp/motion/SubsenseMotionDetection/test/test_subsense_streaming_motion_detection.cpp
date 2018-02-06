@@ -488,3 +488,145 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
 
     delete streaming_motion_detection;
 }
+
+
+
+TEST_F(StreamingDetectionTest, TestMotionTracking) {
+
+    int segment_length = 0;
+    int num_segments = 0;
+    float threshold = 0.0;
+    string inTrackFile;
+    string inVideoFile;
+    string outTrackFile;
+    string outVideoFile;
+
+    segment_length = parameters_->value("SUBSENSE_STREAMING_MOTION_SEGMENT_LENGTH").toInt();
+    num_segments = parameters_->value("SUBSENSE_STREAMING_MOTION_NUM_SEGMENTS").toInt();
+    inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_KNOWN_TRACKS").toStdString();
+    inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
+    outTrackFile = parameters_->value("SUBSENSE_STREAMING_TRACKING_MOTION_FOUND_TRACKS").toStdString();
+    outVideoFile = parameters_->value("SUBSENE_STREAMING_MOTION_TRACKING_VIDEO_OUTPUT_FILE").toStdString();
+    threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
+
+    std::cout << "Segment length:\t" << segment_length << std::endl;
+    std::cout << "Num segments:\t" << num_segments << std::endl;
+    std::cout << "inTrack:\t" << inTrackFile << std::endl;
+    std::cout << "outTrack:\t" << outTrackFile << std::endl;
+    std::cout << "inVideo:\t" << inVideoFile << std::endl;
+    std::cout << "outVideo:\t" << outVideoFile << std::endl;
+    std::cout << "comparison threshold:\t" << threshold << std::endl;
+
+    Properties job_props, media_props;
+
+    // Turn on motion tracking in the job properties
+    job_props["USE_MOTION_TRACKING"] = "1";
+    MPFStreamingVideoJob job("TestMultipleSegments", plugin_dir_, job_props, media_props);
+
+    SubsenseStreamingDetection *streaming_motion_detection;
+    try {
+        streaming_motion_detection = new SubsenseStreamingDetection(job);
+    }
+    catch (std::exception &e) {
+        FAIL() << "Exception thrown from constructor: " << e.what();
+    }
+
+    ASSERT_TRUE(NULL != streaming_motion_detection);
+
+    // 	Load the known tracks into memory.
+    std::cout << "\tLoading the known tracks into memory: " << inTrackFile << std::endl;
+    vector<MPFVideoTrack> known_tracks;
+    ASSERT_TRUE(ReadDetectionsFromFile::ReadVideoTracks(inTrackFile, known_tracks));
+
+    cv::VideoCapture cap(inVideoFile);
+    ASSERT_TRUE(cap.isOpened());
+
+    cv::Mat frame;
+    // get first frame
+    while (cap.read(frame)) {
+        if (!frame.empty()) {
+            break;
+        }
+    }
+    int segment_frame_count = 0;
+    int frame_index = 0;
+    vector<MPFVideoTrack> found_tracks;
+
+    for (int seg_index = 0; seg_index < num_segments; seg_index++) {
+        int start = frame_index;
+        int stop = frame_index + (segment_length-1);
+        VideoSegmentInfo seg_info(seg_index, start, stop,
+                                  frame.cols, frame.rows);
+
+        try {
+            streaming_motion_detection->BeginSegment(seg_info);
+        }
+        catch (std::exception &e) {
+            delete streaming_motion_detection;
+            FAIL() << "Exception thrown from BeginSegment: " << e.what();
+        }
+        bool activity_alert_received = false;
+
+        do {
+            if (!frame.empty()) {
+                bool activity_alert = false;
+                try {
+                    activity_alert = streaming_motion_detection->ProcessFrame(frame, frame_index);
+                }
+                catch (std::exception &e) {
+                    delete streaming_motion_detection;
+                    FAIL() << "Exception thrown from ProcessFrame: " << e.what();
+                }
+
+                // Check that we only get one activity alert per segment
+                if (activity_alert) {
+                    ASSERT_FALSE(activity_alert_received) << "More than one activity alert received for segment #" << seg_index;
+                    activity_alert_received = true;
+                }
+
+                segment_frame_count++;
+                frame_index++;
+            }
+        } while (cap.read(frame) && (segment_frame_count < segment_length));
+
+        vector<MPFVideoTrack> tracks;
+        try {
+            tracks = streaming_motion_detection->EndSegment();
+        }
+        catch (std::exception &e) {
+            delete streaming_motion_detection;
+            FAIL() << "Exception thrown from EndSegment: " << e.what();
+        }
+
+        for (auto track : tracks) {
+            // Adjust the frame numbers in all of the tracks for this
+            // segment.
+            track.start_frame += start;
+            track.stop_frame += start;
+            std::map<int, MPFImageLocation> updated_locations;
+            for (auto loc : track.frame_locations) {
+                updated_locations.emplace(std::make_pair(loc.first+start, loc.second));
+            }
+            track.frame_locations = updated_locations;
+            // Add the tracks for this segment to the vector of found tracks
+            found_tracks.push_back(track);
+        }
+
+        segment_frame_count = 0;
+    }
+    cap.release();
+
+    // 	Compare the known and test track output.
+    std::cout << "\tComparing the known and test tracks." << std::endl;
+    float comparison_score = DetectionComparison::CompareDetectionOutput(found_tracks, known_tracks);
+    std::cout << "Tracker comparison score: " << comparison_score << std::endl;
+    ASSERT_TRUE(comparison_score > threshold);
+
+    // create output video to view performance
+    std::cout << "\tWriting detected video and test tracks to files." << std::endl;
+    VideoGeneration video_generation;
+    video_generation.WriteTrackOutputVideo(inVideoFile, found_tracks, (test_output_dir_ + "/" + outVideoFile));
+    WriteDetectionsToFile::WriteVideoTracks((test_output_dir_ + "/" + outTrackFile), found_tracks);
+
+    delete streaming_motion_detection;
+}
