@@ -49,6 +49,17 @@ if (${GTEST_FOUND})
 
     add_test(NAME SubsenseMotionDetectionTest COMMAND SubsenseMotionDetectionTest)
 
+    add_executable(SubsenseStreamingMotionDetectionTest
+                   test_subsense_streaming_motion_detection.cpp)
+
+    target_link_libraries(SubsenseStreamingMotionDetectionTest
+        mpfSubsenseStreamingMotionDetection mpfComponentTestUtils
+        ${OpenCV_LIBS}
+        GTest::GTest GTest::Main Qt4::QtCore)
+
+    add_test(NAME SubsenseStreamingMotionDetectionTest
+             COMMAND SubsenseStreamingMotionDetectionTest)
+
     # Install config file
     file(COPY test_subsense_motion_config.ini DESTINATION config)
 
