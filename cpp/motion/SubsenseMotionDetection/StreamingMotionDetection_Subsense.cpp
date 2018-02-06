@@ -93,6 +93,7 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
     current_segment_number_ = segment_info.segment_number;
     segment_frame_index_ = 0;
     tracks_.clear();
+
     // If this is the first segment to be processed, then
     // "bg_initialized_" will be set to false.
     //
@@ -104,7 +105,8 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
         downsample_count_ = 0;
     }
     previous_segment_number_ = current_segment_number_;
-
+    LOG4CXX_DEBUG(motion_logger_, "current segment number = " << current_segment_number_);
+    LOG4CXX_DEBUG(motion_logger_, "previous segment number = " << previous_segment_number_);
 }
 
 
@@ -115,10 +117,8 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
     int downsample_count = 0;
     cv::Mat frame, fore;
 
-    // Initialization: Use the frame to initialize but don't do detection.
+    // Initialization: Use this frame to initialize but don't do detection.
     if (!bg_initialized_) {
-        LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
-
         // Downsample frame and initialize the downsample count.
         // Since the input frame is read only, the first call to
         // pyrDown() needs to be out of place.
@@ -136,6 +136,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
             cv::pyrDown(frame, frame);
             downsample_count_++;
         }
+
         cv::Mat roi;
         bg_.initialize(frame, roi);
         bg_initialized_ = true;
@@ -145,18 +146,20 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         return false;
     }
 
-    // Steady state: Stash the original frame and then downsample
-    // before processing
-    LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+    // Steady state
 
-    // Downsample frame
-    cv::pyrDown(orig_frame, frame);
-    for (int x = 0; x < (downsample_count_ - 1); ++x) {
-        cv::pyrDown(frame, frame);
+    if (downsample_count_ > 0) {
+        cv::pyrDown(orig_frame, frame);
+        for (int i = 0; i < (downsample_count_ - 1); ++i) {
+            cv::pyrDown(frame, frame);
+        }
+    }
+    else {
+        orig_frame.copyTo(frame);
     }
 
     // Run the background subtractor.
-    LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+    LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__ << ": Apply");
     bg_.apply(frame, fore);
 
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1) {
@@ -196,12 +199,14 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         }
         else {
             LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+
             if (!segment_activity_detected_) {
                 if (!resized_rects.empty()) {
                     activity_found = true;
                     segment_activity_detected_ = true;
                 }
             }
+
             foreach(const cv::Rect &rect, resized_rects) {
                 MPFVideoTrack track;
                 track.start_frame = segment_frame_index_;
@@ -236,9 +241,6 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     // Complete open tracks
     for(QMap<int, STRUCK>::iterator it= tracker_map_.begin(); it != tracker_map_.end(); it++) {
         tracks_.push_back(track_map_.value(it.key()));
-        // track_map_.erase(track_map_.find(it.key()));
-        // it = tracker_map_.erase(it);
-        // it--;
     }
     track_map_.clear();
     tracker_map_.clear();

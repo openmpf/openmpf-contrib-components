@@ -43,9 +43,9 @@
 
 #include <MPFStreamingDetectionComponent.h>
 
-/*! \class PPRStreamingDetection
- *  \brief face detection/tracking based on the Pittpatt 5 SDK for
- *         streaming video jobs
+/*! \class SubsenseStreamingDetection
+ *  \brief motion detection/tracking, based on the SubSENSE background
+ *  subtraction algorithm, for streaming video jobs
  */
 class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionComponent {
   public:

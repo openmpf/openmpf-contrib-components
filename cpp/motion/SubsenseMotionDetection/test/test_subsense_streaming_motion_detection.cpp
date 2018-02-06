@@ -351,24 +351,24 @@ TEST_F(StreamingDetectionTest, TestEndSegment) {
 }
 
 
-#if 0
+
 TEST_F(StreamingDetectionTest, TestMultipleSegments) {
 
     int segment_length = 0;
     int num_segments = 0;
-    float comparison_score_threshold = 0.0;
+    float threshold = 0.0;
     string inTrackFile;
     string inVideoFile;
     string outTrackFile;
     string outVideoFile;
 
-    segment_length = parameters_->value("PP5_STREAMING_FACE_SEGMENT_LENGTH").toInt();
-    num_segments = parameters_->value("PP5_STREAMING_FACE_NUM_SEGMENTS").toInt();
-    inTrackFile = parameters_->value("PP5_STREAMING_FACE_KNOWN_TRACKS").toStdString();
-    inVideoFile = parameters_->value("PP5_STREAMING_FACE_VIDEO_FILE").toStdString();
-    outTrackFile = parameters_->value("PP5_STREAMING_FACE_FOUND_TRACKS").toStdString();
-    outVideoFile = parameters_->value("PP5_STREAMING_FACE_VIDEO_OUTPUT_FILE").toStdString();
-    comparison_score_threshold = parameters_->value("PP5_FACE_COMPARISON_SCORE_VIDEO").toFloat();
+    segment_length = parameters_->value("SUBSENSE_STREAMING_MOTION_SEGMENT_LENGTH").toInt();
+    num_segments = parameters_->value("SUBSENSE_STREAMING_MOTION_NUM_SEGMENTS").toInt();
+    inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_KNOWN_TRACKS").toStdString();
+    inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
+    outTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_FOUND_TRACKS").toStdString();
+    outVideoFile = parameters_->value("SUBSENE_STREAMING_MOTION_VIDEO_OUTPUT_FILE").toStdString();
+    threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
 
     std::cout << "Segment length:\t" << segment_length << std::endl;
     std::cout << "Num segments:\t" << num_segments << std::endl;
@@ -376,21 +376,20 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
     std::cout << "outTrack:\t" << outTrackFile << std::endl;
     std::cout << "inVideo:\t" << inVideoFile << std::endl;
     std::cout << "outVideo:\t" << outVideoFile << std::endl;
-    std::cout << "comparison threshold:\t" << comparison_score_threshold << std::endl;
+    std::cout << "comparison threshold:\t" << threshold << std::endl;
 
     Properties job_props, media_props;
     MPFStreamingVideoJob job("TestMultipleSegments", plugin_dir_, job_props, media_props);
 
-    // 	Create a PP5 streaming face detection object.
-    PPRStreamingDetection *pp5_streaming_face_detection;
+    SubsenseStreamingDetection *streaming_motion_detection;
     try {
-        pp5_streaming_face_detection = new PPRStreamingDetection(job);
+        streaming_motion_detection = new SubsenseStreamingDetection(job);
     }
     catch (std::exception &e) {
         FAIL() << "Exception thrown from constructor: " << e.what();
     }
 
-    ASSERT_TRUE(NULL != pp5_streaming_face_detection);
+    ASSERT_TRUE(NULL != streaming_motion_detection);
 
     // 	Load the known tracks into memory.
     std::cout << "\tLoading the known tracks into memory: " << inTrackFile << std::endl;
@@ -418,10 +417,10 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
                                   frame.cols, frame.rows);
 
         try {
-            pp5_streaming_face_detection->BeginSegment(seg_info);
+            streaming_motion_detection->BeginSegment(seg_info);
         }
         catch (std::exception &e) {
-            delete pp5_streaming_face_detection;
+            delete streaming_motion_detection;
             FAIL() << "Exception thrown from BeginSegment: " << e.what();
         }
         bool activity_alert_received = false;
@@ -430,10 +429,10 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
             if (!frame.empty()) {
                 bool activity_alert = false;
                 try {
-                    activity_alert = pp5_streaming_face_detection->ProcessFrame(frame, frame_index);
+                    activity_alert = streaming_motion_detection->ProcessFrame(frame, frame_index);
                 }
                 catch (std::exception &e) {
-                    delete pp5_streaming_face_detection;
+                    delete streaming_motion_detection;
                     FAIL() << "Exception thrown from ProcessFrame: " << e.what();
                 }
 
@@ -450,10 +449,10 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
 
         vector<MPFVideoTrack> tracks;
         try {
-            tracks = pp5_streaming_face_detection->EndSegment();
+            tracks = streaming_motion_detection->EndSegment();
         }
         catch (std::exception &e) {
-            delete pp5_streaming_face_detection;
+            delete streaming_motion_detection;
             FAIL() << "Exception thrown from EndSegment: " << e.what();
         }
 
@@ -479,7 +478,7 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
     std::cout << "\tComparing the known and test tracks." << std::endl;
     float comparison_score = DetectionComparison::CompareDetectionOutput(found_tracks, known_tracks);
     std::cout << "Tracker comparison score: " << comparison_score << std::endl;
-    ASSERT_TRUE(comparison_score > comparison_score_threshold);
+    ASSERT_TRUE(comparison_score > threshold);
 
     // create output video to view performance
     std::cout << "\tWriting detected video and test tracks to files." << std::endl;
@@ -487,6 +486,5 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
     video_generation.WriteTrackOutputVideo(inVideoFile, found_tracks, (test_output_dir_ + "/" + outVideoFile));
     WriteDetectionsToFile::WriteVideoTracks((test_output_dir_ + "/" + outTrackFile), found_tracks);
 
-    delete pp5_streaming_face_detection;
+    delete streaming_motion_detection;
 }
-#endif
