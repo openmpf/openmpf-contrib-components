@@ -158,7 +158,7 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
 
     ASSERT_TRUE(NULL != streaming_motion_detection);
 
-    // The motion detector requires at least two frames to detection
+    // The motion detector requires at least two frames to detect
     // motion. The first frame will be used to initialize the
     // motion detector, and the next frame will be compared with it to
     // detect motion. So this test needs to read two frames and call
@@ -183,8 +183,6 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
     ASSERT_TRUE(cap.read(frame));
 
     ASSERT_FALSE(frame.empty());
-    ASSERT_TRUE(frame.cols != 0);
-    ASSERT_TRUE(frame.rows != 0);
 
     int segment_num = 0;
     int start_frame = init_frame_index;
@@ -220,8 +218,6 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
     ASSERT_TRUE(cap.read(frame));
 
     ASSERT_FALSE(frame.empty());
-    ASSERT_TRUE(frame.cols != 0);
-    ASSERT_TRUE(frame.rows != 0);
 
     try {
         activity_alert = streaming_motion_detection->ProcessFrame(frame, 1);
@@ -290,8 +286,6 @@ TEST_F(StreamingDetectionTest, TestEndSegment) {
     ASSERT_TRUE(cap.read(frame));
 
     ASSERT_FALSE(frame.empty());
-    ASSERT_TRUE(frame.cols != 0);
-    ASSERT_TRUE(frame.rows != 0);
 
     int segment_num = 0;
     VideoSegmentInfo seg_info(segment_num, start, stop, frame.cols, frame.rows);
@@ -304,22 +298,27 @@ TEST_F(StreamingDetectionTest, TestEndSegment) {
         FAIL() << "Exception thrown from BeginSegment: " << e.what();
     }
 
+    bool first_track_reported = false;
     while (frame_index < stop) {
+        bool activity_alert;
         EXPECT_TRUE(cap.read(frame));
         if(frame.empty()) {
             continue;
         }
         else { 
 
-            bool activity_alert;
             try {
                 activity_alert = streaming_motion_detection->ProcessFrame(frame, frame_index);
-                // Ignore the activity alert, since this test is concerned
-                // with the tracks.
             }
             catch (std::exception &e) {
                 delete streaming_motion_detection;
                 FAIL() << "Exception thrown from ProcessFrame: " << e.what();
+            }
+            // Check that if the first track has been reported, then
+            // we no longer get activity alerts
+            if (activity_alert) {
+                ASSERT_FALSE(first_track_reported) << "More than one activity alert received";
+                first_track_reported = true;
             }
             frame_index++;
         }
@@ -367,7 +366,7 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
     inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_KNOWN_TRACKS").toStdString();
     inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
     outTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_FOUND_TRACKS").toStdString();
-    outVideoFile = parameters_->value("SUBSENE_STREAMING_MOTION_VIDEO_OUTPUT_FILE").toStdString();
+    outVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_OUTPUT_FILE").toStdString();
     threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
 
     std::cout << "Segment length:\t" << segment_length << std::endl;
@@ -423,7 +422,7 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
             delete streaming_motion_detection;
             FAIL() << "Exception thrown from BeginSegment: " << e.what();
         }
-        bool activity_alert_received = false;
+        bool first_track_reported = false;
 
         do {
             if (!frame.empty()) {
@@ -436,12 +435,12 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
                     FAIL() << "Exception thrown from ProcessFrame: " << e.what();
                 }
 
-                // Check that we only get one activity alert per segment
+                // Check that if the first track has been reported, then
+                // we no longer get activity alerts
                 if (activity_alert) {
-                    ASSERT_FALSE(activity_alert_received) << "More than one activity alert received for segment #" << seg_index;
-                    activity_alert_received = true;
+                    ASSERT_FALSE(first_track_reported) << "More than one activity alert received for segment #" << seg_index;
+                    first_track_reported = true;
                 }
-
                 segment_frame_count++;
                 frame_index++;
             }
@@ -456,17 +455,8 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
             FAIL() << "Exception thrown from EndSegment: " << e.what();
         }
 
+        // Add the tracks for this segment to the vector of found tracks
         for (auto track : tracks) {
-            // Adjust the frame numbers in all of the tracks for this
-            // segment.
-            track.start_frame += start;
-            track.stop_frame += start;
-            std::map<int, MPFImageLocation> updated_locations;
-            for (auto loc : track.frame_locations) {
-                updated_locations.emplace(std::make_pair(loc.first+start, loc.second));
-            }
-            track.frame_locations = updated_locations;
-            // Add the tracks for this segment to the vector of found tracks
             found_tracks.push_back(track);
         }
 
@@ -505,8 +495,8 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
     num_segments = parameters_->value("SUBSENSE_STREAMING_MOTION_NUM_SEGMENTS").toInt();
     inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_KNOWN_TRACKS").toStdString();
     inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
-    outTrackFile = parameters_->value("SUBSENSE_STREAMING_TRACKING_MOTION_FOUND_TRACKS").toStdString();
-    outVideoFile = parameters_->value("SUBSENE_STREAMING_MOTION_TRACKING_VIDEO_OUTPUT_FILE").toStdString();
+    outTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_FOUND_TRACKS").toStdString();
+    outVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_VIDEO_OUTPUT_FILE").toStdString();
     threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
 
     std::cout << "Segment length:\t" << segment_length << std::endl;
@@ -565,7 +555,7 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
             delete streaming_motion_detection;
             FAIL() << "Exception thrown from BeginSegment: " << e.what();
         }
-        bool activity_alert_received = false;
+        bool first_track_reported = false;
 
         do {
             if (!frame.empty()) {
@@ -580,8 +570,8 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
 
                 // Check that we only get one activity alert per segment
                 if (activity_alert) {
-                    ASSERT_FALSE(activity_alert_received) << "More than one activity alert received for segment #" << seg_index;
-                    activity_alert_received = true;
+                    ASSERT_FALSE(first_track_reported) << "More than one activity alert received for segment #" << seg_index;
+                    first_track_reported = true;
                 }
 
                 segment_frame_count++;
@@ -598,17 +588,8 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
             FAIL() << "Exception thrown from EndSegment: " << e.what();
         }
 
+        // Add the tracks for this segment to the vector of found tracks
         for (auto track : tracks) {
-            // Adjust the frame numbers in all of the tracks for this
-            // segment.
-            track.start_frame += start;
-            track.stop_frame += start;
-            std::map<int, MPFImageLocation> updated_locations;
-            for (auto loc : track.frame_locations) {
-                updated_locations.emplace(std::make_pair(loc.first+start, loc.second));
-            }
-            track.frame_locations = updated_locations;
-            // Add the tracks for this segment to the vector of found tracks
             found_tracks.push_back(track);
         }
 

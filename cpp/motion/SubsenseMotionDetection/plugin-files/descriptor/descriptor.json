@@ -1,9 +1,10 @@
 {
   "componentName": "SubsenseMotionDetection",
-  "componentVersion": "1.0.0",
+  "componentVersion": "2.0.0",
   "middlewareVersion": "1.0.0",
   "sourceLanguage": "c++",
   "batchLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseMotionDetection.so",
+  "streamLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseStreamingMotionDetection.so",
   "environmentVariables": [
     {
       "name": "LD_LIBRARY_PATH",

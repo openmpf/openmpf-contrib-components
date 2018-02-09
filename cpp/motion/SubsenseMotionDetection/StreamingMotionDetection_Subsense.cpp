@@ -68,7 +68,7 @@ SubsenseStreamingDetection::SubsenseStreamingDetection(const MPFStreamingVideoJo
 
     GetPropertySettings(job.job_properties, parameters_);
 
-    segment_activity_detected_ = false;
+    segment_activity_reported_ = false;
 
     // Create background subtractor
     LOG4CXX_TRACE(motion_logger_, msg_prefix_ << "Creating background subtractor");
@@ -105,7 +105,7 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
         downsample_count_ = 0;
     }
     previous_segment_number_ = current_segment_number_;
-    LOG4CXX_DEBUG(motion_logger_, "current segment number = " << current_segment_number_);
+    LOG4CXX_INFO(motion_logger_, "Begin segment #" << current_segment_number_);
     LOG4CXX_DEBUG(motion_logger_, "previous segment number = " << previous_segment_number_);
 }
 
@@ -113,7 +113,7 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
 bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
                                               int frame_number) {
 
-    bool activity_found = false;
+    bool frame_activity_found = false;
     int downsample_count = 0;
     cv::Mat frame, fore;
 
@@ -141,6 +141,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         bg_.initialize(frame, roi);
         bg_initialized_ = true;
         segment_frame_index_++;
+        LOG4CXX_INFO(motion_logger_, "Background subtractor initialized.");
         // No motion detected because this frame had to be used to
         // initialize the background subtractor.
         return false;
@@ -167,11 +168,11 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         SetPreprocessorTrack(fore, segment_frame_index_,
                              frame_width_, frame_height_,
                              preprocessor_track_, tracks_);
-        if (!segment_activity_detected_) {
+        if (!segment_activity_reported_) {
             // See if we started a track
             if (preprocessor_track_.start_frame != -1) {
-                activity_found = true;
-                segment_activity_detected_ = true;
+                frame_activity_found = true;
+                segment_activity_reported_ = true;
             }
         }
     }
@@ -190,20 +191,20 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
             ProcessMotionTracks(parameters_, resized_rects, orig_frame,
                                 segment_frame_index_, tracker_id_,
                                 tracker_map_, track_map_, tracks_);
-            if (!segment_activity_detected_) {
+            if (!segment_activity_reported_) {
                 if (!tracks_.empty()) {
-                    activity_found = true;
-                    segment_activity_detected_ = true;
+                    frame_activity_found = true;
+                    segment_activity_reported_ = true;
                 }
             }
         }
         else {
             LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
 
-            if (!segment_activity_detected_) {
+            if (!segment_activity_reported_) {
                 if (!resized_rects.empty()) {
-                    activity_found = true;
-                    segment_activity_detected_ = true;
+                    frame_activity_found = true;
+                    segment_activity_reported_ = true;
                 }
             }
 
@@ -221,13 +222,13 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
             }
         }
     }
-    segment_frame_index_++;
+    frame_number_map_[segment_frame_index_++] = frame_number;
 
-    return activity_found;
+    return frame_activity_found;
 }
 vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
 
-    segment_activity_detected_ = false;
+    segment_activity_reported_ = false;
 
     // Finish the last track if we ended iteration through the video with an open track.
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track_.start_frame != -1) {
@@ -242,9 +243,29 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     for(QMap<int, STRUCK>::iterator it= tracker_map_.begin(); it != tracker_map_.end(); it++) {
         tracks_.push_back(track_map_.value(it.key()));
     }
+
+    // The frame numbers in the track are segment frame indices; i.e.,
+    // they can range from 0 to the segment length. They need to be
+    // converted to the true frame number. The track frame index is
+    // used to look up the true frame number in the
+    // frame_number_map_.
+
+    for (auto &track : tracks_) {
+        track.start_frame = frame_number_map_[track.start_frame];
+        track.stop_frame = frame_number_map_[track.stop_frame];
+        std::map<int, MPFImageLocation> new_locations;
+        for (auto &loc : track.frame_locations) {
+            int frame_index = frame_number_map_[loc.first];
+            new_locations.emplace(frame_index, std::move(loc.second));
+        }
+        track.frame_locations = std::move(new_locations);
+    }
+
     track_map_.clear();
     tracker_map_.clear();
     tracker_id_ = 0;
+    LOG4CXX_INFO(motion_logger_, "End segment #" << current_segment_number_);
+    LOG4CXX_INFO(motion_logger_, tracks_.size() << " tracks reported.");
 
     return tracks_;
 }

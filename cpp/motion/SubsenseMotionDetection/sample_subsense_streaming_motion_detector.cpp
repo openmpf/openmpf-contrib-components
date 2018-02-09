@@ -46,20 +46,20 @@ bool parseLong(const char *str, long &val);
 int main(int argc, char* argv[]) {
 
     if (argc != 4) {
-        cout << "Usage (VIDEO): " << argv[0] << " <uri> <segment_length> <number of segments>" << endl;
+        cerr << "Usage (VIDEO): " << argv[0] << " <uri> <segment_length> <number of segments>" << endl;
         return EXIT_FAILURE;
     }
 
     long segment_length, num_segments;
 
     if (!parseLong(argv[2], segment_length)) {
-        cout << "Failure: Could not parse segment length input argument" << endl;
+        cerr << "Failure: Could not parse segment length input argument" << endl;
         return EXIT_FAILURE;
     }
     cout << "Using segment length: " << segment_length << endl;
 
     if (!parseLong(argv[3], num_segments)) {
-        cout << "Failure: Could not parse number of segments input argument" << endl;
+        cerr << "Failure: Could not parse number of segments input argument" << endl;
         return EXIT_FAILURE;
     }
     cout << "Processing " << num_segments << " segments" << endl;
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
             if (!frame.empty()) {
                 break;
             } else {
-                std::cout << "empty frame" << std::endl;
+                cout << "empty frame" << std::endl;
             }
         }
 
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
 
             do {
                 if (frame.empty()) {
-                    std::cout << "empty frame" << std::endl;
+                    cout << "empty frame" << std::endl;
                 } else {
 
                     bool activity_alert = detection_engine->ProcessFrame(frame, frame_index);
@@ -124,13 +124,13 @@ int main(int argc, char* argv[]) {
 
             for (int i = 0; i < tracks.size(); i++) {
                 cout << "\nVideo track " << i << "\n"
-                     << "   start frame = " << start_frame + tracks[i].start_frame << "\n"
-                     << "   stop frame = " << start_frame + tracks[i].stop_frame << "\n"
+                     << "   start frame = " << tracks[i].start_frame << "\n"
+                     << "   stop frame = " << tracks[i].stop_frame << "\n"
                      << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
                      << "   confidence = " << tracks[i].confidence << endl;
 
                 for (auto it : tracks[i].frame_locations) {
-                    cout << "   Image location frame = " << start_frame + it.first << "\n"
+                    cout << "   Image location frame = " << it.first << "\n"
                          << "      x left upper = " << it.second.x_left_upper << "\n"
                          << "      y left upper = " << it.second.y_left_upper << "\n"
                          << "      width = " << it.second.width << "\n"
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
             }
             segment_frame_count = 0;
         }
-        std::cout << "end of stream" << std::endl;
+        cout << "end of stream" << std::endl;
         delete detection_engine;
 
     } catch (std::exception &e) {

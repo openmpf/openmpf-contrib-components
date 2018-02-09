@@ -63,21 +63,27 @@ class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionC
     std::string msg_prefix_;
     log4cxx::LoggerPtr motion_logger_;
     unsigned int verbose_;
-    bool segment_activity_detected_;   // Set to true when activity
-                                        // has been detected in a
-                                        // segment, so that activity
-                                        // is only reported at most
-                                        // once per segment.
+    bool segment_activity_reported_;   // Set to true when activity has been
+                                       // reported in a segment, so
+                                       // that this is done at most once.
     int frame_width_;
     int frame_height_;
     int previous_segment_number_;
     int current_segment_number_;
-    int segment_frame_index_;
     int downsample_count_;
     int tracker_id_;
 
     BackgroundSubtractorSuBSENSE bg_;
     bool bg_initialized_;
+
+    // Each entry in the following map is indexed by the segment frame
+    // index, and contains the actual frame number. This map is used
+    // in the EndSegment() method to set the track frame indices to
+    // the frame numbers provided to the component in ProcessFrame().
+
+    std::map<int, int> frame_number_map_;
+    int segment_frame_index_;  // Counter used to index the frame
+                               // number map.
 
     MPF::COMPONENT::MPFVideoTrack preprocessor_track_;
     std::vector<MPF::COMPONENT::MPFVideoTrack> tracks_;
