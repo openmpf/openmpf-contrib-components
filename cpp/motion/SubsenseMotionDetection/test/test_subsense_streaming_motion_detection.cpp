@@ -247,8 +247,8 @@ TEST_F(StreamingDetectionTest, TestEndSegment) {
     stop = parameters_->value("SUBSENSE_STREAMING_MOTION_STOP_FRAME").toInt();
     inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_KNOWN_TRACKS").toStdString();
     inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
-    outTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_FOUND_TRACKS").toStdString();
-    outVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_OUTPUT_FILE").toStdString();
+    outTrackFile = parameters_->value("SUBSENSE_STREAMING_TEST_ENDSEGMENT_FOUND_TRACKS").toStdString();
+    outVideoFile = parameters_->value("SUBSENSE_STREAMING_TEST_ENDSEGMENT_VIDEO_OUTPUT_FILE").toStdString();
     threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
 
     std::cout << "Start:\t" << start << std::endl;
@@ -365,8 +365,8 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
     num_segments = parameters_->value("SUBSENSE_STREAMING_MOTION_NUM_SEGMENTS").toInt();
     inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_KNOWN_TRACKS").toStdString();
     inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
-    outTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_FOUND_TRACKS").toStdString();
-    outVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_OUTPUT_FILE").toStdString();
+    outTrackFile = parameters_->value("SUBSENSE_STREAMING_TEST_MULTISEGMENT_FOUND_TRACKS").toStdString();
+    outVideoFile = parameters_->value("SUBSENSE_STREAMING_TEST_MULTISEGMENT_VIDEO_OUTPUT_FILE").toStdString();
     threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
 
     std::cout << "Segment length:\t" << segment_length << std::endl;

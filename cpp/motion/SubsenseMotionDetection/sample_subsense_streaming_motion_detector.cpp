@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
         delete detection_engine;
 
     } catch (std::exception &e) {
-        cout << "Exception caught in main: " << e.what() << endl;
+        cerr << "Exception caught in main: " << e.what() << endl;
     }
 
 }
