@@ -105,8 +105,8 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
         downsample_count_ = 0;
     }
     previous_segment_number_ = current_segment_number_;
-    LOG4CXX_INFO(motion_logger_, "Begin segment #" << current_segment_number_);
-    LOG4CXX_DEBUG(motion_logger_, "previous segment number = " << previous_segment_number_);
+    LOG4CXX_INFO(motion_logger_, msg_prefix_ << "Begin segment #" << current_segment_number_);
+    LOG4CXX_DEBUG(motion_logger_, msg_prefix_ << "previous segment number = " << previous_segment_number_);
 }
 
 
@@ -141,7 +141,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         bg_.initialize(frame, roi);
         bg_initialized_ = true;
         segment_frame_index_++;
-        LOG4CXX_INFO(motion_logger_, "Background subtractor initialized.");
+        LOG4CXX_INFO(motion_logger_, msg_prefix_ << "Background subtractor initialized.");
         // No motion detected because this frame had to be used to
         // initialize the background subtractor.
         return false;
@@ -160,11 +160,11 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
     }
 
     // Run the background subtractor.
-    LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__ << ": Apply");
+    LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__ << ": Apply");
     bg_.apply(frame, fore);
 
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1) {
-        LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+        LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
         SetPreprocessorTrack(fore, segment_frame_index_,
                              frame_width_, frame_height_,
                              preprocessor_track_, tracks_);
@@ -177,7 +177,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         }
     }
     else {
-        LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+        LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
         vector<cv::Rect> resized_rects = GetResizedRects(job_name_,
                                                          motion_logger_,
                                                          parameters_,
@@ -187,7 +187,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
                                                          downsample_count_);
 
         if (parameters_["USE_MOTION_TRACKING"].toInt() == 1) {
-            LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+            LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
             ProcessMotionTracks(parameters_, resized_rects, orig_frame,
                                 segment_frame_index_, tracker_id_,
                                 tracker_map_, track_map_, tracks_);
@@ -199,7 +199,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
             }
         }
         else {
-            LOG4CXX_TRACE(motion_logger_, __FUNCTION__ << ": " << __LINE__);
+            LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
 
             if (!segment_activity_reported_) {
                 if (!resized_rects.empty()) {
@@ -264,8 +264,8 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     track_map_.clear();
     tracker_map_.clear();
     tracker_id_ = 0;
-    LOG4CXX_INFO(motion_logger_, "End segment #" << current_segment_number_);
-    LOG4CXX_INFO(motion_logger_, tracks_.size() << " tracks reported.");
+    LOG4CXX_INFO(motion_logger_, msg_prefix_ << "End segment #" << current_segment_number_);
+    LOG4CXX_INFO(motion_logger_, msg_prefix_ << tracks_.size() << " tracks reported.");
 
     return tracks_;
 }

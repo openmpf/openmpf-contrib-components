@@ -511,7 +511,7 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
 
     // Turn on motion tracking in the job properties
     job_props["USE_MOTION_TRACKING"] = "1";
-    MPFStreamingVideoJob job("TestMultipleSegments", plugin_dir_, job_props, media_props);
+    MPFStreamingVideoJob job("TestMotionTracking", plugin_dir_, job_props, media_props);
 
     SubsenseStreamingDetection *streaming_motion_detection;
     try {
