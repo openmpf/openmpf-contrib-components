@@ -266,8 +266,9 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     tracker_id_ = 0;
     LOG4CXX_INFO(motion_logger_, msg_prefix_ << "End segment #" << current_segment_number_);
     LOG4CXX_INFO(motion_logger_, msg_prefix_ << tracks_.size() << " tracks reported.");
-
-    return tracks_;
+    vector<MPFVideoTrack> tmp;
+    tmp.swap(tracks_);
+    return tmp;
 }
 
 
