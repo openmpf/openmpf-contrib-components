@@ -493,10 +493,10 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
 
     segment_length = parameters_->value("SUBSENSE_STREAMING_MOTION_SEGMENT_LENGTH").toInt();
     num_segments = parameters_->value("SUBSENSE_STREAMING_MOTION_NUM_SEGMENTS").toInt();
-    inTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_KNOWN_TRACKS").toStdString();
+    inTrackFile = parameters_->value("SUBSENSE_STREAMING_TEST_MOTIONTRACKING_KNOWN_TRACKS").toStdString();
     inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
-    outTrackFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_FOUND_TRACKS").toStdString();
-    outVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_TRACKING_VIDEO_OUTPUT_FILE").toStdString();
+    outTrackFile = parameters_->value("SUBSENSE_STREAMING_TEST_MOTIONTRACKING_FOUND_TRACKS").toStdString();
+    outVideoFile = parameters_->value("SUBSENSE_STREAMING_TEST_MOTIONTRACKING_VIDEO_OUTPUT_FILE").toStdString();
     threshold = parameters_->value("SUBSENSE_STREAMING_MOTION_COMPARISON_SCORE_VIDEO").toFloat();
 
     std::cout << "Segment length:\t" << segment_length << std::endl;
