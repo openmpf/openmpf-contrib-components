@@ -218,7 +218,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
                                                                       rect.width,
                                                                       rect.height)));
 
-                tracks_.push_back(track);
+                tracks_.push_back(std::move(track));
             }
         }
     }
@@ -232,7 +232,7 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
 
     // Finish the last track if we ended iteration through the video with an open track.
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track_.start_frame != -1) {
-        tracks_.push_back(preprocessor_track_);
+        tracks_.push_back(std::move(preprocessor_track_));
     }
     preprocessor_track_.frame_locations.clear();
     preprocessor_track_.detection_properties.clear();
@@ -241,7 +241,7 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
 
     // Complete open tracks
     for(QMap<int, STRUCK>::iterator it= tracker_map_.begin(); it != tracker_map_.end(); it++) {
-        tracks_.push_back(track_map_.value(it.key()));
+        tracks_.push_back(std::move(track_map_.value(it.key())));
     }
 
     // The frame numbers in the track are segment frame indices; i.e.,

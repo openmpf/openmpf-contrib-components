@@ -457,7 +457,7 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
 
         // Add the tracks for this segment to the vector of found tracks
         for (auto track : tracks) {
-            found_tracks.push_back(track);
+            found_tracks.push_back(std::move(track));
         }
 
         segment_frame_count = 0;
@@ -590,7 +590,7 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
 
         // Add the tracks for this segment to the vector of found tracks
         for (auto track : tracks) {
-            found_tracks.push_back(track);
+            found_tracks.push_back(std::move(track));
         }
 
         segment_frame_count = 0;
