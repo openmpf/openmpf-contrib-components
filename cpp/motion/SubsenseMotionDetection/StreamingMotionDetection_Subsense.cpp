@@ -234,10 +234,8 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track_.start_frame != -1) {
         tracks_.push_back(std::move(preprocessor_track_));
     }
-    preprocessor_track_.frame_locations.clear();
-    preprocessor_track_.detection_properties.clear();
-    preprocessor_track_.start_frame = -1;
-    preprocessor_track_.stop_frame = -1;
+
+    preprocessor_track_ = MPFVideoTrack();
 
     // Complete open tracks
     for(QMap<int, STRUCK>::iterator it= tracker_map_.begin(); it != tracker_map_.end(); it++) {
