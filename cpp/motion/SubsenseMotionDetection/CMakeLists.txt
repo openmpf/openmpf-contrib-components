@@ -59,9 +59,21 @@ target_link_libraries(mpfSubsenseMotionDetection
     mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils)
 
 
-configure_mpf_component(SubsenseMotionDetection TARGETS mpfSubsenseMotionDetection)
+set(SUBSENSE_STREAMING_MOTION_SOURCE_FILES StreamingMotionDetection_Subsense.cpp
+  StreamingMotionDetection_Subsense.h ${MOTION_UTILS_SRC})
+
+add_library(mpfSubsenseStreamingMotionDetection SHARED ${SUBSENSE_STREAMING_MOTION_SOURCE_FILES})
+target_link_libraries(mpfSubsenseStreamingMotionDetection
+    STRUCK SubSense ${OpenCV_LIBS}
+    mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils)
+
+
+configure_mpf_component(SubsenseMotionDetection TARGETS mpfSubsenseMotionDetection mpfSubsenseStreamingMotionDetection)
 
 add_subdirectory(test)
 
 add_executable(sample_subsense_motion_detector sample_subsense_motion_detector.cpp)
 target_link_libraries(sample_subsense_motion_detector mpfSubsenseMotionDetection)
+
+add_executable(sample_subsense_streaming_motion_detector sample_subsense_streaming_motion_detector.cpp)
+target_link_libraries(sample_subsense_streaming_motion_detector mpfSubsenseStreamingMotionDetection)
