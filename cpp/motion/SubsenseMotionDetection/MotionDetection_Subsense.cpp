@@ -46,13 +46,8 @@ using namespace MPF;
 using namespace COMPONENT;
 
 
-void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks);
+void displayTracks(QString origPath, long frameCount, std::vector<MPFVideoTrack> tracks);
 
-MotionDetection_Subsense::MotionDetection_Subsense() {
-}
-
-MotionDetection_Subsense::~MotionDetection_Subsense() {
-}
 
 std::string MotionDetection_Subsense::GetDetectionType() {
     return "MOTION";
@@ -137,7 +132,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
                                     static_cast<size_t>(parameters["N_REQUIRED_BG_SAMPLES"].toInt()), static_cast<size_t>(parameters["N_SAMPLES_FOR_MOVING_AVGS"].toInt()));
 
 
-    int frame_index;
+    long frame_index;
     const std::vector<cv::Mat> &init_frames = video_capture.GetInitializationFramesIfAvailable(1);
     // Attempt to use the frame before the start of the segment to initialize the foreground.
     // If one is not available, use frame 0 and start processing at frame 1.
@@ -244,7 +239,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
                 LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
                 LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
 
-                for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
+                for (auto it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
                     LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Frame num: " << it->first);
                     LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
                                                      it->second.y_left_upper << ", " << it->second.width << ", " << it->second.height <<
@@ -303,7 +298,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job
 }
 
 // NOTE: This only draws a bounding box around the first detection in each track
-void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks) {
+void displayTracks(QString origPath, long frameCount, std::vector<MPFVideoTrack> tracks) {
     cv::VideoCapture capture(qPrintable(origPath));
 
     cv::Mat frame;

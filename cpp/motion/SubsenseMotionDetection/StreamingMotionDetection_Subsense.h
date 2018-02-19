@@ -53,7 +53,7 @@ class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionC
     ~SubsenseStreamingDetection() = default;
 
     virtual void BeginSegment(const MPF::COMPONENT::VideoSegmentInfo &segment_info) override;
-    virtual bool ProcessFrame(const cv::Mat &frame, int frame_number) override;
+    virtual bool ProcessFrame(const cv::Mat &frame, long frame_number) override;
     virtual std::vector<MPF::COMPONENT::MPFVideoTrack> EndSegment() override;
 
     std::string GetDetectionType() { return "MOTION"; }
@@ -81,8 +81,8 @@ class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionC
     // in the EndSegment() method to set the track frame indices to
     // the frame numbers provided to the component in ProcessFrame().
 
-    std::map<int, int> frame_number_map_;
-    int segment_frame_index_;  // Counter used to index the frame
+    std::map<long, long> frame_number_map_;
+    long segment_frame_index_;  // Counter used to index the frame
                                // number map.
 
     MPF::COMPONENT::MPFVideoTrack preprocessor_track_;

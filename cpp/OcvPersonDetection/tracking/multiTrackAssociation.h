@@ -101,7 +101,7 @@ public:
 	*/
     void deleteObsoleteTracker(std::list<EnsembleTracker*>& _tracker_list,
                                std::vector<MPF::COMPONENT::MPFVideoTrack>& tracks,
-                               int frame_index);
+                               long frame_index);
 	
 	void calcSuspiciousArea(std::list<EnsembleTracker*>& _tracker_list);	
         inline std::vector<cv::Rect> getQualifiedCandidates()
@@ -159,7 +159,7 @@ public:
 		HogDetector* detctor,cv::Mat& frame,
 		double thresh_promotion);
 	~TrakerManager();	
-	void doWork(cv::Mat& frame, int frame_index,
+	void doWork(cv::Mat& frame, long frame_index,
                     std::vector<MPF::COMPONENT::MPFVideoTrack>& tracks);
 
 	void setKey(char c)

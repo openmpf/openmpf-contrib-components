@@ -75,9 +75,9 @@ private:
     cv::Rect ImageLocationToCvRect(const MPF::COMPONENT::MPFImageLocation &detection);
     MPF::COMPONENT::MPFImageLocation CvRectToImageLocation(const cv::Rect &rect);
 
-    void CloseAnyOpenTracks(int frame_index,
+    void CloseAnyOpenTracks(long frame_index,
                             std::vector <MPF::COMPONENT::MPFVideoTrack> &tracks);
-    void UpdateTracks(int frame_index,
+    void UpdateTracks(long frame_index,
                       std::vector <MPF::COMPONENT::MPFVideoTrack> &tracks);
 
     MPF::COMPONENT::MPFDetectionError GetDetectionsFromVideoCapture(

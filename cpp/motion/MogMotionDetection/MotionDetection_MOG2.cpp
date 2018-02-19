@@ -48,7 +48,7 @@ using namespace COMPONENT;
 using std::pair;
 
 
-void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks);
+void displayTracks(QString origPath, long frameCount, std::vector<MPFVideoTrack> tracks);
 
 MotionDetection_MOG2::MotionDetection_MOG2() {
 }
@@ -124,7 +124,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                                                                       MPFVideoCapture &video_capture,
                                                                       std::vector<MPFVideoTrack> &tracks) {
     MPFVideoTrack track;
-    int stop, downsample_count = 0;
+    int downsample_count = 0;
     cv::Mat orig_frame, frame, fore;
     std::vector<std::vector<cv::Point> > contours;
     QMap<int, STRUCK> tracker_map;
@@ -147,13 +147,13 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
 
     // Create video capture and set start frame
 
-    int frame_count = video_capture.GetFrameCount();
+    long frame_count = video_capture.GetFrameCount();
     LOG4CXX_DEBUG(motion_logger, "frame count = " << frame_count);
     LOG4CXX_DEBUG(motion_logger, "begin frame = " << job.start_frame);
     LOG4CXX_DEBUG(motion_logger, "end frame = " << job.stop_frame);
 
 
-    int frame_index;
+    long frame_index;
     const std::vector<cv::Mat> &init_frames = video_capture.GetInitializationFramesIfAvailable(1);
     // Attempt to use the frame before the start of the segment to initialize the foreground.
     // If one is not available, use frame 0 and start processing at frame 1.
@@ -203,18 +203,12 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                 if (track.start_frame == -1) {
                     track.start_frame = frame_index;
                     track.stop_frame = track.start_frame;
-                    track.frame_locations.insert(
-                            std::pair<int, MPFImageLocation>(frame_index,
-                                                             MPFImageLocation(0, 0,
-                                                                              static_cast<int>(orig_frame.cols),
-                                                                              static_cast<int>(orig_frame.rows))));
+                    track.frame_locations.emplace(frame_index,
+                                                  MPFImageLocation(0, 0, orig_frame.cols, orig_frame.rows));
                 } else {
                     track.stop_frame = frame_index;
-                    track.frame_locations.insert(
-                            std::pair<int, MPFImageLocation>(frame_index,
-                                                             MPFImageLocation(0, 0,
-                                                                              orig_frame.cols,
-                                                                              orig_frame.rows)));
+                    track.frame_locations.emplace(frame_index,
+                                                  MPFImageLocation(0, 0, orig_frame.cols, orig_frame.rows));
                 }
             } else {
                 // Here, we have stopped detecting motion, so we
@@ -267,11 +261,10 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                             track.start_frame = frame_index;
                             track.stop_frame = track.start_frame;
                             cv::Rect resized = Upscale(rect, orig_frame, downsample_count);
-                            track.frame_locations.insert(
-                                    std::pair<int, MPFImageLocation>(frame_index,
-                                                                     MPFImageLocation(resized.x, resized.y, resized.width, resized.height)));
+                            track.frame_locations.emplace(frame_index,
+                                                          MPFImageLocation(resized.x, resized.y, resized.width, resized.height));
 
-                            tracks.push_back(track);
+                            tracks.push_back(std::move(track));
                         }
                     }
                 }
@@ -294,9 +287,8 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                     } else {
                         track_map.find(it.key()).value().stop_frame = frame_index;
                         LOG4CXX_DEBUG(motion_logger, __LINE__ << " stop_frame = " << track_map.find(it.key()).value().stop_frame);
-                        track_map.find(it.key()).value().frame_locations.insert(
-                                std::pair<int, MPFImageLocation>(frame_index, MPFImageLocation(track.x, track.y,
-                                                                                               track.width, track.height)));
+                        track_map.find(it.key()).value().frame_locations.emplace(
+                                frame_index, MPFImageLocation(track.x, track.y, track.width, track.height));
                         tracked_rects.insert(track, it.key());
                     }
                 }
@@ -312,11 +304,10 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                             tracker_map.find(tracker_id).value().initialize(orig_frame, rect, parameters["TRACKING_THRESHOLD"].toDouble(), parameters["TRACKING_MIN_OVERLAP_PERCENTAGE"].toDouble());
 
                             MPFVideoTrack temp(frame_index, frame_index);
-                            temp.frame_locations.insert(
-                                    std::pair<int, MPFImageLocation>(frame_index,
-                                                                     MPFImageLocation(rect.x, rect.y, rect.width, rect.height)));
+                            temp.frame_locations.emplace(frame_index,
+                                                         MPFImageLocation(rect.x, rect.y, rect.width, rect.height));
 
-                            track_map.insert(tracker_id, temp);
+                            track_map.insert(tracker_id, std::move(temp));
                             tracked_rects.insert(rect, tracker_id);
                         }
                     }
@@ -364,7 +355,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetectionsFromVideoCapture(const MPFV
                 LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
                 LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
 
-                for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
+                for (auto it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
                     LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Frame num: " << it->first);
                     LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
                                                      it->second.y_left_upper << ", " << it->second.width << ", " << it->second.height <<
@@ -425,7 +416,7 @@ MPFDetectionError MotionDetection_MOG2::GetDetections(const MPFImageJob &job, st
 }
 
 // NOTE: This only draws a bounding box around the first detection in each track
-void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks) {
+void displayTracks(QString origPath, long frameCount, std::vector<MPFVideoTrack> tracks) {
     cv::VideoCapture capture(qPrintable(origPath));
 
     cv::Mat frame;

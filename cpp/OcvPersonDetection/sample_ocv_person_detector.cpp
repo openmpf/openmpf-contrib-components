@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
                 printf("locations size : %i \n", static_cast<int>(tracks[i].frame_locations.size()));;
 
                 int count = 0;
-                for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
+                for (auto it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
                     printf("\tdetection index: %i \n", count);
                     printf("\tframe num: %i\n", it->first);
                     printf("\tconfidence: %d\n", it->second.confidence);

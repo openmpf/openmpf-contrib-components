@@ -50,10 +50,9 @@ class MotionDetection_Subsense : public MPF::COMPONENT::MPFImageAndVideoDetectio
     QHash<QString, QString> parameters;
 
 public:
-    MotionDetection_Subsense();
-    ~MotionDetection_Subsense();
-    bool Init();
-    bool Close();
+    MotionDetection_Subsense() = default;
+    bool Init() override;
+    bool Close() override;
 
     MPF::COMPONENT::MPFDetectionError GetDetections(
             const MPF::COMPONENT::MPFVideoJob &job,
@@ -63,7 +62,7 @@ public:
             const MPF::COMPONENT::MPFImageJob &job,
             std::vector<MPF::COMPONENT::MPFImageLocation> &locations) override;
 
-    std::string GetDetectionType();
+    std::string GetDetectionType() override;
 
 private:
     MPF::COMPONENT::MPFDetectionError GetDetectionsFromVideoCapture(

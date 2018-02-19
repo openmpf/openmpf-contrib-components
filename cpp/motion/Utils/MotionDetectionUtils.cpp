@@ -47,7 +47,7 @@ void GetPropertySettings(const std::map<std::string, std::string> &algorithm_pro
 }
 
 
-void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
+void SetPreprocessorTrack(const cv::Mat &fore, long frame_index,
                           int frame_cols, int frame_rows,
                           MPFVideoTrack &track,
                           std::vector<MPFVideoTrack> &tracks) {
@@ -56,18 +56,10 @@ void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
         if (track.start_frame == -1) {
             track.start_frame = frame_index;
             track.stop_frame = track.start_frame;
-            track.frame_locations.insert(
-                std::pair<int, MPFImageLocation>(frame_index,
-                                                 MPFImageLocation(0, 0,
-                                                                  frame_cols,
-                                                                  frame_rows)));
+            track.frame_locations.emplace(frame_index, MPFImageLocation(0, 0, frame_cols, frame_rows));
         } else {
             track.stop_frame = frame_index;
-            track.frame_locations.insert(
-                std::pair<int, MPFImageLocation>(frame_index,
-                                                 MPFImageLocation(0, 0,
-                                                                  frame_cols,
-                                                                  frame_rows)));
+            track.frame_locations.emplace(frame_index, MPFImageLocation(0, 0, frame_cols, frame_rows));
         }
     } else {
         if (track.start_frame != -1) {
@@ -79,7 +71,6 @@ void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
             track.frame_locations.clear();
         }
     }
-
 }
 
 
@@ -134,7 +125,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
 void ProcessMotionTracks(const QHash<QString, QString> &parameters,
                          const std::vector<cv::Rect> &resized_rects,
                          const cv::Mat &orig_frame,
-                         int frame_index, int &tracker_id,
+                         long frame_index, int &tracker_id,
                          QMap<int, STRUCK> &tracker_map,
                          QMap<int, MPFVideoTrack> &track_map,
                          std::vector<MPFVideoTrack> &tracks) {
@@ -154,9 +145,8 @@ void ProcessMotionTracks(const QHash<QString, QString> &parameters,
             it--;
         } else {
             track_map.find(it.key()).value().stop_frame = frame_index;
-            track_map.find(it.key()).value().frame_locations.insert(
-                std::pair<int, MPFImageLocation>(frame_index,
-                                                 MPFImageLocation(track.x, track.y, track.width, track.height)));
+            track_map.find(it.key()).value().frame_locations.emplace(
+                    frame_index, MPFImageLocation(track.x, track.y, track.width, track.height));
             tracked_rects.insert(track, it.key());
         }
     }
@@ -171,11 +161,9 @@ void ProcessMotionTracks(const QHash<QString, QString> &parameters,
                 tracker_map.insert(++tracker_id, STRUCK());
                 tracker_map.find(tracker_id).value().initialize(orig_frame, rect, parameters["TRACKING_THRESHOLD"].toDouble(), parameters["TRACKING_MIN_OVERLAP_PERCENTAGE"].toDouble());
                 MPFVideoTrack temp(frame_index, frame_index);
-                temp.frame_locations.insert(
-                    std::pair<int, MPFImageLocation>(frame_index,
-                                                     MPFImageLocation(rect.x, rect.y, rect.width, rect.height)));
+                temp.frame_locations.emplace(frame_index, MPFImageLocation(rect.x, rect.y, rect.width, rect.height));
 
-                track_map.insert(tracker_id, temp);
+                track_map.insert(tracker_id, std::move(temp));
                 tracked_rects.insert(rect, tracker_id);
             }
         }

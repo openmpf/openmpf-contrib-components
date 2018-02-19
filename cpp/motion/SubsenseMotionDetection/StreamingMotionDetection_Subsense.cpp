@@ -111,7 +111,7 @@ void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_in
 
 
 bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
-                                              int frame_number) {
+                                              long frame_number) {
 
     bool frame_activity_found = false;
     int downsample_count = 0;
@@ -251,9 +251,9 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     for (auto &track : tracks_) {
         track.start_frame = frame_number_map_[track.start_frame];
         track.stop_frame = frame_number_map_[track.stop_frame];
-        std::map<int, MPFImageLocation> new_locations;
+        std::map<long, MPFImageLocation> new_locations;
         for (auto &loc : track.frame_locations) {
-            int frame_index = frame_number_map_[loc.first];
+            long frame_index = frame_number_map_[loc.first];
             new_locations.emplace(frame_index, std::move(loc.second));
         }
         track.frame_locations = std::move(new_locations);

@@ -193,7 +193,7 @@ void Controller::takeVoteForAvgHittingRate(list<EnsembleTracker*> _tracker_list)
 			_hit_record.recordVote((*it)->getAddNew());
 	}
 }
-void Controller::deleteObsoleteTracker(list<EnsembleTracker*>& _tracker_list, vector<MPFVideoTrack>& tracks, int frame_index)
+void Controller::deleteObsoleteTracker(list<EnsembleTracker*>& _tracker_list, vector<MPFVideoTrack>& tracks, long frame_index)
 {
 	/*
 	Tracker death control. For modifying termination conditions, change here.
@@ -420,7 +420,7 @@ void TrakerManager::doHungarianAlg(const vector<Rect>& detections)
 			_controller.waitList.feed(scaleWin(detection_left[i],0.64),1.0);
 	}
 }
-void TrakerManager::doWork(Mat& frame, int frame_index, vector<MPFVideoTrack>& tracks)
+void TrakerManager::doWork(Mat& frame, long frame_index, vector<MPFVideoTrack>& tracks)
 {
 	Mat bgr,hsv,lab;
 	frame.copyTo(bgr);
@@ -554,9 +554,9 @@ void TrakerManager::doWork(Mat& frame, int frame_index, vector<MPFVideoTrack>& t
 				if(!(*i)->getIsNovice()) {
 					Rect t_rect = (*i)->getResultHistory().back();
 					MPFImageLocation detection(t_rect.x-(t_rect.width/2), t_rect.y-(t_rect.height/2), 2*t_rect.width, 2*t_rect.height, static_cast<float>(-1));
-					tracks[(*i)->getID()].frame_locations.insert(pair<int, MPFImageLocation>(frame_index, detection));
+					tracks[(*i)->getID()].frame_locations.emplace(frame_index, std::move(detection));
 				}
-				
+
 			
 				(*i)->drawResult(frame,1/0.5);
 

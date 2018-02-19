@@ -138,11 +138,11 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
                                                                  MPFVideoCapture &video_capture,
                                                                  vector<MPFVideoTrack> &tracks) {
 
-    int total_frames = video_capture.GetFrameCount();
+    long total_frames = video_capture.GetFrameCount();
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Video frames: " << total_frames);
 
     Mat frame;
-    int frame_index = 0;
+    long frame_index = 0;
 
     if (imshow_on) {
         cv::namedWindow("PersonTracker", 1);
@@ -256,17 +256,17 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
     }
 }
 
-void PersonDetection::UpdateTracks(int frame_index, vector <MPFVideoTrack> &tracks) {
+void PersonDetection::UpdateTracks(long frame_index, vector <MPFVideoTrack> &tracks) {
     for (vector<MPFVideoTrack>::iterator it = tracks.begin(); it != tracks.end(); it++) {
         if ((*it).stop_frame == -1 && frame_index - (*it).start_frame != static_cast<int>((*it).frame_locations.size()) - 1) {
             Rect t_rect = ImageLocationToCvRect((*it).frame_locations[frame_index-1]); // copy previous detection
             MPFImageLocation detection(t_rect.x, t_rect.y, t_rect.width, t_rect.height, static_cast<float>(-1));
-            (*it).frame_locations.insert(pair<int, MPFImageLocation>(frame_index, detection));
+            (*it).frame_locations.emplace(frame_index, std::move(detection));
         }
     }
 }
 
-void PersonDetection::CloseAnyOpenTracks(int frame_index, vector <MPFVideoTrack> &tracks) {
+void PersonDetection::CloseAnyOpenTracks(long frame_index, vector <MPFVideoTrack> &tracks) {
     for (vector<MPFVideoTrack>::iterator it = tracks.begin(); it != tracks.end(); it++) {
         if ((*it).stop_frame == -1) {
             (*it).stop_frame = frame_index-1;
@@ -296,8 +296,8 @@ void PersonDetection::logPerson(const MPFImageLocation& detection, const std::st
 void PersonDetection::logTrack(const MPFVideoTrack& track, const std::string& job_name) {
     LOG4CXX_DEBUG(personLogger, "[" << job_name << "] StartFrame: " << track.start_frame);
     LOG4CXX_DEBUG(personLogger, "[" << job_name << "] StopFrame:  " << track.stop_frame);
-    int count;
-    for (std::map<int, MPFImageLocation>::const_iterator it = track.frame_locations.begin(); it != track.frame_locations.end(); ++it) {
+    int count = 0;
+    for (auto it = track.frame_locations.begin(); it != track.frame_locations.end(); ++it) {
         LOG4CXX_DEBUG(personLogger, "[" << job_name << "] Person # " << cout);
         logPerson(it->second, job_name);
         count++;
