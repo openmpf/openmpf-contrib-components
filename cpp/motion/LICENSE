@@ -1,22 +1,21 @@
 /******************************************************************************
- * This file is part of the Media Processing Framework (MPF)                  *
+ * This file is part of the Open Media Processing Framework (OpenMPF)         *
  * motion detection component software.                                       *
  *                                                                            *
- * The MPF motion detection component software is free software: you can      *
+ * The OpenMPF motion detection component software is free software: you can  *
  * redistribute it and/or modify it under the terms of the GNU General        *
  * Public License as published by the Free Software Foundation, either        *
  * version 3 of the License, or (at your option) any later version.           *
  *                                                                            *
- * The MPF motion detection component software is distributed in the hope     *
+ * The OpenMPF motion detection component software is distributed in the hope *
  * that it will be useful, but WITHOUT ANY WARRANTY; without even the         *
  * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   *
  * See the (GNU General Public License for more details.                      *
  *                                                                            *
  * You should have received a copy of the GNU General Public License          *
- * along with the MPF motion detection component software. If not, see        *
+ * along with the OpenMPF motion detection component software. If not, see    *
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
-
 
  This project contains content developed by The MITRE Corporation. If this code
  is used in a deployment or embedded within another project, it is requested
@@ -24,9 +23,9 @@
  this software is being used.
 
 
- The Media Processing Framework MOG motion detection component software and
- the Media Processing Framework SubSense motion detection component software
- makes use of source code derived from third party software:
+
+ The MOG and SubSense component software make use of source code derived from
+ third party software:
 
  --------------------------------------------------------------------------
 
@@ -63,8 +62,9 @@
  GNU Lesser General Public License Version 3.
 
 
- The Media Processing Framework SubSense motion detection component software
- makes use of source code derived from additional third party software:
+
+ The SubSense component software makes use of source code derived from
+ additional third party software:
 
  --------------------------------------------------------------------------
 

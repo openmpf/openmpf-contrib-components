@@ -36,8 +36,9 @@ Included in this repository are the following C++ algorithms:
     * [OpenMPF Standard Components](https://github.com/openmpf/openmpf-components)
     * [OpenMPF Contributed Components](https://github.com/openmpf/openmpf-contrib-components) ( **You are here** )
 - Component APIs:
-    * [OpenMPF C++ Component sdk](https://github.com/openmpf/openmpf-cpp-component-sdk)
-    * [OpenMPF Java Component sdk](https://github.com/openmpf/openmpf-java-component-sdk)
+    * [OpenMPF C++ Component SDK](https://github.com/openmpf/openmpf-cpp-component-sdk)
+    * [OpenMPF Java Component SDK](https://github.com/openmpf/openmpf-java-component-sdk)
+    * [OpenMPF Python Component SDK](https://github.com/openmpf/openmpf-python-component-sdk)
 - [OpenMPF Build Tools](https://github.com/openmpf/openmpf-build-tools)
 - [OpenMPF Web Site Source](https://github.com/openmpf/openmpf.github.io)
 
@@ -73,6 +74,6 @@ For more information about OpenMPF, including documentation, guides, and other m
 
 ### Project Workboard
 
-For a latest snapshot of what tasks are being worked on, what's available to pick up, and where the project stands as a whole, check out our   [workboard](https://overv.io/~/openmpf/).
+For a latest snapshot of what tasks are being worked on, what's available to pick up, and where the project stands as a whole, check out our [workboard](https://github.com/orgs/openmpf/projects/3).
 
 
