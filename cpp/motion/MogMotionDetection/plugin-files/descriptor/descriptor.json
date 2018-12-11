@@ -1,7 +1,7 @@
 {
   "componentName": "MogMotionDetection",
-  "componentVersion": "2.1.0",
-  "middlewareVersion": "2.1.0",
+  "componentVersion": "3.0.0",
+  "middlewareVersion": "3.0.0",
   "sourceLanguage": "c++",
   "batchLibrary": "${MPF_HOME}/plugins/MogMotionDetection/lib/libmpfMogMotionDetection.so",
   "environmentVariables": [
