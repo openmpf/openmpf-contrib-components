@@ -63,9 +63,6 @@ class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionC
     std::string msg_prefix_;
     log4cxx::LoggerPtr motion_logger_;
     unsigned int verbose_;
-    bool segment_activity_reported_;   // Set to true when activity has been
-                                       // reported in a segment, so
-                                       // that this is done at most once.
     int frame_width_;
     int frame_height_;
     int previous_segment_number_;

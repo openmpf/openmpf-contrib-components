@@ -68,8 +68,6 @@ SubsenseStreamingDetection::SubsenseStreamingDetection(const MPFStreamingVideoJo
 
     GetPropertySettings(job.job_properties, parameters_);
 
-    segment_activity_reported_ = false;
-
     // Create background subtractor
     LOG4CXX_TRACE(motion_logger_, msg_prefix_ << "Creating background subtractor");
 
@@ -168,12 +166,9 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         SetPreprocessorTrack(fore, segment_frame_index_,
                              frame_width_, frame_height_,
                              preprocessor_track_, tracks_);
-        if (!segment_activity_reported_) {
-            // See if we started a track
-            if (preprocessor_track_.start_frame != -1) {
-                frame_activity_found = true;
-                segment_activity_reported_ = true;
-            }
+        // See if we started a track
+        if (preprocessor_track_.start_frame != -1) {
+            frame_activity_found = true;
         }
     }
     else {
@@ -191,21 +186,15 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
             ProcessMotionTracks(parameters_, resized_rects, orig_frame,
                                 segment_frame_index_, tracker_id_,
                                 tracker_map_, track_map_, tracks_);
-            if (!segment_activity_reported_) {
-                if (!tracks_.empty()) {
-                    frame_activity_found = true;
-                    segment_activity_reported_ = true;
-                }
+            if (!tracks_.empty()) {
+                frame_activity_found = true;
             }
         }
         else {
             LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
 
-            if (!segment_activity_reported_) {
-                if (!resized_rects.empty()) {
-                    frame_activity_found = true;
-                    segment_activity_reported_ = true;
-                }
+            if (!resized_rects.empty()) {
+                frame_activity_found = true;
             }
 
             foreach(const cv::Rect &rect, resized_rects) {
@@ -227,8 +216,6 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
     return frame_activity_found;
 }
 vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
-
-    segment_activity_reported_ = false;
 
     // Finish the last track if we ended iteration through the video with an open track.
     if (parameters_["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track_.start_frame != -1) {
