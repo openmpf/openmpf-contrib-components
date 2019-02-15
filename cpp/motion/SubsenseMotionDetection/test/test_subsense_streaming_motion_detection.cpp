@@ -298,7 +298,6 @@ TEST_F(StreamingDetectionTest, TestEndSegment) {
         FAIL() << "Exception thrown from BeginSegment: " << e.what();
     }
 
-    bool first_track_reported = false;
     while (frame_index < stop) {
         bool activity_alert;
         EXPECT_TRUE(cap.read(frame));
@@ -313,12 +312,6 @@ TEST_F(StreamingDetectionTest, TestEndSegment) {
             catch (std::exception &e) {
                 delete streaming_motion_detection;
                 FAIL() << "Exception thrown from ProcessFrame: " << e.what();
-            }
-            // Check that if the first track has been reported, then
-            // we no longer get activity alerts
-            if (activity_alert) {
-                ASSERT_FALSE(first_track_reported) << "More than one activity alert received";
-                first_track_reported = true;
             }
             frame_index++;
         }
@@ -422,7 +415,6 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
             delete streaming_motion_detection;
             FAIL() << "Exception thrown from BeginSegment: " << e.what();
         }
-        bool first_track_reported = false;
 
         do {
             if (!frame.empty()) {
@@ -433,13 +425,6 @@ TEST_F(StreamingDetectionTest, TestMultipleSegments) {
                 catch (std::exception &e) {
                     delete streaming_motion_detection;
                     FAIL() << "Exception thrown from ProcessFrame: " << e.what();
-                }
-
-                // Check that if the first track has been reported, then
-                // we no longer get activity alerts
-                if (activity_alert) {
-                    ASSERT_FALSE(first_track_reported) << "More than one activity alert received for segment #" << seg_index;
-                    first_track_reported = true;
                 }
                 segment_frame_count++;
                 frame_index++;
@@ -555,7 +540,6 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
             delete streaming_motion_detection;
             FAIL() << "Exception thrown from BeginSegment: " << e.what();
         }
-        bool first_track_reported = false;
 
         do {
             if (!frame.empty()) {
@@ -567,13 +551,6 @@ TEST_F(StreamingDetectionTest, TestMotionTracking) {
                     delete streaming_motion_detection;
                     FAIL() << "Exception thrown from ProcessFrame: " << e.what();
                 }
-
-                // Check that we only get one activity alert per segment
-                if (activity_alert) {
-                    ASSERT_FALSE(first_track_reported) << "More than one activity alert received for segment #" << seg_index;
-                    first_track_reported = true;
-                }
-
                 segment_frame_count++;
                 frame_index++;
             }
