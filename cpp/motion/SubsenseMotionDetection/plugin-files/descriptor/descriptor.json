@@ -5,6 +5,7 @@
   "sourceLanguage": "c++",
   "batchLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseMotionDetection.so",
   "streamLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseStreamingMotionDetection.so",
+  "mediaTypesSupported": ["VIDEO", "IMAGE"],
   "environmentVariables": [
     {
       "name": "LD_LIBRARY_PATH",
