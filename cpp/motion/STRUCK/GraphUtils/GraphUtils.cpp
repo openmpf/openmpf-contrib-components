@@ -11,6 +11,7 @@
 // OpenCV
 #include <opencv/cv.h>
 #include <opencv/cxcore.h>
+#include <opencv2/imgproc.hpp>
 #ifdef USE_HIGHGUI
 	#include <opencv/highgui.h>
 #endif
