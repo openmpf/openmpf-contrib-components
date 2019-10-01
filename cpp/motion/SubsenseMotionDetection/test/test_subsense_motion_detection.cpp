@@ -101,6 +101,7 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     std::cout << "config path: " << config_path << std::endl;
     int rc = LoadConfig(config_path, parameters);
     ASSERT_EQ(0, rc);
+    std::cout << "Test TestOnKnownVideo: config file loaded" << std::endl;
 
     cout << "Reading parameters for MOTION_SUBSENSE_DETECTION." << endl;
 
@@ -112,7 +113,7 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     cout << "Stop:\t" << stop << endl;
     cout << "inVideo:\t" << inVideoFile << endl;
 
-    cout << "\tCreating a SUBSENSE Motion Detection" << endl;
+    cout << "\tCreating a SUBSENSE Motion Detector" << endl;
     MotionDetection_Subsense *motion_detection = new MotionDetection_Subsense();
     motion_detection->SetRunDirectory(current_working_dir + "/../plugin");
     ASSERT_TRUE(NULL != motion_detection);
@@ -124,6 +125,11 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     ASSERT_EQ(MPFDetectionError::MPF_DETECTION_SUCCESS, motion_detection->GetDetections(job, found_tracks));
 
     ASSERT_FALSE(found_tracks.empty());
+    cout << "\tFound " << found_tracks.size() << " tracks" << endl;
+
+    for (MPFVideoTrack &track:  found_tracks) {
+        ASSERT_TRUE(track.start_frame >= 30); // motion starts on frame 31
+    }
 
     cout << "\tClosing down detection." << endl;
     ASSERT_TRUE(motion_detection->Close());

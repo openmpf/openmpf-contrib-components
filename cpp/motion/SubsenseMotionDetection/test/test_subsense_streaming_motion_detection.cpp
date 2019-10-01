@@ -60,7 +60,6 @@ class StreamingDetectionTest : public ::testing::Test {
 
     static std::shared_ptr<QHash<QString, QString> > parameters_;
     static string plugin_dir_;
-    static string test_output_dir_;
 
     static void SetUpTestCase() {
 
@@ -68,10 +67,6 @@ class StreamingDetectionTest : public ::testing::Test {
 
         plugin_dir_ = base_path + "/../plugin";
         std::cout << "plugin_dir: " << plugin_dir_ << std::endl;
-
-        // Define the test output directory
-        test_output_dir_ = base_path + "/test/test_output/";
-        std::cout << "test_output_dir: " << test_output_dir_ << std::endl;
 
         // Read the parameters file
         string config_path(base_path + "/config/test_subsense_motion_config.ini");
@@ -90,7 +85,6 @@ class StreamingDetectionTest : public ::testing::Test {
 
 std::shared_ptr<QHash<QString, QString> > StreamingDetectionTest::parameters_ = NULL;
 string StreamingDetectionTest::plugin_dir_ = "";
-string StreamingDetectionTest::test_output_dir_ = "";
 
 
 TEST_F(StreamingDetectionTest, TestConstructor) {
@@ -325,6 +319,11 @@ static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameter
 
     ASSERT_TRUE(num_activity_alerts > 0) << "Expected at least one activity alert";
     ASSERT_FALSE(found_tracks.empty()) << "Expected at least one track";
+    std::cout << "Found " << found_tracks.size() << " tracks" << std::endl;
+
+    for (MPFVideoTrack &track:  found_tracks) {
+        ASSERT_TRUE(track.start_frame >= 30); // motion starts on frame 31
+    }
 
     delete streaming_motion_detection;
 }
