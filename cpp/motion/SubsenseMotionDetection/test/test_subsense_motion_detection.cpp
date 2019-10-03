@@ -80,31 +80,20 @@ TEST(Detection, Init) {
     std::string dir_input(current_working_dir + "/../plugin");
     motion_detection->SetRunDirectory(dir_input);
     std::string rundir = motion_detection->GetRunDirectory();
-    EXPECT_EQ(dir_input, rundir);
+    ASSERT_EQ(dir_input, rundir);
 
-    EXPECT_TRUE(motion_detection->Init());
+    ASSERT_TRUE(motion_detection->Init());
 
     MPFComponentType comp_type = motion_detection->GetComponentType();
-    EXPECT_EQ(MPF_DETECTION_COMPONENT, comp_type);
+    ASSERT_EQ(MPF_DETECTION_COMPONENT, comp_type);
 
-    EXPECT_TRUE(motion_detection->Close());
+    ASSERT_TRUE(motion_detection->Close());
     delete motion_detection;
 }
 
 TEST(VideoGeneration, TestOnKnownVideo) {
 
     std::string current_working_dir = GetCurrentWorkingDirectory();
-    std::string test_output_dir = current_working_dir + "/test/test_output/";
-
-    int start = 0;
-    int stop = 0;
-    int rate = 0;
-    float comparison_score_threshold = 0.0;
-    string inTrackFile;
-    string inVideoFile;
-    string outTrackFile;
-    string outVideoFile;
-    float threshold;
 
     QHash<QString, QString> parameters;
     QString current_path = QDir::currentPath();
@@ -116,57 +105,33 @@ TEST(VideoGeneration, TestOnKnownVideo) {
 
     cout << "Reading parameters for MOTION_SUBSENSE_DETECTION." << endl;
 
-    start = parameters["SUBSENSE_MOTION_START_FRAME"].toInt();
-    stop = parameters["SUBSENSE_MOTION_STOP_FRAME"].toInt();
-    rate = parameters["SUBSENSE_MOTION_FRAME_RATE"].toInt();
-    inTrackFile = parameters["SUBSENSE_MOTION_KNOWN_TRACKS"].toStdString();
-    inVideoFile = parameters["SUBSENSE_MOTION_VIDEO_FILE"].toStdString();
-    outTrackFile = parameters["SUBSENSE_MOTION_FOUND_TRACKS"].toStdString();
-    outVideoFile = parameters["SUBSENSE_MOTION_VIDEO_OUTPUT_FILE"].toStdString();
-    comparison_score_threshold = parameters["SUBSENSE_MOTION_COMPARISON_SCORE_VIDEO"].toFloat();
-    // 	Create a person tracker object.
-
-    cout << "\tCreating a SUBSENSE Motion Detection" << endl;
-    MotionDetection_Subsense *motion_detection = new MotionDetection_Subsense();
-    motion_detection->SetRunDirectory(current_working_dir + "/../plugin");
-    ASSERT_TRUE(NULL != motion_detection);
-    EXPECT_TRUE(motion_detection->Init());
+    int start = parameters["SUBSENSE_MOTION_START_FRAME"].toInt();
+    int stop = parameters["SUBSENSE_MOTION_STOP_FRAME"].toInt();
+    string inVideoFile = parameters["SUBSENSE_MOTION_VIDEO_FILE"].toStdString();
 
     cout << "Start:\t" << start << endl;
     cout << "Stop:\t" << stop << endl;
-    cout << "Rate:\t" << rate << endl;
-    cout << "inTrack:\t" << inTrackFile << endl;
-    cout << "outTrack:\t" << outTrackFile << endl;
     cout << "inVideo:\t" << inVideoFile << endl;
-    cout << "outVideo:\t" << outVideoFile << endl;
-    cout << "comparison threshold:\t" << comparison_score_threshold << endl;
 
-    // 	Load the known tracks into memory.
-    cout << "\tLoading the known tracks into memory: " << inTrackFile << endl;
-    std::vector<MPFVideoTrack> known_tracks;
-    EXPECT_TRUE(ReadDetectionsFromFile::ReadVideoTracks(inTrackFile, known_tracks));
+    cout << "\tCreating a SUBSENSE Motion Detector" << endl;
+    MotionDetection_Subsense *motion_detection = new MotionDetection_Subsense();
+    motion_detection->SetRunDirectory(current_working_dir + "/../plugin");
+    ASSERT_TRUE(NULL != motion_detection);
+    ASSERT_TRUE(motion_detection->Init());
 
-    // 	Evaluate the known video file to generate the test tracks.
     cout << "\tRunning the tracker on the video: " << inVideoFile << endl;
     std::vector<MPFVideoTrack> found_tracks;
     MPFVideoJob job("Testing", inVideoFile, start, stop, { }, { });
-    EXPECT_FALSE(motion_detection->GetDetections(job, found_tracks));
+    ASSERT_EQ(MPFDetectionError::MPF_DETECTION_SUCCESS, motion_detection->GetDetections(job, found_tracks));
 
-    EXPECT_FALSE(found_tracks.empty());
+    ASSERT_FALSE(found_tracks.empty());
+    cout << "\tFound " << found_tracks.size() << " tracks" << endl;
 
-    // 	Compare the known and test track output.
-    cout << "\tComparing the known and test tracks." << endl;
-    float comparison_score = DetectionComparison::CompareDetectionOutput(found_tracks, known_tracks);
-    cout << "Tracker comparison score: " << comparison_score << endl;
-    EXPECT_TRUE(comparison_score > comparison_score_threshold);
-
-    // create output video to view performance
-    cout << "\tWriting detected video and test tracks to files." << endl;
-    VideoGeneration video_generation;
-    video_generation.WriteTrackOutputVideo(inVideoFile, found_tracks, (test_output_dir + "/" + outVideoFile));
-    WriteDetectionsToFile::WriteVideoTracks((test_output_dir + "/" + outTrackFile), found_tracks);
+    for (MPFVideoTrack &track:  found_tracks) {
+        ASSERT_TRUE(track.start_frame >= 30); // motion starts on frame 31
+    }
 
     cout << "\tClosing down detection." << endl;
-    EXPECT_TRUE(motion_detection->Close());
+    ASSERT_TRUE(motion_detection->Close());
     delete motion_detection;
 }

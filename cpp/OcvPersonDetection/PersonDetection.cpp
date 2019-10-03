@@ -298,7 +298,7 @@ void PersonDetection::logTrack(const MPFVideoTrack& track, const std::string& jo
     LOG4CXX_DEBUG(personLogger, "[" << job_name << "] StopFrame:  " << track.stop_frame);
     int count;
     for (std::map<int, MPFImageLocation>::const_iterator it = track.frame_locations.begin(); it != track.frame_locations.end(); ++it) {
-        LOG4CXX_DEBUG(personLogger, "[" << job_name << "] Person # " << cout);
+        LOG4CXX_DEBUG(personLogger, "[" << job_name << "] Person # " << count);
         logPerson(it->second, job_name);
         count++;
     }
