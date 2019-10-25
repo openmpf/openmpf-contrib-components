@@ -49,6 +49,7 @@ if (${GTEST_FOUND})
 
     # Install config file
     file(COPY test_ocv_person_config.ini DESTINATION config)
+    file(COPY ../plugin-files/config DESTINATION .)
 
     # Install test images and videos
     file(GLOB PERSON_TEST_IMAGE_FILES data/test_imgs/*)

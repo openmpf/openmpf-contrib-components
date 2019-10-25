@@ -67,16 +67,10 @@ std::string PersonDetection::GetDetectionType() {
 
 bool PersonDetection::Init() {
     if (!initialized) {
-        int rc;
-        string run_dir = GetRunDirectory();
-        string plugin_path = run_dir + "/OcvPersonDetection";
-        string config_path = plugin_path + "/config";
-
-        log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
+        log4cxx::xml::DOMConfigurator::configure("config/Log4cxxConfig.xml");
         personLogger = log4cxx::Logger::getLogger("OcvPersonDetection");
-        string config_file = config_path + "/mpfOcvPersonDetection.ini";
-        LOG4CXX_DEBUG(personLogger, "Looking for config file in" << config_path.c_str());
-        rc = LoadConfig(config_file, parameters);
+        string config_file = "config/mpfOcvPersonDetection.ini";
+        int rc = LoadConfig(config_file, parameters);
         if (rc) {
             LOG4CXX_ERROR(personLogger, "Failed to load config file: " << config_file)
             return false;
