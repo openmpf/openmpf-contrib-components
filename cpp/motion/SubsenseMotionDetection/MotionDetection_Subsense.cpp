@@ -59,12 +59,11 @@ std::string MotionDetection_Subsense::GetDetectionType() {
 }
 
 bool MotionDetection_Subsense::Init() {
-    std::string plugin_path = GetRunDirectory() + "/SubsenseMotionDetection";
-    std::string logger_file = plugin_path + "/config/Log4cxxConfig.xml";
+    std::string logger_file = "config/Log4cxxConfig.xml";
     log4cxx::xml::DOMConfigurator::configure(logger_file);
     motion_logger = log4cxx::Logger::getLogger("SubsenseMotionDetection");
 
-    std::string config_file = plugin_path + "/config/mpfSubsenseMotionDetection.ini";
+    std::string config_file = "config/mpfSubsenseMotionDetection.ini";
 
     if (LoadConfig(config_file, parameters) == -1) {
         LOG4CXX_ERROR(motion_logger, "failed to load config file " << config_file);
@@ -86,7 +85,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job
     try {
         LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Starting motion detection");
 
-        LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
+        LoadConfig("config/mpfSubsenseMotionDetection.ini", parameters);
         GetPropertySettings(job.job_properties, parameters);
 
         if (job.data_uri.empty()) {
@@ -265,7 +264,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 
 MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job, std::vector<MPFImageLocation> &locations) {
     try {
-        LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
+        LoadConfig("config/mpfSubsenseMotionDetection.ini", parameters);
         GetPropertySettings(job.job_properties, parameters);
 
         // if this component is used as a preprocessor then it will return that it detects motion in every image
