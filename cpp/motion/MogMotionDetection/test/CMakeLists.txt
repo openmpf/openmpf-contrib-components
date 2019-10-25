@@ -51,6 +51,7 @@ if (${GTEST_FOUND})
 
     # Install config file
     file(COPY test_mog_motion_config.ini DESTINATION config)
+    file(COPY ../plugin-files/config DESTINATION .)
 
     # Install test videos
     file(GLOB MOG_TEST_VIDEO_FILES data/test_vids/*)
