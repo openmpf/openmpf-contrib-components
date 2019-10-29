@@ -49,12 +49,10 @@ COPY --from=build_component $BUILD_DIR/libmpfSubsenseMotionDetection.so \
 
 
 ARG BUILD_SHAS
-ARG BUILD_TAG
 LABEL org.label-schema.license="GPL 2.0" \
       org.label-schema.name="OpenMPF Subsense Motion Detection" \
       org.label-schema.schema-version="1.0" \
       org.label-schema.url="https://openmpf.github.io" \
       org.label-schema.vcs-ref=$BUILD_SHAS \
       org.label-schema.vcs-url="https://github.com/openmpf/openmpf-contrib-components" \
-      org.label-schema.vendor="MITRE" \
-      org.label-schema.version=$BUILD_TAG
+      org.label-schema.vendor="MITRE"
