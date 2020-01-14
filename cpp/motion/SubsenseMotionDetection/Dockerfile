@@ -50,7 +50,7 @@ COPY --from=build_component $BUILD_DIR/libmpfSubsenseMotionDetection.so \
 
 ARG BUILD_SHAS
 LABEL org.label-schema.license="GPL 2.0" \
-      org.label-schema.name="OpenMPF Subsense Motion Detection" \
+      org.label-schema.name="OpenMPF SuBSENSE Motion Detection" \
       org.label-schema.schema-version="1.0" \
       org.label-schema.url="https://openmpf.github.io" \
       org.label-schema.vcs-ref=$BUILD_SHAS \
