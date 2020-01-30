@@ -66,3 +66,8 @@ add_subdirectory(test)
 
 add_executable(sample_ocv_person_detector sample_ocv_person_detector.cpp)
 target_link_libraries(sample_ocv_person_detector mpfOcvPersonDetection)
+
+# Make plugin files available to sample binary
+execute_process(
+    COMMAND sh -c "ln --symbolic --force plugin/OcvPersonDetection/* ."
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})

@@ -58,3 +58,8 @@ add_subdirectory(test)
 
 add_executable(sample_mog_motion_detector sample_mog_motion_detector.cpp)
 target_link_libraries(sample_mog_motion_detector mpfMogMotionDetection)
+
+# Make plugin files available to sample binary
+execute_process(
+    COMMAND sh -c "ln --symbolic --force plugin/MogMotionDetection/* ."
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})

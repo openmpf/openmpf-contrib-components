@@ -77,3 +77,8 @@ target_link_libraries(sample_subsense_motion_detector mpfSubsenseMotionDetection
 
 add_executable(sample_subsense_streaming_motion_detector sample_subsense_streaming_motion_detector.cpp)
 target_link_libraries(sample_subsense_streaming_motion_detector mpfSubsenseStreamingMotionDetection)
+
+# Make plugin files available to sample binary
+execute_process(
+    COMMAND sh -c "ln --symbolic --force plugin/SubsenseMotionDetection/* ."
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
