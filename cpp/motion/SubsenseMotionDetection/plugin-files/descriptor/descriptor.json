@@ -296,6 +296,18 @@
           "defaultValue": "-1"
         },
         {
+          "name": "DISTANCE_CONFIDENCE_WEIGHT_FACTOR",
+          "description": "The weight to be given to the distance of a given detection from the center detection in a track when calculating the confidence of that detection. The default value of 0 will result in the distance from the center detection not being factored into the calculation of confidence. If this and the SIZE_CONFIDENCE_WEIGHT_FACTOR are both set to 0, then the confidence will be assigned a value of -1.",
+          "type": "FLOAT",
+          "defaultValue": "0"
+        },
+        {
+          "name": "SIZE_CONFIDENCE_WEIGHT_FACTOR",
+          "description": "The weight to be given to the size of the bounding box for a given detection in a track when calculating the confidence of that detection. The default value of 0 will result in the size of the bounding box not being factored into the calculation of confidence. If this and the DISTANCE_CONFIDENCE_WEIGHT_FACTOR are both set to 0, then the confidence will be assigned a value of -1.",
+          "type": "FLOAT",
+          "defaultValue": "0"
+        },
+        {
           "name": "VERBOSE",
           "description": "0: no debugging output 1: log all track results.",
           "type": "INT",

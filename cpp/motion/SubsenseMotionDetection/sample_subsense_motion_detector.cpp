@@ -116,6 +116,8 @@ int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]
     algorithm_properties["USE_MOTION_TRACKING"] = to_string(1);
     // algorithm_properties["VERBOSE"] = to_string(2);
     // algorithm_properties["ROTATION"] = to_string(270);
+    // algorithm_properties["DISTANCE_CONFIDENCE_WEIGHT_FACTOR"] = to_string(0.5);
+    // algorithm_properties["SIZE_CONFIDENCE_WEIGHT_FACTOR"] = to_string(0.5);
 
     MPFVideoJob job("Testing", argv[1], stoi(argv[2]), stoi(argv[3]), algorithm_properties, { });
     vector<MPFVideoTrack> tracks;
