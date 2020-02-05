@@ -233,7 +233,7 @@ bool operator <(const cv::Rect &r1, const cv::Rect &r2) {
 
 void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
                                float size_factor) {
-    std::cout << "distance_factor = " << distance_factor << " size_factor = " << size_factor << std::endl;
+
     if ((distance_factor <= 0.0) && (size_factor <= 0.0)) return;
 
     // Distance confidence: Detections closer to the "center" of the
@@ -251,7 +251,6 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
     // box to the maximum size bounding box in the track.
 
     int number_of_detections = track.frame_locations.size();
-    std::cout << "number of detections = " << number_of_detections << std::endl;
     float max_size = 0;
     float max_confidence = 0.0;
     for (auto entry: track.frame_locations) {
@@ -260,11 +259,10 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
             max_size = entry_size;
         }
     }
-    std::cout <<"max size = " << max_size << std::endl;
+
     if (number_of_detections <= 2) {
         for (auto &entry : track.frame_locations) {
             MPFImageLocation &loc = entry.second;
-            std::cout << "size = " << static_cast<float>(loc.height*loc.width) << std::endl;
             loc.confidence = distance_factor + size_factor*(static_cast<float>(loc.height*loc.width)/max_size);
             max_confidence = (loc.confidence > max_confidence) ? loc.confidence : max_confidence;
         }
@@ -273,8 +271,6 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
         float center = static_cast<float>(number_of_detections)/2.0;
         int center_index = static_cast<int>(center);
         float confidence_incr = (center_index < center) ? 1.0/center_index : 1.0/(center_index - 1);
-        std::cout << "center = " << center << " center index = " << center_index << std::endl;
-        std::cout << "confidence_incr = " << confidence_incr << std::endl;
 
         auto first = track.frame_locations.begin();
         auto last = track.frame_locations.rbegin();
@@ -295,17 +291,13 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
             }
             max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
             max_confidence = (loc2.confidence > max_confidence) ? loc2.confidence : max_confidence;
-        std::cout << "confidence 1 = " << loc1.confidence << std::endl;
-        std::cout << "confidence 2 = " << loc2.confidence << std::endl;
         }
     }
 
     // Finally, normalize all confidences to between 0 and 1.
-    std::cout << "max_confidence = " << max_confidence << std::endl;
     for (auto &entry : track.frame_locations) {
         MPFImageLocation &loc = entry.second;
         loc.confidence = loc.confidence/max_confidence;
-        std::cout << "confidence = " << loc.confidence << std::endl;
     }
 }
 

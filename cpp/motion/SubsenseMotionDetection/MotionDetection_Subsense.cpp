@@ -39,7 +39,6 @@
 #include "SubSense/BackgroundSubtractorSuBSENSE.h"
 #include "struck.h"
 #include "MotionDetectionUtils.h"
-#include "AssignDetectionConfidence.h"
 
 using std::pair;
 

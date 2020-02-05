@@ -32,7 +32,6 @@
 #include <MPFSimpleConfigLoader.h>
 #include "StreamingMotionDetection_Subsense.h"
 #include "MotionDetectionUtils.h"
-#include "AssignDetectionConfidence.h"
 
 using namespace MPF;
 using namespace COMPONENT;
