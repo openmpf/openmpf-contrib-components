@@ -32,6 +32,7 @@
 #include <MPFSimpleConfigLoader.h>
 #include "StreamingMotionDetection_Subsense.h"
 #include "MotionDetectionUtils.h"
+#include "AssignDetectionConfidence.h"
 
 using namespace MPF;
 using namespace COMPONENT;
@@ -262,12 +263,9 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     // Assign a confidence value to each detection
     float distance_factor = parameters_["DISTANCE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
     float size_factor = parameters_["SIZE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
-    if ((distance_factor > 0) || (size_factor > 0)) {
-        for(MPFVideoTrack &track : tracks_) {
-            AssignDetectionConfidence(track, distance_factor, size_factor);
-        }
+    for(MPFVideoTrack &track : tracks_) {
+        AssignDetectionConfidence(track, distance_factor, size_factor);
     }
-
 
     track_map_.clear();
     tracker_map_.clear();

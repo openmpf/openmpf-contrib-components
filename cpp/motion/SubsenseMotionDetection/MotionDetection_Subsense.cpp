@@ -39,6 +39,7 @@
 #include "SubSense/BackgroundSubtractorSuBSENSE.h"
 #include "struck.h"
 #include "MotionDetectionUtils.h"
+#include "AssignDetectionConfidence.h"
 
 using std::pair;
 
@@ -238,12 +239,9 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
     // Assign a confidence value to each detection
     float distance_factor = parameters["DISTANCE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
     float size_factor = parameters["SIZE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
-    if ((distance_factor > 0) || (size_factor > 0)) {
-        for(MPFVideoTrack &track : tracks) {
-            AssignDetectionConfidence(track, distance_factor, size_factor);
-        }
+    for(MPFVideoTrack &track : tracks) {
+        AssignDetectionConfidence(track, distance_factor, size_factor);
     }
-
 
     if (parameters["VERBOSE"].toInt() > 0) {
         //now print tracks if available

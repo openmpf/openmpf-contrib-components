@@ -76,5 +76,4 @@ void AssignDetectionConfidence(MPF::COMPONENT::MPFVideoTrack &track,
                                float distance_factor,
                                float size_factor);
 
-
 #endif   // OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
