@@ -47,7 +47,7 @@ add_subdirectory(SubSense)
 
 include(../STRUCK/CMakeLists.txt)
 
-set(MOTION_UTILS_DIR ${CMAKE_SOURCE_DIR}/motion/Utils)
+set(MOTION_UTILS_DIR ../Utils)
 set(MOTION_UTILS_SRC ${MOTION_UTILS_DIR}/MotionDetectionUtils.cpp ${MOTION_UTILS_DIR}/MotionDetectionUtils.h)
 include_directories(${MOTION_UTILS_DIR})
 
