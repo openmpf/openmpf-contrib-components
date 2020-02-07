@@ -287,18 +287,13 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
                 max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
                 max_confidence = (loc2.confidence > max_confidence) ? loc2.confidence : max_confidence;
             }
-            MPFImageLocation &loc1 = (first)->second;
-            loc1.confidence = distance_factor +
-               size_factor*((loc1.height*loc1.width)/max_size);
-            max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
             if (center_index < center) {
-                MPFImageLocation &loc2 = (last)->second;
-                loc2.confidence = distance_factor +
-                                  size_factor*((loc2.height*loc2.width)/max_size);
-                max_confidence = (loc2.confidence > max_confidence) ? loc2.confidence : max_confidence;
+                MPFImageLocation &loc1 = (first)->second;
+                loc1.confidence = distance_factor +
+                                  size_factor*((loc1.height*loc1.width)/max_size);
+                max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
             }
         }
-
         // Finally, normalize all confidences to between 0 and 1.
         for (auto &entry : track.frame_locations) {
             MPFImageLocation &loc = entry.second;
