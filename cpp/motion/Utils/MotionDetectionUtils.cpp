@@ -254,10 +254,10 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
         // box to the maximum size bounding box in the track.
 
         int number_of_detections = track.frame_locations.size();
-        float max_size = 0;
+        float max_size = 0.0;
         float max_confidence = 0.0;
         for (auto entry: track.frame_locations) {
-            float entry_size = static_cast<float>(entry.second.width * entry.second.height);
+            float entry_size = entry.second.width * entry.second.height;
             if (entry_size > max_size) {
                 max_size = entry_size;
             }
@@ -271,7 +271,7 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
             }
         }
         else {
-            float center = static_cast<float>(number_of_detections)/2.0;
+            float center = number_of_detections/2.0;
             int center_index = static_cast<int>(center);
             float confidence_incr = (center_index < center) ? 1.0/center_index : 1.0/(center_index - 1);
 
@@ -281,20 +281,20 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
                 MPFImageLocation &loc1 = (first++)->second;
                 MPFImageLocation &loc2 = (last++)->second;
                 loc1.confidence = distance_factor*(i*confidence_incr) +
-                                  size_factor*(static_cast<float>(loc1.height*loc1.width)/max_size);
+                                  size_factor*((loc1.height*loc1.width)/max_size);
                 loc2.confidence = distance_factor*(i*confidence_incr) +
-                                  size_factor*(static_cast<float>(loc2.height*loc2.width)/max_size);
+                                  size_factor*((loc2.height*loc2.width)/max_size);
                 max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
                 max_confidence = (loc2.confidence > max_confidence) ? loc2.confidence : max_confidence;
             }
             MPFImageLocation &loc1 = (first)->second;
             loc1.confidence = distance_factor +
-               size_factor*(static_cast<float>(loc1.height*loc1.width)/max_size);
+               size_factor*((loc1.height*loc1.width)/max_size);
             max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
             if (center_index < center) {
                 MPFImageLocation &loc2 = (last)->second;
                 loc2.confidence = distance_factor +
-                                  size_factor*(static_cast<float>(loc2.height*loc2.width)/max_size);
+                                  size_factor*((loc2.height*loc2.width)/max_size);
                 max_confidence = (loc2.confidence > max_confidence) ? loc2.confidence : max_confidence;
             }
         }
