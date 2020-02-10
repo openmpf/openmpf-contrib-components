@@ -255,19 +255,15 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
 
         int number_of_detections = track.frame_locations.size();
         float max_size = 0.0;
-        float max_confidence = 0.0;
-        for (auto entry: track.frame_locations) {
+        for (auto &entry: track.frame_locations) {
             float entry_size = entry.second.width * entry.second.height;
-            if (entry_size > max_size) {
-                max_size = entry_size;
-            }
+            max_size = (entry_size > max_size) ? entry_size : max_size;
         }
 
         if (number_of_detections <= 2) {
             for (auto &entry : track.frame_locations) {
                 MPFImageLocation &loc = entry.second;
                 loc.confidence = distance_factor + size_factor*(static_cast<float>(loc.height*loc.width)/max_size);
-                max_confidence = (loc.confidence > max_confidence) ? loc.confidence : max_confidence;
             }
         }
         else {
@@ -284,17 +280,18 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
                                   size_factor*((loc1.height*loc1.width)/max_size);
                 loc2.confidence = distance_factor*(i*confidence_incr) +
                                   size_factor*((loc2.height*loc2.width)/max_size);
-                max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
-                max_confidence = (loc2.confidence > max_confidence) ? loc2.confidence : max_confidence;
             }
             if (center_index < center) {
                 MPFImageLocation &loc1 = (first)->second;
                 loc1.confidence = distance_factor +
                                   size_factor*((loc1.height*loc1.width)/max_size);
-                max_confidence = (loc1.confidence > max_confidence) ? loc1.confidence : max_confidence;
             }
         }
         // Finally, normalize all confidences to between 0 and 1.
+        float max_confidence = 0.0;
+        for (auto &entry : track.frame_locations) {
+            max_confidence = (entry.second.confidence > max_confidence) ? entry.second.confidence : max_confidence;
+        }
         for (auto &entry : track.frame_locations) {
             MPFImageLocation &loc = entry.second;
             loc.confidence = loc.confidence/max_confidence;

@@ -302,3 +302,22 @@ TEST(TestAssignConfidence, EqualWeights) {
     ASSERT_TRUE(CheckTrack(track, {0.0153846, 0.312821, 0.641026, 1.0, 0.88718, 0.805128, 0.753846}));
 }
 
+TEST(TestAssignConfidence, EqualBoundingBoxesAtEqualDistance) {
+
+    MPFVideoTrack track = MakeTrack(5);
+    track.frame_locations.at(1) = track.frame_locations.at(3);
+    float distance_factor = 0.5;
+    float size_factor = 0.5;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_NEAR(track.frame_locations.at(1).confidence, track.frame_locations.at(3).confidence, 0.000001);
+}
+
+TEST(TestAssignConfidence, EqualBoundingBoxesAtDifferentDistance) {
+
+    MPFVideoTrack track = MakeTrack(7);
+    track.frame_locations.at(1) = track.frame_locations.at(4);
+    float distance_factor = 0;
+    float size_factor = 1.0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_NEAR(track.frame_locations.at(1).confidence, track.frame_locations.at(4).confidence, 0.000001);
+}
