@@ -72,6 +72,8 @@ cv::Rect Upscale(const cv::Rect &rect,
                  int frame_cols, int frame_rows,
                  int downsample_count);
     
-
+void AssignDetectionConfidence(MPF::COMPONENT::MPFVideoTrack &track,
+                               float distance_factor,
+                               float size_factor);
 
 #endif   // OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H

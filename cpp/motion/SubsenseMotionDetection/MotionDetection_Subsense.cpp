@@ -45,7 +45,6 @@ using std::pair;
 using namespace MPF;
 using namespace COMPONENT;
 
-
 void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks);
 
 MotionDetection_Subsense::MotionDetection_Subsense() {
@@ -236,6 +235,13 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
     // Close video capture
     video_capture.Release();
 
+    // Assign a confidence value to each detection
+    float distance_factor = parameters["DISTANCE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
+    float size_factor = parameters["SIZE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
+    for(MPFVideoTrack &track : tracks) {
+        AssignDetectionConfidence(track, distance_factor, size_factor);
+    }
+
     if (parameters["VERBOSE"].toInt() > 0) {
         //now print tracks if available
         if (!tracks.empty()) {
@@ -301,6 +307,8 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job
         return Utils::HandleDetectionException(job, motion_logger);
     }
 }
+
+
 
 // NOTE: This only draws a bounding box around the first detection in each track
 void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks) {
