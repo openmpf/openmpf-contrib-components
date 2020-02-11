@@ -111,32 +111,32 @@
         },
         {
           "name": "SEARCH_REGION_TOP_LEFT_X_DETECTION",
-          "description": "X coordinate for top left corner of cropped frame. If negative, 0 will be used.",
-          "type": "INT",
+          "description": "X coordinate for top left corner of cropped frame. If this string contains the % sign, then its numeric value will be interpreted as a percentage of the width of the frame, and its value will be capped between 0% and 100%, inclusive. If this string does not contain the % sign, then it will be interpreted as a pixel position. If negative, the top left X position will be set to 0.",
+          "type": "STRING",
           "defaultValue": "-1"
         },
         {
           "name": "SEARCH_REGION_TOP_LEFT_Y_DETECTION",
-          "description": "Y coordinate for top left corner of cropped frame. If negative, 0 will be used.",
-          "type": "INT",
+          "description": "Y coordinate for top left corner of cropped frame. If this string contains the % sign, then its numeric value will be interpreted as a percentage of the height of the frame, and its value will be capped between 0% and 100%, inclusive. If this string does not contain the % sign, then it will be interpreted as a pixel position. If negative, the top left Y position will be set to 0.",
+          "type": "STRING",
           "defaultValue": "-1"
         },
         {
           "name": "SEARCH_REGION_BOTTOM_RIGHT_X_DETECTION",
-          "description": "X coordinate for bottom right corner of cropped frame. If negative, bottom right X of input media will be used.",
-          "type": "INT",
+          "description": "X coordinate for bottom right corner of cropped frame. If this string contains the % sign, then its numeric value will be interpreted as a percentage of the width of the frame, and its value will be capped between 0% and 100%, inclusive. If this string does not contain the % sign, then it will be interpreted as a pixel position. If zero or negative, the bottom right X position will be set to the width of the frame.",
+          "type": "STRING",
           "defaultValue": "-1"
         },
         {
           "name": "SEARCH_REGION_BOTTOM_RIGHT_Y_DETECTION",
-          "description": "Y coordinate for bottom right corner of cropped frame. If negative, bottom right Y of input media. will be used.",
-          "type": "INT",
+          "description": "Y coordinate for bottom right corner of cropped frame. If this string contains the % sign, then its numeric value will be interpreted as a percentage of the height of the frame, and its value will be capped between 0% and 100%, inclusive. If this string does not contain the % sign, then it will be interpreted as a pixel position. If zero or negative, the bottom right Y position will be set to the height of the frame.",
+          "type": "STRING",
           "defaultValue": "-1"
         },
         {
           "name": "ROTATION",
           "description": "Specifies the number of degrees in the clockwise direction that the media will be rotated. Only 90, 180 and 270 degrees are supported.",
-          "type": "INT",
+          "type": "STRING",
           "defaultValue": "0"
         },
         {
@@ -294,6 +294,18 @@
           "description": "The threshold for STRUCK when determining if a track should stop.",
           "type": "DOUBLE",
           "defaultValue": "-1"
+        },
+        {
+          "name": "DISTANCE_CONFIDENCE_WEIGHT_FACTOR",
+          "description": "When calculating a detection's confidence, the weight given to the distance (in number of frames) between that detection and the frame(s) in the middle of the track. Its value must be greater than or equal to 0, and if it is not, it will be set to 0. The default value of 0 will result in this distance not being factored into the confidence calculation. If this and the SIZE_CONFIDENCE_WEIGHT_FACTOR are both equal to 0, then the confidence will be assigned a value of -1.",
+          "type": "FLOAT",
+          "defaultValue": "0"
+        },
+        {
+          "name": "SIZE_CONFIDENCE_WEIGHT_FACTOR",
+          "description": "When calculating a detection's confidence, the weight given to the size of that detection's bounding box. Its value must be greater than or equal to 0, and if it is not, it will be set to 0. The default value of 0 will result in the bounding box size not being factored into the confidence calculation. If this and the DISTANCE_CONFIDENCE_WEIGHT_FACTOR are both equal to 0, then the confidence will be assigned a value of -1.",
+          "type": "FLOAT",
+          "defaultValue": "0"
         },
         {
           "name": "VERBOSE",
