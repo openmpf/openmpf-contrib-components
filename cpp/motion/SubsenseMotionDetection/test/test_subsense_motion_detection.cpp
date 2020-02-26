@@ -47,6 +47,7 @@
 #include <MPFSimpleConfigLoader.h>
 
 #include "MotionDetection_Subsense.h"
+#include "MotionDetectionUtils.h"
 
 using std::string;
 using std::vector;
@@ -134,4 +135,154 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     cout << "\tClosing down detection." << endl;
     ASSERT_TRUE(motion_detection->Close());
     delete motion_detection;
+}
+
+
+MPFVideoTrack MakeTrack(int num_detections) {
+    MPFVideoTrack track(0, num_detections-1, -1);
+    for (int i = 0; i < num_detections; ++i) {
+        track.frame_locations.insert({i, {i+1, i+1, 5*(i+1), 10*(i+1), -1}});
+    }
+    return track;
+}
+
+bool CheckTrack(MPFVideoTrack &track, vector<float> expected) {
+    int index = 0;
+    for (auto &entry : track.frame_locations) {
+        if (abs(entry.second.confidence - expected[index]) > 0.00001) return false;
+        index++;
+    }
+    return true;
+}
+
+
+TEST(TestAssignConfidence, BothWeightsZero) {
+
+    MPFVideoTrack track = MakeTrack(1);
+    float distance_factor = 0.0;
+    float size_factor = 0.0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    // Both weight factors equal to zero must leave confidence unchanged.
+    ASSERT_NEAR(track.frame_locations.begin()->second.confidence, -1.0, 0.000001);
+}
+
+TEST(TestAssignConfidence, NegativeWeight) {
+
+    MPFVideoTrack track = MakeTrack(1);
+    float distance_factor = -0.1;
+    float size_factor = 0.0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    // One weight factor negative: treat it as zero, so no change in confidence
+    ASSERT_NEAR(track.frame_locations.begin()->second.confidence, -1.0, 0.000001);
+}
+
+TEST(TestAssignConfidence, BothWeightsOne) {
+
+    MPFVideoTrack track = MakeTrack(5);
+    float distance_factor = 1.0;
+    float size_factor = 1.0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0.0294118, 0.485294, 1.0, 0.838235, 0.735294}));
+}
+
+TEST(TestAssignConfidence, OneDetection) {
+
+    MPFVideoTrack track = MakeTrack(1);
+    float distance_factor = 0.5;
+    float size_factor = 0.5;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    EXPECT_TRUE(CheckTrack(track, {1.0}));
+}
+
+TEST(TestAssignConfidence, TwoDetections) {
+
+    MPFVideoTrack track = MakeTrack(2);
+    float distance_factor = 0.25;
+    float size_factor = 0.75;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    EXPECT_TRUE(CheckTrack(track,{0.4375, 1.0}));
+}
+
+TEST(TestAssignConfidence, NumDetectionEven) {
+
+    MPFVideoTrack track = MakeTrack(8);
+    float distance_factor = 0.4;
+    float size_factor = 0.6;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0.0147783, 0.269294, 0.553366, 0.866995, 1.0, 0.952381, 0.934319, 0.945813}));
+}
+
+TEST(TestAssignConfidence, NumDetectionsOdd) {
+
+    MPFVideoTrack track = MakeTrack(9);
+    float distance_factor = 0.4;
+    float size_factor = 0.6;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0.0123457, 0.216049, 0.444444, 0.697531, 0.975309, 0.944444, 0.938272, 0.95679, 1.0}));
+}
+
+TEST(TestAssignConfidence, DistanceWeightOnlyEvenNumDetections) {
+
+    MPFVideoTrack track = MakeTrack(10);
+    float distance_factor = 1.0;
+    float size_factor = 0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0, 0.25, 0.5, 0.75, 1.0, 1.0, 0.75, 0.5, 0.25, 0}));
+}
+
+TEST(TestAssignConfidence, DistanceWeightOnlyOddNumDetections) {
+
+    MPFVideoTrack track = MakeTrack(9);
+    float distance_factor = 1.0;
+    float size_factor = 0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25, 0}));
+}
+
+TEST(TestAssignConfidence, DistanceWeightOneSizeWeightNegative) {
+
+    // This test should give the same results as the one above.
+    MPFVideoTrack track = MakeTrack(9);
+    float distance_factor = 1.0;
+    float size_factor = -0.5;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25, 0}));
+}
+
+TEST(TestAssignConfidence, SizeWeightOnly) {
+
+    MPFVideoTrack track = MakeTrack(8);
+    float distance_factor = 0;
+    float size_factor = 1.0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0.015625, 0.0625, 0.140625, 0.25, 0.390625, 0.5625, 0.765625, 1.0}));
+}
+
+TEST(TestAssignConfidence, EqualWeights) {
+
+    MPFVideoTrack track = MakeTrack(7);
+    float distance_factor = 0.5;
+    float size_factor = 0.5;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_TRUE(CheckTrack(track, {0.0153846, 0.312821, 0.641026, 1.0, 0.88718, 0.805128, 0.753846}));
+}
+
+TEST(TestAssignConfidence, EqualBoundingBoxesAtEqualDistance) {
+
+    MPFVideoTrack track = MakeTrack(5);
+    track.frame_locations.at(1) = track.frame_locations.at(3);
+    float distance_factor = 0.5;
+    float size_factor = 0.5;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_NEAR(track.frame_locations.at(1).confidence, track.frame_locations.at(3).confidence, 0.000001);
+}
+
+TEST(TestAssignConfidence, EqualBoundingBoxesAtDifferentDistance) {
+
+    MPFVideoTrack track = MakeTrack(7);
+    track.frame_locations.at(1) = track.frame_locations.at(4);
+    float distance_factor = 0;
+    float size_factor = 1.0;
+    AssignDetectionConfidence(track, distance_factor, size_factor);
+    ASSERT_NEAR(track.frame_locations.at(1).confidence, track.frame_locations.at(4).confidence, 0.000001);
 }
