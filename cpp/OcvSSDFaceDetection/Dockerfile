@@ -33,21 +33,21 @@ COPY . .
 RUN build-component.sh
 
 ARG RUN_TESTS=false
-RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./OcvFaceDetectionTest; fi
+RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./OcvSSDFaceDetectionTest; fi
 
 
 
 FROM ${BUILD_REGISTRY}openmpf_cpp_executor:${BUILD_TAG} as install_component
 
-ENV COMPONENT_LOG_NAME ocv-face-detection.log
+ENV COMPONENT_LOG_NAME ocv-ssd-face-detection.log
 
-COPY --from=build_component $BUILD_DIR/plugin/OcvFaceDetection $PLUGINS_DIR/OcvFaceDetection
+COPY --from=build_component $BUILD_DIR/plugin/OcvSSDFaceDetection $PLUGINS_DIR/OcvSSDFaceDetection
 
-COPY --from=build_component $BUILD_DIR/libmpfOcvFaceDetection.so \
-                            $PLUGINS_DIR/OcvFaceDetection/lib/
+COPY --from=build_component $BUILD_DIR/libmpfOcvSSDFaceDetection.so \
+                            $PLUGINS_DIR/OcvSSDFaceDetection/lib/
 
 LABEL org.label-schema.license="Apache 2.0" \
-      org.label-schema.name="OpenMPF OpenCV Face Detection" \
+      org.label-schema.name="OpenMPF OpenCV SSD Face Detection" \
       org.label-schema.schema-version="1.0" \
       org.label-schema.url="https://openmpf.github.io" \
       org.label-schema.vcs-url="https://github.com/openmpf/openmpf-components" \

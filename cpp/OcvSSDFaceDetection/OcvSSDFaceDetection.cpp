@@ -24,7 +24,7 @@
  * limitations under the License.                                             *
  ******************************************************************************/
 
-#include "OcvFaceDetection.h"
+#include "OcvSSDFaceDetection.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -41,7 +41,6 @@
 #include "detectionComponentUtils.h"
 #include "MPFSimpleConfigLoader.h"
 #include "MPFImageReader.h"
-
 
 using std::string;
 using std::vector;
@@ -70,39 +69,28 @@ using log4cxx::xml::DOMConfigurator;
 using namespace MPF;
 using namespace COMPONENT;
 
-
-
-string OcvFaceDetection::GetDetectionType() {
-    return "FACE";
-}
-
-void OcvFaceDetection::SetModes(bool display_window, bool print_debug_info) {
+/*
+void OcvSSDFaceDetection::SetModes(bool display_window, bool print_debug_info) {
     imshow_on = display_window;
 
     if (print_debug_info && OpenFaceDetectionLogger != NULL) {
         OpenFaceDetectionLogger->setLevel(log4cxx::Level::getDebug());
     }
 }
+*/
 
-bool OcvFaceDetection::Init() {
+bool OcvSSDFaceDetection::Init() {
     string run_dir = GetRunDirectory();
-    string plugin_path = run_dir + "/OcvFaceDetection";
+    string plugin_path = run_dir + "/OcvSSDFaceDetection";
     string config_path = plugin_path + "/config";
     string logconfig_file = config_path + "/Log4cxxConfig.xml";
     //must initialize opencv face detection
 
     // Load XML configuration file using DOMConfigurator
     log4cxx::xml::DOMConfigurator::configure(logconfig_file);
-    OpenFaceDetectionLogger = log4cxx::Logger::getLogger("OcvFaceDetection");
+    OpenFaceDetectionLogger = log4cxx::Logger::getLogger("OcvSSDFaceDetection");
 
-    /* LOG LEVELS
-     *
-     *   TRACE,
-         DEBUG,
-         INFO,
-         WARN,
-         ERROR and
-         FATAL */
+    // LOG LEVELS: TRACE,DEBUG,INFO,WARN,ERROR,FATAL
 
     if (!ocv_detection.Init(plugin_path)) {
         LOG4CXX_ERROR(OpenFaceDetectionLogger, "Failed to initialize OpenCV Detection");
@@ -113,10 +101,10 @@ bool OcvFaceDetection::Init() {
 
     //once this is done - parameters will be set and SetReadConfigParameters() can be called again to revert back
     //to the params read at intialization
-    string config_params_path = config_path + "/mpfOcvFaceDetection.ini";
+    string config_params_path = config_path + "/mpfOcvSSDFaceDetection.ini";
     int rc = LoadConfig(config_params_path, parameters);
     if (rc) {
-        LOG4CXX_ERROR(OpenFaceDetectionLogger, "Failed to load the OcvFaceDetection config from: " << config_params_path);
+        LOG4CXX_ERROR(OpenFaceDetectionLogger, "Failed to load the OcvSSDFaceDetection config from: " << config_params_path);
         return (false);
     }
 
@@ -125,12 +113,12 @@ bool OcvFaceDetection::Init() {
     return true;
 }
 
-bool OcvFaceDetection::Close() {
+bool OcvSSDFaceDetection::Close() {
     CloseWindows();
     return true;
 }
 
-void OcvFaceDetection::SetDefaultParameters() {
+void OcvSSDFaceDetection::SetDefaultParameters() {
     max_features = 250;
 
     //limiting the number of corners to 250 by default
@@ -151,10 +139,10 @@ void OcvFaceDetection::SetDefaultParameters() {
 
     //not currently used - but could be used to help stops tracks earlier when there is a lot
     //of error when detecting the next points using calcopticalflow
-    max_optical_flow_error = 4.7;;
+    max_optical_flow_error = 4.7;
 }
 
-void OcvFaceDetection::SetReadConfigParameters() {
+void OcvSSDFaceDetection::SetReadConfigParameters() {
     //make sure none of the parameters are missed in the config file - double check
     imshow_on = parameters["IMSHOW_ON"].toInt();
 
@@ -175,7 +163,7 @@ void OcvFaceDetection::SetReadConfigParameters() {
 }
 
 /* This function reads a property value map and adjusts the settings for this component. */
-void OcvFaceDetection::GetPropertySettings(const map <string, string> &algorithm_properties) {
+void OcvSSDFaceDetection::GetPropertySettings(const map <string, string> &algorithm_properties) {
     string property;
     string str_value;
     int ivalue;
@@ -211,14 +199,14 @@ void OcvFaceDetection::GetPropertySettings(const map <string, string> &algorithm
     return;
 }
 
-void OcvFaceDetection::Display(const string title, const Mat &img) {
+void OcvSSDFaceDetection::Display(const string title, const Mat &img) {
     if (imshow_on) {
         imshow(title, img);
         waitKey(5);
     }
 }
 
-Rect OcvFaceDetection::GetMatch(const Mat &frame_rgb_display, const Mat &frame_gray, const Mat &templ) {
+Rect OcvSSDFaceDetection::GetMatch(const Mat &frame_rgb_display, const Mat &frame_gray, const Mat &templ) {
     //no clue what method is best - default of the opencv demo
     int match_method = CV_TM_CCOEFF_NORMED;
 
@@ -257,7 +245,7 @@ Rect OcvFaceDetection::GetMatch(const Mat &frame_rgb_display, const Mat &frame_g
     return match_rect;
 }
 
-bool OcvFaceDetection::IsExistingTrackIntersection(const Rect new_rect, int &intersection_index) {
+bool OcvSSDFaceDetection::IsExistingTrackIntersection(const Rect new_rect, int &intersection_index) {
     intersection_index = -1;
 
     for (vector<Track>::iterator track = current_tracks.begin(); track != current_tracks.end(); ++track) {
@@ -282,7 +270,7 @@ bool OcvFaceDetection::IsExistingTrackIntersection(const Rect new_rect, int &int
     return false;
 }
 
-Rect OcvFaceDetection::GetUpscaledFaceRect(const Rect &face_rect) {
+Rect OcvSSDFaceDetection::GetUpscaledFaceRect(const Rect &face_rect) {
     return Rect(
             face_rect.x + static_cast<int>( -0.214 * static_cast<float>(face_rect.width)),
             face_rect.y + static_cast<int>( -0.055 * static_cast<float>(face_rect.height)),
@@ -290,7 +278,7 @@ Rect OcvFaceDetection::GetUpscaledFaceRect(const Rect &face_rect) {
             static_cast<int>( 1.11 * static_cast<float>(face_rect.height)));
 }
 
-Mat OcvFaceDetection::GetMask(const Mat &frame, const Rect &face_rect, bool copy_face_rect) {
+Mat OcvSSDFaceDetection::GetMask(const Mat &frame, const Rect &face_rect, bool copy_face_rect) {
     //create a single channel zero matrix the size of the frame
     Mat image_mask;
     image_mask = Mat::zeros(frame.size(), CV_8UC1);
@@ -328,7 +316,7 @@ Mat OcvFaceDetection::GetMask(const Mat &frame, const Rect &face_rect, bool copy
     return image_mask;
 }
 
-bool OcvFaceDetection::IsBadFaceRatio(const Rect &face_rect) {
+bool OcvSSDFaceDetection::IsBadFaceRatio(const Rect &face_rect) {
     //trying to find a way to kill tracks when points grab onto something outside of the face and the face
     //bounding box ratio becomes odd
     //if bounding rect width is much more than the height there is an issue or if the area of the enclosing circle
@@ -350,7 +338,7 @@ bool OcvFaceDetection::IsBadFaceRatio(const Rect &face_rect) {
     return false;
 }
 
-void OcvFaceDetection::CloseAnyOpenTracks(int frame_index) {
+void OcvSSDFaceDetection::CloseAnyOpenTracks(int frame_index) {
     if (!current_tracks.empty()) {
         //need to stop all current tracks!
         for (vector<Track>::iterator it = current_tracks.begin(); it != current_tracks.end(); it++) {
@@ -371,7 +359,7 @@ void OcvFaceDetection::CloseAnyOpenTracks(int frame_index) {
     }
 }
 
-void OcvFaceDetection::AdjustRectToEdges(Rect &rect, const Mat &src) {
+void OcvSSDFaceDetection::AdjustRectToEdges(Rect &rect, const Mat &src) {
     if (!src.empty()) {
         //check corners and edges and resize appropriately!
 
@@ -427,7 +415,7 @@ void OcvFaceDetection::AdjustRectToEdges(Rect &rect, const Mat &src) {
 }
 
 MPFDetectionError
-OcvFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
+OcvSSDFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
     try {
         SetDefaultParameters();
         SetReadConfigParameters();
@@ -461,7 +449,7 @@ OcvFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &t
 
 
 
-MPFDetectionError OcvFaceDetection::GetDetectionsFromVideoCapture(
+MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
         const MPFVideoJob &job,
         MPFVideoCapture &video_capture,
         vector<MPFVideoTrack> &tracks) {
@@ -1020,7 +1008,7 @@ MPFDetectionError OcvFaceDetection::GetDetectionsFromVideoCapture(
 }
 
 
-MPFDetectionError OcvFaceDetection::GetDetections(
+MPFDetectionError OcvSSDFaceDetection::GetDetections(
         const MPFImageJob &job,
         vector<MPFImageLocation> &locations) {
     try {
@@ -1053,7 +1041,7 @@ MPFDetectionError OcvFaceDetection::GetDetections(
 }
 
 MPFDetectionError
-OcvFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
+OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
                                              cv::Mat &image_data,
                                              vector<MPFImageLocation> &locations) {
     int frame_width = 0;
@@ -1144,7 +1132,7 @@ OcvFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
 }
 
 
-void OcvFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name)
+void OcvSSDFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name)
 {
     LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] XLeftUpper: " << face.x_left_upper);
     LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] YLeftUpper: " << face.y_left_upper);
@@ -1154,7 +1142,7 @@ void OcvFaceDetection::LogDetection(const MPFImageLocation& face, const string& 
 }
 
 
-void OcvFaceDetection::CloseWindows() {
+void OcvSSDFaceDetection::CloseWindows() {
     if(imshow_on) {
         destroyAllWindows();
         waitKey(5); //waitKey might need to be called to actually kill the windows?
@@ -1162,5 +1150,5 @@ void OcvFaceDetection::CloseWindows() {
 }
 
 
-MPF_COMPONENT_CREATOR(OcvFaceDetection);
+MPF_COMPONENT_CREATOR(OcvSSDFaceDetection);
 MPF_COMPONENT_DELETER();

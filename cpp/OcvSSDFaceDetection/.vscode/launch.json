@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/sample_ocv_face_detector",
+            "program": "${workspaceFolder}/build/sample_ocv_ssd_face_detector",
             "args": ["./test/data/test_imgs/meds_faces_image.png"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

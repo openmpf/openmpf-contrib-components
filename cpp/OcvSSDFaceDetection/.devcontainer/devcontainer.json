@@ -6,5 +6,16 @@
   
     "service": "OcvSSDFaceDetection",
     "workspaceFolder": "/home/mpf/component_src",
-    "shutdownAction": "stopCompose"
+	"shutdownAction": "stopCompose",
+	"extensions": [
+		"ms-vscode.cpptools",
+		"ms-vscode.cmake-tools",
+		"sleistner.vscode-fileutils",
+		"bierner.markdown-preview-github-styles",
+		"ryanmcalister.unotes",
+		"redhat.vscode-yaml"
+	],
+	"settings":{
+		"cmake.ctestPath": "/usr/bin/ctest3"
+	}
   }

@@ -5,11 +5,11 @@
 # under contract, and is subject to the Rights in Data-General Clause       #
 # 52.227-14, Alt. IV (DEC 2007).                                            #
 #                                                                           #
-# Copyright 2019 The MITRE Corporation. All Rights Reserved.                #
+# Copyright 2020 The MITRE Corporation. All Rights Reserved.                #
 #############################################################################
 
 #############################################################################
-# Copyright 2019 The MITRE Corporation                                      #
+# Copyright 2020 The MITRE Corporation                                      #
 #                                                                           #
 # Licensed under the Apache License, Version 2.0 (the "License");           #
 # you may not use this file except in compliance with the License.          #
@@ -23,45 +23,13 @@
 # See the License for the specific language governing permissions and       #
 # limitations under the License.                                            #
 #############################################################################
+from openmpf/openmpf_cpp_component_build
 
+RUN yum install --assumeyes gdb which mlocate
 
-cmake_minimum_required(VERSION 3.6)
-project(ocv-ssd-face-detection)
-
-set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_BUILD_TYPE RelWithDebInfo)
-set(CMAKE_BUILD_TYPE Debug)
-add_definitions(-Wfatal-errors)
-include(../ComponentSetup.cmake)
-
-find_package(OpenCV 3.4.7 EXACT REQUIRED PATHS /opt/opencv-3.4.7
-    COMPONENTS opencv_highgui opencv_objdetect opencv_features2d opencv_ml opencv_dnn opencv_flann opencv_video)
-
-find_package(mpfComponentInterface REQUIRED)
-find_package(mpfDetectionComponentApi REQUIRED)
-find_package(mpfComponentUtils REQUIRED)
-find_package(Qt4 REQUIRED)
-
-find_package(GTest)
-if (${GTEST_FOUND})
-    message("-- found GTest, configuring tests")
-    enable_testing()
-    include(Dart)
-endif()
-
-set(OCV_SSD_FACE_DETECTION_SOURCE_FILES
-        OcvDetection.cpp OcvDetection.h
-        OcvSSDFaceDetection.cpp OcvSSDFaceDetection.h)
-
-add_library(mpfOcvSSDFaceDetection SHARED ${OCV_SSD_FACE_DETECTION_SOURCE_FILES})
-target_link_libraries(mpfOcvSSDFaceDetection mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils ${OpenCV_LIBS})
-
-
-configure_mpf_component(OcvSSDFaceDetection TARGETS mpfOcvSSDFaceDetection)
-
-
-add_subdirectory(test)
-
-add_executable(sample_ocv_ssd_face_detector sample_ocv_ssd_face_detector.cpp)
-target_link_libraries(sample_ocv_ssd_face_detector mpfOcvSSDFaceDetection)
-
+LABEL org.label-schema.license="Apache 2.0" \
+      org.label-schema.name="OpenMPF OpenCV SSD Face Detection Dev" \
+      org.label-schema.schema-version="1.0" \
+      org.label-schema.url="https://openmpf.github.io" \
+      org.label-schema.vcs-url="https://github.com/openmpf/openmpf-components" \
+      org.label-schema.vendor="MITRE"

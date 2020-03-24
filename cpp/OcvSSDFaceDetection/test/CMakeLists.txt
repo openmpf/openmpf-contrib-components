@@ -25,26 +25,27 @@
 #############################################################################
 
 cmake_minimum_required(VERSION 3.6)
-project(ocv-face-detection-tests)
+project(ocv-ssd-face-detection-tests)
 
 set(CMAKE_CXX_STANDARD 11)
 
 find_package(GTest)
 if (${GTEST_FOUND})
-
-    enable_testing()
+    #enable_testing()
     find_package(Qt4 REQUIRED)
     find_package(mpfComponentTestUtils REQUIRED)
 
     include_directories(..)
-    add_executable(OcvFaceDetectionTest test_ocv_face_detection.cpp)
-    target_link_libraries(OcvFaceDetectionTest mpfOcvFaceDetection mpfComponentTestUtils GTest::GTest GTest::Main Qt4::QtCore)
+    add_executable(OcvSSDFaceDetectionTest test_ocv_ssd_face_detection.cpp)
+    target_link_libraries(OcvSSDFaceDetectionTest mpfOcvSSDFaceDetection mpfComponentTestUtils GTest::GTest GTest::Main Qt4::QtCore)
 
-    add_test(NAME OcvFaceDetectionTest COMMAND OcvFaceDetectionTest)
+    add_test(NAME OcvSSDFaceDetectionTest COMMAND OcvSSDFaceDetectionTest)
 
+    # allow for 'make check' 
+    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose)
 
     # Install config file
-    file(COPY test_ocv_face_config.ini DESTINATION config)
+    file(COPY test_ocv_ssd_face_config.ini DESTINATION config)
 
 
     # Install test images and videos

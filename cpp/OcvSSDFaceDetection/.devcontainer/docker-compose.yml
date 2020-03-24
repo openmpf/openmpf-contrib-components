@@ -12,7 +12,10 @@ x-detection-component-base:
 
 services:
   OcvSSDFaceDetection:
-    image: openmpf/openmpf_cpp_component_build
+    image: openmpf/openmpf_cpp_component_dev
+    build:
+      context: .
+      dockerfile: Dockerfile
 
     volumes:
       # Mounts the project folder to '/workspace'. While this file is in .devcontainer,

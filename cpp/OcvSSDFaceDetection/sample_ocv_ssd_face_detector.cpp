@@ -24,7 +24,7 @@
  * limitations under the License.                                             *
  ******************************************************************************/
 
-#include "OcvFaceDetection.h"
+#include "OcvSSDFaceDetection.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -35,50 +35,12 @@
 #include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
 
 using namespace std;
-
 using namespace MPF;
 using namespace COMPONENT;
 
-// Main program to run the OCV face detection in standalone mode.
-
-int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
-int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
-
-int main(int argc, char* argv[]) {
-
-    if (argc < 2 || argc > 5) {
-        printf("Usage (IMAGE): %s <uri>\n", argv[0]);
-        printf("Usage (VIDEO): %s <uri> <start_index> <end_index> <detection_interval (optional)>\n", argv[0]);
-        return 1;
-    }
-
-    QCoreApplication *this_app = new QCoreApplication(argc, argv);
-    string app_dir = (this_app->applicationDirPath()).toStdString();
-    delete this_app;
-
-    OcvFaceDetection ocv_face_detection;
-    MPFDetectionComponent *detection_engine = &ocv_face_detection;
-    detection_engine->SetRunDirectory(app_dir + "/plugin");
-
-    if (!detection_engine->Init()) {
-        printf("Failed to initialize.\n");
-        return 1;
-    }
-
-    int rc;
-    if (argc == 2) {
-        rc = processImage(detection_engine, argc, argv);
-    } else {
-        rc = processVideo(detection_engine, argc, argv);
-    }
-
-    if (!detection_engine->Close()) {
-        printf("Failed to close.\n");
-    }
-
-    return rc;
-}
-
+//-----------------------------------------------------------------------------
+// Process and image 
+//-----------------------------------------------------------------------------
 int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
 
     MPFImageJob job("Testing", argv[1], { }, { });
@@ -99,6 +61,9 @@ int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]
     return rc;
 }
 
+//-----------------------------------------------------------------------------
+// Process a video
+//-----------------------------------------------------------------------------
 int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
 
     // get detection interval if argument is present
@@ -123,19 +88,57 @@ int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]
     cout << "Number of video tracks = " << tracks.size() << endl;
     for (int i = 0; i < tracks.size(); i++) {
         cout << "\nVideo track " << i << "\n"
-                  << "   start frame = " << tracks[i].start_frame << "\n"
-                  << "   stop frame = " << tracks[i].stop_frame << "\n"
-                  << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
-                  << "   confidence = " << tracks[i].confidence << endl;
+             << "   start frame = " << tracks[i].start_frame << "\n"
+             << "   stop frame = " << tracks[i].stop_frame << "\n"
+             << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
+             << "   confidence = " << tracks[i].confidence << endl;
 
         for (auto it : tracks[i].frame_locations) {
             cout << "   Image location frame = " << it.first << "\n"
-                      << "      x left upper = " << it.second.x_left_upper << "\n"
-                      << "      y left upper = " << it.second.y_left_upper << "\n"
-                      << "      width = " << it.second.width << "\n"
-                      << "      height = " << it.second.height << "\n"
-                      << "      confidence = " << it.second.confidence << endl;
+                 << "      x left upper = " << it.second.x_left_upper << "\n"
+                 << "      y left upper = " << it.second.y_left_upper << "\n"
+                 << "      width = " << it.second.width << "\n"
+                 << "      height = " << it.second.height << "\n"
+                 << "      confidence = " << it.second.confidence << endl;
         }
+    }
+
+    return rc;
+}
+
+//-----------------------------------------------------------------------------
+// Main program to run the OCV face detection in standalone mode.
+//-----------------------------------------------------------------------------
+int main(int argc, char* argv[]) {
+
+    if (argc < 2 || argc > 5) {
+        printf("Usage (IMAGE): %s <uri>\n", argv[0]);
+        printf("Usage (VIDEO): %s <uri> <start_index> <end_index> <detection_interval (optional)>\n", argv[0]);
+        return 1;
+    }
+
+    QCoreApplication *this_app = new QCoreApplication(argc, argv);
+    string app_dir = (this_app->applicationDirPath()).toStdString();
+    delete this_app;
+
+    OcvSSDFaceDetection ocv_ssd_face_detection;
+    MPFDetectionComponent *detection_engine = &ocv_ssd_face_detection;
+    detection_engine->SetRunDirectory(app_dir + "/plugin");
+
+    if (!detection_engine->Init()) {
+        printf("Failed to initialize.\n");
+        return 1;
+    }
+
+    int rc;
+    if (argc == 2) {
+        rc = processImage(detection_engine, argc, argv);
+    } else {
+        rc = processVideo(detection_engine, argc, argv);
+    }
+
+    if (!detection_engine->Close()) {
+        printf("Failed to close.\n");
     }
 
     return rc;

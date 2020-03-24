@@ -25,8 +25,8 @@
  ******************************************************************************/
 
 
-#ifndef OPENMPF_COMPONENTS_OCVFACEDETECTION_H
-#define OPENMPF_COMPONENTS_OCVFACEDETECTION_H
+#ifndef OPENMPF_COMPONENTS_OCVSSDFACEDETECTION_H
+#define OPENMPF_COMPONENTS_OCVSSDFACEDETECTION_H
 
 #include <map>
 #include <string>
@@ -34,6 +34,7 @@
 
 #include <QHash>
 #include <QString>
+#include <log4cxx/logger.h>
 
 #include <opencv2/features2d.hpp>
 #include <opencv2/video/tracking.hpp>
@@ -44,19 +45,19 @@
 #include <MPFVideoCapture.h>
 
 
-#include <log4cxx/logger.h>
 
 #include "OcvDetection.h"
 
-
-
+//-----------------------------------------------------------------------------
+//  Represent a track
+//-----------------------------------------------------------------------------
 struct Track {
     MPF::COMPONENT::MPFVideoTrack face_track;
-    int init_point_count;
-    int current_point_count;
+    int   init_point_count;
+    int   current_point_count;
     float current_point_percent;
-    int last_face_detected_index;
-    bool track_lost;
+    int   last_face_detected_index;
+    bool  track_lost;
     std::vector <cv::Point2f> previous_points;
     std::vector <cv::Point2f> current_points;
 
@@ -70,7 +71,11 @@ struct Track {
             track_lost(false) { }
 };
 
-class OcvFaceDetection : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
+//-----------------------------------------------------------------------------
+//  Represent a track
+//-----------------------------------------------------------------------------
+
+class OcvSSDFaceDetection : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
 
 private:
     OcvDetection ocv_detection;
@@ -135,14 +140,12 @@ private:
 
 public :
 
-    //removed these two from Init to fit the virtual function
     void SetModes(bool display_window, bool print_debug_info);
 
-    //should continue to define virtual to help identify virtual functions
     virtual bool Init();
     virtual bool Close();
 
-    std::string GetDetectionType();
+    std::string GetDetectionType(){ return "FACE"; };
 
     MPF::COMPONENT::MPFDetectionError GetDetections(
             const MPF::COMPONENT::MPFVideoJob &job,
