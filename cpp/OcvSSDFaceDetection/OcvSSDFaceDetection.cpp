@@ -66,18 +66,7 @@ using cv::rectangle;
 using log4cxx::Logger;
 using log4cxx::xml::DOMConfigurator;
 
-using namespace MPF;
-using namespace COMPONENT;
-
-/*
-void OcvSSDFaceDetection::SetModes(bool display_window, bool print_debug_info) {
-    imshow_on = display_window;
-
-    if (print_debug_info && OpenFaceDetectionLogger != NULL) {
-        OpenFaceDetectionLogger->setLevel(log4cxx::Level::getDebug());
-    }
-}
-*/
+using namespace MPF::COMPONENT;
 
 bool OcvSSDFaceDetection::Init() {
     string run_dir = GetRunDirectory();
@@ -114,7 +103,6 @@ bool OcvSSDFaceDetection::Init() {
 }
 
 bool OcvSSDFaceDetection::Close() {
-    CloseWindows();
     return true;
 }
 
@@ -143,8 +131,6 @@ void OcvSSDFaceDetection::SetDefaultParameters() {
 }
 
 void OcvSSDFaceDetection::SetReadConfigParameters() {
-    //make sure none of the parameters are missed in the config file - double check
-    imshow_on = parameters["IMSHOW_ON"].toInt();
 
     min_init_point_count = parameters["MIN_INIT_POINT_COUNT"].toInt();
 
@@ -199,12 +185,6 @@ void OcvSSDFaceDetection::GetPropertySettings(const map <string, string> &algori
     return;
 }
 
-void OcvSSDFaceDetection::Display(const string title, const Mat &img) {
-    if (imshow_on) {
-        imshow(title, img);
-        waitKey(5);
-    }
-}
 
 Rect OcvSSDFaceDetection::GetMatch(const Mat &frame_rgb_display, const Mat &frame_gray, const Mat &templ) {
     //no clue what method is best - default of the opencv demo
@@ -460,32 +440,17 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
     int frame_index = 0;
 
-    if (imshow_on) {
-        namedWindow("Open Tracker", 0);
-    }
-
     Mat frame, frame_draw, frame_draw_pre_verified;
     //need to store the previous frame
     Mat gray, prev_gray;
 
     while (video_capture.Read(frame)) {
 
-        if (imshow_on) {
-            //create copy of frame to draw on for display
-            frame_draw = frame.clone();
-        }
-
         //Convert to grayscale
         gray = Utils::ConvertToGray(frame);
 
         //look for new faces
         vector <pair<Rect, float>> faces = ocv_detection.DetectFacesHaar(gray, min_face_size);
-        //draw all new face bounding boxes on the screen for debugging
-        if (imshow_on) {
-            for (vector <pair<Rect, float>>::iterator face_rect = faces.begin(); face_rect != faces.end(); ++face_rect) {
-                rectangle(frame_draw, ((*face_rect).first), Scalar(204, 0, 204), 2, 4);
-            }
-        }
 
         int track_index = -1;
         for (vector<Track>::iterator track = current_tracks.begin(); track != current_tracks.end(); ++track) {
@@ -811,22 +776,6 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
             frame_draw = frame_draw_pre_verified.clone();
         }
 
-        //draw before killing bad tracks and adding new tracks!
-        if (imshow_on) {
-            vector <MPFVideoTrack> temp_tracks;
-            //TODO: annoying to have to do this conversion - also losing point count info
-            //TODO: need to store tracker point info in a different way to keep from having to do this conversion so many times!!
-            for (vector<Track>::iterator cur_track = current_tracks.begin(); cur_track != current_tracks.end(); ++cur_track) {
-                temp_tracks.push_back(cur_track->face_track);
-            }
-            vector <MPFImageLocation> empty_locations;
-            Utils::DrawTracks(frame_draw, temp_tracks, empty_locations, static_cast<int>(saved_tracks.size()));
-            Utils::DrawText(frame_draw, frame_index);
-
-            //might not be a bad idea to update the display twice
-            Display("Open Tracker", frame_draw);
-        }
-
         //check if there is intersection between new objects and existing tracks
         //if not then add the new tracks
         for (unsigned i = 0; i < faces.size(); ++i) {
@@ -845,12 +794,6 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     use_face = true;
                 }
                 else {
-                    if(imshow_on) {
-                        //draw the track detection red for bad quality
-                        rectangle(frame_draw, face, Scalar(0, 0, 255), 3);
-
-                        Display("Open Tracker", frame_draw);
-                    }
 
                     LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
                                                                << "] Detected face does not meet initial quality: " << first_face_confidence);
@@ -871,13 +814,6 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                         LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Not enough initial points: "
                                                                    << static_cast<int>(keypoints.size()));
 
-                        if(imshow_on) {
-                            //draw the track detection red for bad point count
-                            rectangle(frame_draw, face, Scalar(0, 0, 255), 3);
-
-                            Display("Open Tracker", frame_draw);
-                        }
-
                         continue;
                     }
 
@@ -887,17 +823,6 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
                     //calcOpticalFlowPyrLK uses float points - no need to store the KeyPoint vector - convert
                     KeyPoint::convert(keypoints, track_new.current_points);
-
-                    //drawing new points and detection rectangle
-                    //image will already contain previously drawn objects
-                    if(imshow_on) {
-                        for(unsigned k=0; k<track_new.current_points.size(); k++) //TODO: could also use the err vector (from calcOpticalFlowPyrLK) with a float threshold
-                        {
-                            circle(frame_draw, track_new.current_points[k], 2, Scalar(0, 255, 255), CV_FILLED);
-                        }
-
-                        Display("Open Tracker", frame_draw);
-                    }
 
                     //set start frame and initial point count
                     track_new.face_track.start_frame = frame_index;
@@ -977,7 +902,6 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
     LOG4CXX_INFO(OpenFaceDetectionLogger, "[" << job.job_name << "] Processing complete. Found "
                                               << static_cast<int>(tracks.size()) << " tracks.");
-    CloseWindows();
 
     if (verbosity > 0) {
         //now print tracks if available
@@ -1088,11 +1012,7 @@ OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
 
     if (verbosity > 0) {
         //    Draw a rectangle onto the input image for each detection
-        if (imshow_on) {
-            cv::namedWindow("original image", CV_WINDOW_AUTOSIZE);
-            imshow("original image", image_data);
-            cv::waitKey(5);
-        }
+
         for (unsigned int i = 0; i < locations.size(); i++) {
             cv::Rect object(locations[i].x_left_upper,
                             locations[i].y_left_upper,
@@ -1100,13 +1020,7 @@ OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
                             locations[i].height);
             rectangle(image_data, object, CV_RGB(0, 0, 0), 2);
         }
-        if (imshow_on) {
-            cv::namedWindow("new image", CV_WINDOW_AUTOSIZE);
-            imshow("new image", image_data);
-            //0 waits indefinitely for input, which could cause problems when run as a component
-            //cv::waitKey(0);
-            cv::waitKey(5);
-        }
+
         QString imstr(job.data_uri.c_str());
         QFile f(imstr);
         QFileInfo fileInfo(f);
@@ -1117,16 +1031,12 @@ OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
         }
         catch (runtime_error &ex) {
             LOG4CXX_ERROR(OpenFaceDetectionLogger, "[" << job.job_name << "] Exception writing image output file: " << ex.what());
-            CloseWindows();
             return MPF_OTHER_DETECTION_ERROR_TYPE;
         }
     }
 
     LOG4CXX_INFO(OpenFaceDetectionLogger, "[" << job.job_name << "] Processing complete. Found "
                                               << static_cast<int>(locations.size()) << " detections.");
-
-    CloseWindows();
-
 
     return MPF_DETECTION_SUCCESS;
 }
@@ -1139,14 +1049,6 @@ void OcvSSDFaceDetection::LogDetection(const MPFImageLocation& face, const strin
     LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] Width:      " << face.width);
     LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] Height:     " << face.height);
     LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] Confidence: " << face.confidence);
-}
-
-
-void OcvSSDFaceDetection::CloseWindows() {
-    if(imshow_on) {
-        destroyAllWindows();
-        waitKey(5); //waitKey might need to be called to actually kill the windows?
-    }
 }
 
 

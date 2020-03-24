@@ -1,3 +1,4 @@
 {
-    "cmake.ctestPath": "/usr/bin/ctest3"
+    "cmake.ctestPath": "/usr/bin/ctest3",
+    "editor.tabSize": 2
 }
