@@ -5,8 +5,12 @@
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "intelliSenseMode": "clang-x64",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
-            "configurationProvider": "vector-of-bool.cmake-tools"
+            "configurationProvider": "vector-of-bool.cmake-tools",
+            "includePath": [
+                "/usr/include",
+                "/opt/opencv-3.4.7/include",
+                "/home/mpf/mpf-sdk-install/include"
+            ]
         }
     ],
     "version": 4

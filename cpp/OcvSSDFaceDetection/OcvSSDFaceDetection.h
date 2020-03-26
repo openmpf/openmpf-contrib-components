@@ -51,93 +51,43 @@
 namespace MPF{
  namespace COMPONENT{
 
-   using namespace std;
+  using namespace std;
 
-  /** *************************************************************************
-  *  Represent a track of detections
+  /* **************************************************************************
+  * Conveniance operator to dump MPFLocation to a stream
+  *************************************************************************** */ 
+  std::ostream& operator<< (std::ostream& out, const MPFImageLocation& l) {
+    out << "[" << l.x_left_upper << "," << l.y_left_upper << "]-("
+               << l.width << "," << l.height << "):" << l.confidence << " ";
+    return out;
+  } 
+
+  /* **************************************************************************
+  * Configuration parameters populsted with appropriate values / defaults
   *************************************************************************** */
-  struct Track {
-    MPFVideoTrack face_track;
-    int   init_point_count;
-    int   current_point_count;
-    float current_point_percent;
-    int   last_face_detected_index;
-    bool  track_lost;
-    vector <cv::Point2f> previous_points;
-    vector <cv::Point2f> current_points;
+  class JobConfig{
+    public:
+      size_t minDetectionSize;  ///< minimum boounding box dimension
+      float  confThresh;        ///< detection confidence threshold
 
-    cv::Mat               first_gray_frame;
-    vector <cv::KeyPoint> previous_keypoints;
-    vector <cv::KeyPoint> current_keypoints;
-    vector <cv::KeyPoint> first_detected_keypoints;
-
-    Track():init_point_count(0),
-            current_point_count(0),
-            current_point_percent(0.0),
-            last_face_detected_index(-1),
-            track_lost(false) { }
+      JobConfig(const log4cxx::LoggerPtr log,const MPFJob &job);
   };
-
-  typedef vector<Track>            TracVec;              ///< vector of tracks
-  typedef vector<MPFVideoTrack>    MPFVideoTrackVec;     ///< vector of MPFViseoTracks
-  typedef vector<MPFImageLocation> MPFImageLocationVec;  ///< vector of MPFImageLocations
-
-
+  
+  /***************************************************************************/
   class OcvSSDFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
 
     public:
       bool Init() override;
       bool Close() override;
-      string GetDetectionType(){ return "FACE"; };
+      string GetDetectionType();
       MPFDetectionError GetDetections(const MPFVideoJob &job, MPFVideoTrackVec    &tracks)    override;
       MPFDetectionError GetDetections(const MPFImageJob &job, MPFImageLocationVec &locations) override;
 
     private:
-      OcvDetection ocv_detection;
+      OcvDetection* _detectorPtr = NULL;
+      log4cxx::LoggerPtr _log;
 
-      int max_features;
-      cv::Ptr <cv::FeatureDetector> feature_detector;
-
-      int verbosity;
-
-      int min_face_size; //the width and height of min size for detection
-      unsigned int min_init_point_count;
-      float min_redetect_point_perecent;
-      float min_point_percent;
-      float max_optical_flow_error;
-      float min_initial_confidence;
-
-      //TODO: add to config file
-      //when a face is not detected - this is the minimum percentage of features detected compared to initial point count
-      //if below this the track should not continue
-      float min_good_match_percent;
-
-      vector <Track> current_tracks;
-      vector <Track> saved_tracks;
-
-      QHash <QString, QString> parameters;
-
-      log4cxx::LoggerPtr OpenFaceDetectionLogger;
-
-      void SetDefaultParameters();
-      void SetReadConfigParameters();
-      void GetPropertySettings(const map <string, string> &algorithm_properties);
-
-      cv::Rect GetMatch(const cv::Mat &frame_rgb_display, const cv::Mat &frame_gray, const cv::Mat &templ);
-
-      bool IsExistingTrackIntersection(const cv::Rect new_rect, int &intersection_index);
-
-      cv::Rect GetUpscaledFaceRect(const cv::Rect &face_rect);
-      cv::Mat GetMask(const cv::Mat &frame, const cv::Rect &face, bool copy_face_rect = false);
-      bool IsBadFaceRatio(const cv::Rect &face);
-
-      void CloseAnyOpenTracks(int frame_index);
-
-      void AdjustRectToEdges(cv::Rect &rect, const cv::Mat &src);
-
-      void LogDetection(const MPFImageLocation& face,
-                      const string& job_name);
-
+/*
       MPFDetectionError GetDetectionsFromVideoCapture(const MPFVideoJob &job,
                                                       MPFVideoCapture   &video_capture,
                                                       MPFVideoTrackVec  &tracks);
@@ -146,7 +96,7 @@ namespace MPF{
                                                    cv::Mat             &image_data,
                                                    MPFImageLocationVec &locations);
 
-
+*/
   };
  }
 }

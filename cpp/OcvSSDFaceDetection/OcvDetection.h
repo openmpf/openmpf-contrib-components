@@ -38,30 +38,43 @@
 #include <opencv2/objdetect.hpp>
 #include <opencv2/dnn.hpp>
 
-class OcvDetection {
-public:
-    OcvDetection();
-    ~OcvDetection(){};
+namespace MPF{
+ namespace COMPONENT{
 
-    std::vector<std::pair<cv::Rect, float>> DetectFacesHaar(const cv::Mat &frame_gray, int min_face_size = 48);
-    std::vector<std::pair<cv::Rect, float>> DetectFacesSSD(const cv::Mat &frame_color, int min_face_size = 48);
+    using namespace std;
 
-    bool Init(std::string &run_directory);
+    typedef vector<MPFVideoTrack>    MPFVideoTrackVec;     ///< vector of MPFViseoTracks
+    typedef vector<MPFImageLocation> MPFImageLocationVec;  ///< vector of MPFImageLocations
 
-private:
-    std::string face_cascade_path;
-    cv::CascadeClassifier face_cascade;
-
-    std::string face_ssd_config_path;
-    std::string face_ssd_model_path;
-    cv::dnn::Net face_ssd_net;
-
-    bool initialized;
-
-    log4cxx::LoggerPtr openFaceDetectionLogger;
-
-    void GroupRectanglesMod(std::vector<cv::Rect>& rectList, int groupThreshold, double eps, std::vector<int>* weights, std::vector<double>* levelWeights);
-};
+    /** ****************************************************************************
+    * Macro for throwing exception so we can see where in the code it happened
+    ****************************************************************************** */
+    #define THROW_EXCEPTION(MSG){                                  \
+    string path(__FILE__);                                         \
+    string f(path.substr(path.find_last_of("/\\") + 1));           \
+    throw runtime_error(f + "[" + to_string(__LINE__)+"] " + MSG); \
+    }
 
 
+    /** *********************************************************************** 
+     * Class to encapsulate the SSD detector
+    ************************************************************************* */
+    class OcvDetection {
+      public:
+        OcvDetection(const string &plugin_path);
+
+        MPFImageLocationVec detect(const cv::Mat &bgrFrame,
+                                   const int      minBBoxSide = 48,
+                                   const float    confThresh  = 0.65
+                                   );                            ///< get bboxes with conf. scores 
+
+      private:
+        log4cxx::LoggerPtr _log;                                 ///< log object
+        string             _pluginPath;                          ///< mpf plugin base path 
+        cv::dnn::Net       _ssdNet;                              ///< single shot DNN face detector network
+
+    };
+
+ }
+}
 #endif //OPENMPF_COMPONENTS_OCVDETECTION_H

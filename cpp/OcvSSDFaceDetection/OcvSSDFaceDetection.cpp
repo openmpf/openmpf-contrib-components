@@ -42,392 +42,242 @@
 #include "MPFSimpleConfigLoader.h"
 #include "MPFImageReader.h"
 
-using std::string;
-using std::vector;
-using std::map;
-using std::pair;
-using std::runtime_error;
-
-using cv::Point;
-using cv::Point2f;
-using cv::Mat;
-using cv::Rect;
-using cv::Scalar;
-using cv::Size;
-using cv::RotatedRect;
-using cv::Size2f;
-using cv::namedWindow;
-using cv::destroyAllWindows;
-using cv::waitKey;
-using cv::KeyPoint;
-using cv::resize;
-using cv::rectangle;
-
-using log4cxx::Logger;
-using log4cxx::xml::DOMConfigurator;
-
 using namespace MPF::COMPONENT;
 
+/** ****************************************************************************
+* shorthands for getting configuration from environment variables if not
+* provided by job configuration
+***************************************************************************** */
+template<typename T>
+T getEnv(const Properties &p, const string &k, const T def){
+  auto iter = p.find(k);
+  if (iter == p.end()) {
+    const char* env_p = getenv(k.c_str());
+    if(env_p != NULL){
+      map<string,string> envp;
+      envp.insert(pair<string,string>(k,string(env_p)));
+      return DetectionComponentUtils::GetProperty<T>(envp,k,def);
+    }else{
+      return def;
+    }
+  }
+  return DetectionComponentUtils::GetProperty<T>(p,k,def);
+}
+
+/** ****************************************************************************
+* shorthands for getting MPF properies of various types
+***************************************************************************** */
+template<typename T>
+T get(const Properties &p, const string &k, const T def){
+  return DetectionComponentUtils::GetProperty<T>(p,k,def);
+}
+
+/** ****************************************************************************
+* Parse setting out of MPFJob
+***************************************************************************** */
+JobConfig::JobConfig(const log4cxx::LoggerPtr log,const MPFJob &job){
+  const Properties jpr = job.job_properties;
+  minDetectionSize = getEnv<int>  (jpr,"MIN_DETECTION_SIZE", 45);               LOG4CXX_TRACE(log, "MIN_DETECTION_SIZE: " << minDetectionSize);
+  confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", 0.65); LOG4CXX_TRACE(log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
+}
+
+/** ****************************************************************************
+* Return the type of detections
+* 
+* \returns "FACE"
+***************************************************************************** */
+string OcvSSDFaceDetection::GetDetectionType(){
+    return "FACE";
+}
+
+/** ****************************************************************************
+* Initialize SSD face detector module by setting up paths and reading configs
+* configuration variables are turned into environment variables for late
+* reference
+*
+* \returns   true on success
+***************************************************************************** */
 bool OcvSSDFaceDetection::Init() {
-    string run_dir = GetRunDirectory();
-    string plugin_path = run_dir + "/OcvSSDFaceDetection";
-    string config_path = plugin_path + "/config";
-    string logconfig_file = config_path + "/Log4cxxConfig.xml";
-    //must initialize opencv face detection
+    string plugin_path    = GetRunDirectory() + "/OcvSSDFaceDetection";
+    string config_path    = plugin_path       + "/config";
 
-    // Load XML configuration file using DOMConfigurator
-    log4cxx::xml::DOMConfigurator::configure(logconfig_file);
-    OpenFaceDetectionLogger = log4cxx::Logger::getLogger("OcvSSDFaceDetection");
+    log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
+    _log = log4cxx::Logger::getLogger("OcvSSDFaceDetection");                  LOG4CXX_DEBUG(_log,"Initializing OcvSSDFaceDetector");
 
-    // LOG LEVELS: TRACE,DEBUG,INFO,WARN,ERROR,FATAL
+    // Create new detector instance
+    if(_detectorPtr){                                                          LOG4CXX_DEBUG(_log,"Freeing existing detector");
+      delete _detectorPtr; 
+    }
+    _detectorPtr = new OcvDetection(plugin_path);
 
-    if (!ocv_detection.Init(plugin_path)) {
-        LOG4CXX_ERROR(OpenFaceDetectionLogger, "Failed to initialize OpenCV Detection");
+    // read config file and create update any missing env variables
+    string config_params_path = config_path + "/mpfOcvSSDFaceDetection.ini";
+    QHash<QString,QString> params;
+    if(LoadConfig(config_params_path, params)) {
+        LOG4CXX_ERROR(_log, "Failed to load the OcvSSDFaceDetection config from: " << config_params_path);
         return false;
     }
-
-    SetDefaultParameters();
-
-    //once this is done - parameters will be set and SetReadConfigParameters() can be called again to revert back
-    //to the params read at intialization
-    string config_params_path = config_path + "/mpfOcvSSDFaceDetection.ini";
-    int rc = LoadConfig(config_params_path, parameters);
-    if (rc) {
-        LOG4CXX_ERROR(OpenFaceDetectionLogger, "Failed to load the OcvSSDFaceDetection config from: " << config_params_path);
-        return (false);
+    for(auto p = params.begin(); p != params.end(); p++){
+      const char* key = qPrintable(p.key());
+      const char* val = qPrintable(p.value());
+      const char* env_val = getenv(key);
+      if(env_val == NULL){
+        if(setenv(key, val, 0) !=0){
+          LOG4CXX_ERROR(_log, "Failed to convert config to env variable: " << key << "=" << val);
+          return false;
+        }
+      }else if(strcmp(env_val, val) != 0){
+        LOG4CXX_INFO(_log, "Keeping existing env variable:" << key << "=" << env_val);
+      }
     }
-
-    SetReadConfigParameters();
-
+    
     return true;
 }
 
+/** ****************************************************************************
+* Clean up and release any created detector objects
+*
+* \returns   true on success
+***************************************************************************** */
 bool OcvSSDFaceDetection::Close() {
+    if(_detectorPtr){
+        LOG4CXX_TRACE(_log,"Freeing detector");
+        delete _detectorPtr; 
+    }
     return true;
 }
 
-void OcvSSDFaceDetection::SetDefaultParameters() {
-    max_features = 250;
+/** ****************************************************************************
+* Read an image and get object detections and features
+*
+* \param          job     MPF Image job
+* \param[in,out]  locations  locations collection to which detections will be added
+*
+* \returns  an MPF error constant or MPF_DETECTION_SUCCESS
+*
+* \note prior to returning the features are base64 encoded ?
+*
+***************************************************************************** */
+MPFDetectionError OcvSSDFaceDetection::GetDetections(const MPFImageJob   &job,
+                                                     MPFImageLocationVec &locations) {
 
-    //limiting the number of corners to 250 by default
-    feature_detector = cv::GFTTDetector::create(max_features);
+  try {                                                                      LOG4CXX_DEBUG(_log, "Data URI = " << job.data_uri);
+    if(job.data_uri.empty()) {
+        LOG4CXX_ERROR(_log, "Invalid image file");
+        return MPF_INVALID_DATAFILE_URI;
+    }
 
-    min_face_size = 48;
+    MPFImageReader imreader(job);
+    cv::Mat img(imreader.GetImage());
 
-    //this should be adjusted based on type of detector
-    min_init_point_count = 45;
+    if(img.empty()){
+      LOG4CXX_ERROR(_log, "Could not read image file: " << job.data_uri);
+      return MPF_IMAGE_READ_ERROR;
+    }
 
-    //point at which the track should be considered lost
-    min_point_percent = 0.70;
+    Properties jpr = job.job_properties;
+    JobConfig cfg(_log, job);
 
-    //the point at which points will be redetected
-    min_redetect_point_perecent = 0.88;
+    MPFImageLocationVec detections = _detectorPtr->detect(img, cfg.minDetectionSize, cfg.confThresh);
+    for (auto &detection : detections) {
+      imreader.ReverseTransform(detection);
+      locations.push_back(detection);
+    }
+    
+    return MPF_DETECTION_SUCCESS;
 
-    min_initial_confidence = 10.0f;
-
-    //not currently used - but could be used to help stops tracks earlier when there is a lot
-    //of error when detecting the next points using calcopticalflow
-    max_optical_flow_error = 4.7;
+  }catch (...) {
+    return Utils::HandleDetectionException(job, _log);
+  }
 }
 
-void OcvSSDFaceDetection::SetReadConfigParameters() {
 
-    min_init_point_count = parameters["MIN_INIT_POINT_COUNT"].toInt();
+/** ****************************************************************************
+* Read frames from a video, get object detections and make tracks
+*
+* \param          job     MPF Video job
+* \param[in,out]  tracks  Tracks collection to which detections will be added
+*
+* \returns  an MPF error constant or MPF_DETECTION_SUCCESS
+*
+***************************************************************************** */
+MPFDetectionError OcvSSDFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
+ return MPF_DETECTION_SUCCESS; 
+}
 
-    min_point_percent = parameters["MIN_POINT_PERCENT"].toFloat();
-    min_initial_confidence = parameters["MIN_INITIAL_CONFIDENCE"].toFloat();
+/*
+MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
+                                             cv::Mat &image_data,
+                                             vector<MPFImageLocation> &locations) {
+    int frame_width = 0;
+    int frame_height = 0;
 
-    min_face_size = parameters["MIN_FACE_SIZE"].toInt();
 
-    //right now only accepting a verbosity of 1 and just checking for > 0, may need to adjust later
-    //if verbosity 1 set the log level to DEBUG
-    //if verbosity set to 2, think about using TRACE
-    verbosity = parameters["VERBOSE"].toInt();
+    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Getting detections");
+
+
+    cv::Mat image_gray = Utils::ConvertToGray(image_data);
+
+    frame_width = image_data.cols;
+    frame_height = image_data.rows;
+    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Frame_width = " << frame_width);
+    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Frame_height = " << frame_height);
+
+    //vector<pair<cv::Rect,float>> faces = ocv_detection.DetectFacesHaar(image_gray);
+    RectScorePairVec faces = _detectorPtr->detectFaces(image_data);
+    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of faces detected = " << faces.size());
+
+    for (unsigned int j = 0; j < faces.size(); j++) {
+        cv::Rect face = faces[j].first;
+
+        //pass face by ref
+        AdjustRectToEdges(face, image_data);
+
+        float confidence = static_cast<float>(faces[j].second);
+
+        MPFImageLocation location = Utils::CvRectToImageLocation(face, confidence);
+
+        locations.push_back(location);
+    }
+
+    if (verbosity) {
+        // log the detections
+        for (unsigned int i = 0; i < locations.size(); i++) {
+            LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Detection # " << i);
+            LogDetection(locations[i], job.job_name);
+        }
+    }
+
     if (verbosity > 0) {
-        OpenFaceDetectionLogger->setLevel(log4cxx::Level::getDebug());
-    }
-}
+        //    Draw a rectangle onto the input image for each detection
 
-/* This function reads a property value map and adjusts the settings for this component. */
-void OcvSSDFaceDetection::GetPropertySettings(const map <string, string> &algorithm_properties) {
-    string property;
-    string str_value;
-    int ivalue;
-    float fvalue;
-    for (map<string, string>::const_iterator imap = algorithm_properties.begin();
-         imap != algorithm_properties.end(); imap++) {
-        property = imap->first;
-        str_value = imap->second;
+        for (unsigned int i = 0; i < locations.size(); i++) {
+            cv::Rect object(locations[i].x_left_upper,
+                            locations[i].y_left_upper,
+                            locations[i].width,
+                            locations[i].height);
+            rectangle(image_data, object, CV_RGB(0, 0, 0), 2);
+        }
 
-        //TODO: could restrict some of the parameter ranges here and log like PP!
-        if (property == "MIN_FACE_SIZE") { //INT
-            min_face_size = atoi(str_value.c_str());
+        QString imstr(job.data_uri.c_str());
+        QFile f(imstr);
+        QFileInfo fileInfo(f);
+        QString fstr(fileInfo.fileName());
+        string outfile_name = "output_" + fstr.toStdString();
+        try {
+            imwrite(outfile_name, image_data);
         }
-        else if (property == "MAX_FEATURE") { //INT
-            max_features = atoi(str_value.c_str());
-        }
-        if (property == "MIN_INIT_POINT_COUNT") { //INT
-            min_init_point_count = atoi(str_value.c_str());
-        }
-        else if (property == "MIN_POINT_PERCENT") { //FLOAT
-            min_point_percent = atof(str_value.c_str());
-        }
-        else if (property == "MIN_INITIAL_CONFIDENCE") { //FLOAT
-            min_initial_confidence = atof(str_value.c_str());
-        }
-        else if (property == "MAX_OPTICAL_FLOW_ERROR") { //FLOAT
-            max_optical_flow_error = atof(str_value.c_str());
-        }
-        else if (property == "VERBOSE") { //INT
-            verbosity = atoi(str_value.c_str());
+        catch (runtime_error &ex) {
+            LOG4CXX_ERROR(_log, "[" << job.job_name << "] Exception writing image output file: " << ex.what());
+            return MPF_OTHER_DETECTION_ERROR_TYPE;
         }
     }
-    return;
+
+    LOG4CXX_INFO(_log, "[" << job.job_name << "] Processing complete. Found "
+                                              << static_cast<int>(locations.size()) << " detections.");
+
+    return MPF_DETECTION_SUCCESS;
 }
-
-
-Rect OcvSSDFaceDetection::GetMatch(const Mat &frame_rgb_display, const Mat &frame_gray, const Mat &templ) {
-    //no clue what method is best - default of the opencv demo
-    int match_method = CV_TM_CCOEFF_NORMED;
-
-    Mat img_display = frame_rgb_display.clone();
-
-    /// Create the result matrix - equals the size of the search window using the
-    //left corner of the template mat
-    int result_cols = frame_gray.cols - templ.cols + 1;
-    int result_rows = frame_gray.rows - templ.rows + 1;
-
-    Mat result(result_cols, result_rows, CV_32FC1);
-
-    /// Do the Matching and Normalize
-    matchTemplate(frame_gray, templ, result, match_method);
-    normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, Mat());
-
-    /// Localizing the best match with minMaxLoc
-    double minVal;
-    double maxVal;
-    Point minLoc;
-    Point maxLoc;
-    Point matchLoc;
-
-    minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, Mat());
-
-    /// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
-    if (match_method == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED) { matchLoc = minLoc; }
-    else { matchLoc = maxLoc; }
-
-    Rect match_rect(matchLoc.x, matchLoc.y, templ.cols, templ.rows);
-
-    ///show the location of the detected template with the highest match
-    //rectangle(img_display, match_rect, Scalar::all(0), 2, 8, 0 );
-    //imshow( "img_display", img_display );
-
-    return match_rect;
-}
-
-bool OcvSSDFaceDetection::IsExistingTrackIntersection(const Rect new_rect, int &intersection_index) {
-    intersection_index = -1;
-
-    for (vector<Track>::iterator track = current_tracks.begin(); track != current_tracks.end(); ++track) {
-        ++intersection_index;
-
-        //if the track is new then there should still be a face detection
-        MPFImageLocation last_face_detection = MPFImageLocation(track->face_track.frame_locations.rbegin()->second); // last element in map
-
-        Rect existing_rect = Utils::ImageLocationToCvRect(last_face_detection);
-
-        Rect intersection = existing_rect & new_rect; // (rectangle intersection)
-
-        //important: just returning the index with any sort of intersection will cause issues
-        //if there are faces in close proximity and there is more than one intersection
-        //need to loop through all intersecting rects and choose the one with the most intersection
-        //and that will be the correct intersection index
-        //important: should allow for a small intersection for faces in close proximity - like 10 - 20%
-        if (intersection.area() > ceil(static_cast<float>(existing_rect.area()) * 0.15)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-Rect OcvSSDFaceDetection::GetUpscaledFaceRect(const Rect &face_rect) {
-    return Rect(
-            face_rect.x + static_cast<int>( -0.214 * static_cast<float>(face_rect.width)),
-            face_rect.y + static_cast<int>( -0.055 * static_cast<float>(face_rect.height)),
-            static_cast<int>( 1.4286 * static_cast<float>(face_rect.width)),
-            static_cast<int>( 1.11 * static_cast<float>(face_rect.height)));
-}
-
-Mat OcvSSDFaceDetection::GetMask(const Mat &frame, const Rect &face_rect, bool copy_face_rect) {
-    //create a single channel zero matrix the size of the frame
-    Mat image_mask;
-    image_mask = Mat::zeros(frame.size(), CV_8UC1);
-
-    //Downsize the bounding box so that only the 'face' is shown
-    Rect rescaled_face = Rect(
-            face_rect.x + static_cast<int>( 0.15 * static_cast<float>(face_rect.width)),
-            face_rect.y + static_cast<int>( 0.05 * static_cast<float>(face_rect.height)),
-            static_cast<int>( 0.7 * static_cast<float>(face_rect.width)),
-            static_cast<int>( 0.9 * static_cast<float>(face_rect.height)));
-
-    //crop the frame to the face, resize and display
-    Mat face_roi = Mat(frame, rescaled_face);
-    Mat face_roi_resize;
-    resize(face_roi, face_roi_resize, Size(256, 256));
-
-    //using a best fit ellipse in an attempt to remove any "non-face" image parts from the face bounding box
-    //find the center of the rescaled face
-    Point2f center(static_cast<float>( rescaled_face.x + 0.5 * static_cast<float>(rescaled_face.width)),
-                   static_cast<float>( rescaled_face.y + 0.5 * static_cast<float>(rescaled_face.height)));
-    RotatedRect rotated_rect;
-    rotated_rect.center = center;
-    rotated_rect.size = Size2f(static_cast<float>(rescaled_face.width), static_cast<float>(rescaled_face.height));
-    //finding the face angle would greatly improve the results of the initial point detection
-    //would allow for using a rotated rect!! - possible future improvement
-    rotated_rect.angle = 0.0f;
-    //draw the ellipse on the black frame to create the mask
-    ellipse(image_mask, rotated_rect, Scalar(255), CV_FILLED);
-
-    if (copy_face_rect) {
-        //Copy face to masked image
-        frame.copyTo(image_mask, image_mask);
-    }
-
-    return image_mask;
-}
-
-bool OcvSSDFaceDetection::IsBadFaceRatio(const Rect &face_rect) {
-    //trying to find a way to kill tracks when points grab onto something outside of the face and the face
-    //bounding box ratio becomes odd
-    //if bounding rect width is much more than the height there is an issue or if the area of the enclosing circle
-    //is much greater than the bounding rect area
-
-    float face_ratio = static_cast<float>(face_rect.width) / static_cast<float>(face_rect.height);
-    float target_face_ratio = 0.75;
-    //the threshold for greater than should be bigger than the threshold for less than - face rects could be very thin if equal
-    float max_increase_face_ratio_deviation = 0.35;
-    float max_decrease_face_ratio_deviation = -0.25;
-    float face_ratio_diff = face_ratio - target_face_ratio;
-    //should check this ratio at track creation..
-
-    if ((face_ratio_diff > max_increase_face_ratio_deviation ||
-         face_ratio_diff < max_decrease_face_ratio_deviation)) {
-        return true;
-    }
-
-    return false;
-}
-
-void OcvSSDFaceDetection::CloseAnyOpenTracks(int frame_index) {
-    if (!current_tracks.empty()) {
-        //need to stop all current tracks!
-        for (vector<Track>::iterator it = current_tracks.begin(); it != current_tracks.end(); it++) {
-            //grab last track
-            Track track(*it);
-            //should never happen - but ignoring the track
-            if (track.face_track.stop_frame != -1) {
-                continue;
-            }
-
-            //track is still going at end index
-            //set the stopFrame for this track!!!
-            track.face_track.stop_frame = frame_index;
-
-            //now the track can be saved
-            saved_tracks.push_back(track);
-        }
-    }
-}
-
-void OcvSSDFaceDetection::AdjustRectToEdges(Rect &rect, const Mat &src) {
-    if (!src.empty()) {
-        //check corners and edges and resize appropriately!
-
-        //modifying the referenced rect
-        //subtracting 1 since indexes are 0 based, if image is 256x256 there is will be 256 rows and cols,
-        //but the values will range from 0 to 255
-        int x_max = (src.cols - 1);
-        int y_max = (src.rows - 1);
-
-        //x
-        int x_adj = 0;
-        if (rect.x < 0) {
-            //subtract the negative value
-            x_adj = 0 - rect.x;
-            rect.x = 0;
-        }
-            //rect.x should never be greater than image bounds, the bounding box would start outside of the image
-        else if ((rect.x + rect.width) > x_max) {
-            x_adj = (rect.x + rect.width) - x_max;;
-        }
-
-        //y
-        int y_adj = 0;
-        if (rect.y < 0) {
-            //subtract the negative value
-            y_adj = 0 - rect.y;
-            rect.y = 0;
-        }
-            //rect.y should never be greater than image bounds, the bounding box would start outside of the image
-        else if ((rect.y + rect.height) > y_max) {
-            y_adj = (rect.y + rect.height) - y_max;
-        }
-
-        //now adjust width and height
-        //adjustment values shouldn't be negative
-        if (x_adj > 0) {
-            rect.width = rect.width - x_adj;
-        }
-
-        if (y_adj > 0) {
-            rect.height = rect.height - y_adj;
-        }
-
-        //the rect may still have a width and/or height greater than src and that must be adjusted
-        if (rect.height > src.rows) {
-            rect.height = src.rows;
-        }
-
-        if (rect.width > src.cols) {
-            rect.width = src.cols;
-        }
-    }
-}
-
-MPFDetectionError
-OcvSSDFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
-    try {
-        SetDefaultParameters();
-        SetReadConfigParameters();
-        GetPropertySettings(job.job_properties);
-
-
-        if (job.data_uri.empty()) {
-            LOG4CXX_ERROR(OpenFaceDetectionLogger, "[" << job.job_name << "] Input video file path is empty");
-            return MPF_INVALID_DATAFILE_URI;
-        }
-
-        MPFVideoCapture video_capture(job, true, true);
-
-        if( !video_capture.IsOpened() )
-        {
-            LOG4CXX_ERROR(OpenFaceDetectionLogger, "[" << job.job_name << "] Could not initialize capturing");
-            return MPF_COULD_NOT_OPEN_DATAFILE;
-        }
-
-        MPFDetectionError detections_result = GetDetectionsFromVideoCapture(job, video_capture, tracks);
-
-        for (auto &track : tracks) {
-            video_capture.ReverseTransform(track);
-        }
-        return detections_result;
-    }
-    catch (...) {
-        return Utils::HandleDetectionException(job, OpenFaceDetectionLogger);
-    }
-}
-
-
 
 MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
         const MPFVideoJob &job,
@@ -436,7 +286,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
 
     long total_frames = video_capture.GetFrameCount();
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Total video frames: " << total_frames);
+    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Total video frames: " << total_frames);
 
     int frame_index = 0;
 
@@ -450,10 +300,12 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
         gray = Utils::ConvertToGray(frame);
 
         //look for new faces
-        vector <pair<Rect, float>> faces = ocv_detection.DetectFacesHaar(gray, min_face_size);
+        //vector <pair<Rect, float>> faces = ocv_detection.DetectFacesHaar(gray, min_face_size);
+        RectScorePairVec faces = _detectorPtr->detectFaces(frame, min_face_size);
+
 
         int track_index = -1;
-        for (vector<Track>::iterator track = current_tracks.begin(); track != current_tracks.end(); ++track) {
+        for(auto track = current_tracks.begin(); track != current_tracks.end(); ++track) {
             ++track_index;
             //assume track lost at start
             track->track_lost = true;
@@ -461,7 +313,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
             if (track->previous_points.empty()) {
                 //should never get here!! - current points of first detection will be swapped to previous!!
                 //kill the track if this case does occur
-                LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                LOG4CXX_TRACE(_log, "[" << job.job_name
                                                            << "] Track contains no previous points - killing tracks");
                 continue;
             }
@@ -484,11 +336,10 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
             if (new_points.empty()) {
                 //no new points - this track will be killed
-                LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                LOG4CXX_TRACE(_log, "[" << job.job_name
                                                            << "] Optical flow could not find any new points - killing track");
                 continue;
-            }
-            else {
+            }else {
                 //don't want to display any of the drawn points or bounding boxes of tracks that aren't kept
                 frame_draw_pre_verified = frame_draw.clone();
 
@@ -586,7 +437,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     if (face_rect.height < 32) //face_rect.width < 32 ||
                     {
                         //if face smaller than 32 pixels then we don't want to keep it
-                        LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                        LOG4CXX_TRACE(_log, "[" << job.job_name
                                                                    << "] Face too small to track - killing track");
                         continue;
                     }
@@ -595,7 +446,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     Rect upscaled_face = GetUpscaledFaceRect(face_rect);
                     rectangle(frame_draw_pre_verified, face_rect, Scalar(255, 255, 0));
 
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Getting template match");
+                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Getting template match");
 
                     //try template matching
                     //make sure the template is not out of bounds
@@ -615,7 +466,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     //draw the previous face even though it was from the previous frame
                     rectangle(new_frame_copy, last_face_rect, Scalar(0, 255, 0), 2);
 
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Match rect area: "
+                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Match rect area: "
                                                                << match_rect.area());
 
                     Rect match_intersection = match_rect & last_face_rect; //opencv allows for this operation
@@ -623,14 +474,14 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
                     //Display("intersection", new_frame_copy);
 
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Finished getting match");
+                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Finished getting match");
 
                     //look for a certain percentage of intersection
                     if (match_intersection.area() > 0) {
                         float intersection_rate = static_cast<float>(match_intersection.area()) /
                                                   static_cast<float>(last_face_rect.area());
 
-                        LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Intersection rate: "
+                        LOG4CXX_TRACE(_log, "[" << job.job_name << "] Intersection rate: "
                                                                    << intersection_rate);
 
                         //was at 0.5 - should be much higher - don't want to be very permissive here - the template
@@ -688,7 +539,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     if (current_point_percent < min_point_percent) {
                         //lost too many of original points - kill track
                         //set something to continue onto the feature matching portion - no reason to kill the track here
-                        LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                        LOG4CXX_TRACE(_log, "[" << job.job_name
                                                                    << "] Lost too many points, current percent: " << current_point_percent);
                         continue;
                     }
@@ -701,7 +552,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
             //if track is not recovered
             if(correct_detected_rect_pair.first.area() > 0 && redetect_feature_points &&
                !track_recovered && track->current_point_percent < min_redetect_point_perecent) {
-                LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                LOG4CXX_TRACE(_log, "[" << job.job_name
                                                            << "] Attempting to redetect feature points");
                 vector <KeyPoint> keypoints;
                 Mat mask = GetMask(gray, correct_detected_rect_pair.first);
@@ -716,7 +567,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                 //TODO: not sure if I want to kill the track here - just don't update the init point count and continue
                 if(keypoints.size() < min_init_point_count)
                 {
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Not enough initial points: " <<
+                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Not enough initial points: " <<
                                                                static_cast<int>(track->current_points.size()));
 
                     //set the init to min init point count because we are now below that
@@ -732,13 +583,13 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 
                     if (current_point_percent < min_point_percent) {
                         //lost too many of original points - kill track
-                        LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                        LOG4CXX_TRACE(_log, "[" << job.job_name
                                                                    << "] Lost too many points below min point percent, "
                                                                    << "current percent: " << current_point_percent);
                         continue;
                     }
 
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                    LOG4CXX_TRACE(_log, "[" << job.job_name
                                                                << "] Keeping track below min_init_point_count with current percent: "
                                                                << current_point_percent);
                 }
@@ -795,7 +646,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                 }
                 else {
 
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name
+                    LOG4CXX_TRACE(_log, "[" << job.job_name
                                                                << "] Detected face does not meet initial quality: " << first_face_confidence);
                 }
 
@@ -811,7 +662,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     //min init point count should be different for each detector!
                     if(keypoints.size() < min_init_point_count)
                     {
-                        LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Not enough initial points: "
+                        LOG4CXX_TRACE(_log, "[" << job.job_name << "] Not enough initial points: "
                                                                    << static_cast<int>(keypoints.size()));
 
                         continue;
@@ -844,7 +695,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
                     //add the new track
                     current_tracks.push_back(track_new);
 
-                    LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Creating new track");
+                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Creating new track");
                 }
 
 
@@ -857,7 +708,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
         {
             if(track->track_lost)
             {
-                LOG4CXX_TRACE(OpenFaceDetectionLogger, "[" << job.job_name << "] Killing track");
+                LOG4CXX_TRACE(_log, "[" << job.job_name << "] Killing track");
 
                 //did not pass the rules to continue this frame_index, it ended on the previous index
                 track->face_track.stop_frame = frame_index - 1;
@@ -900,7 +751,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
     current_tracks.clear();
     saved_tracks.clear();
 
-    LOG4CXX_INFO(OpenFaceDetectionLogger, "[" << job.job_name << "] Processing complete. Found "
+    LOG4CXX_INFO(_log, "[" << job.job_name << "] Processing complete. Found "
                                               << static_cast<int>(tracks.size()) << " tracks.");
 
     if (verbosity > 0) {
@@ -909,22 +760,22 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
         {
             for(unsigned int i=0; i<tracks.size(); i++)
             {
-                LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Track index: " << i);
-                LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Track start index: " << tracks[i] .start_frame);
-                LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Track end index: " << tracks[i] .stop_frame);
+                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Track index: " << i);
+                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Track start index: " << tracks[i] .start_frame);
+                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Track end index: " << tracks[i] .stop_frame);
 
                 for (map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it)
                 {
-                    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Frame num: " << it->first);
-                    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Bounding rect: (" << it->second .x_left_upper << ","
+                    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Frame num: " << it->first);
+                    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Bounding rect: (" << it->second .x_left_upper << ","
                                                                <<  it->second.y_left_upper << "," << it->second.width << "," << it->second.height << ")");
-                    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Confidence: " << it->second.confidence);
+                    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Confidence: " << it->second.confidence);
                 }
             }
         }
         else
         {
-            LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] No tracks found");
+            LOG4CXX_DEBUG(_log, "[" << job.job_name << "] No tracks found");
         }
     }
 
@@ -932,125 +783,14 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 }
 
 
-MPFDetectionError OcvSSDFaceDetection::GetDetections(
-        const MPFImageJob &job,
-        vector<MPFImageLocation> &locations) {
-    try {
-        SetDefaultParameters();
-        SetReadConfigParameters();
-        GetPropertySettings(job.job_properties);
-
-        if (job.data_uri.empty()) {
-            return MPF_INVALID_DATAFILE_URI;
-        }
-
-        MPFImageReader imreader(job);
-        cv::Mat image_data(imreader.GetImage());
-
-        if (image_data.empty()) {
-            LOG4CXX_ERROR(OpenFaceDetectionLogger, "[" << job.job_name << "] Could not open image and will not return detections");
-            return MPF_IMAGE_READ_ERROR;
-        }
-
-        MPFDetectionError detections_result = GetDetectionsFromImageData(job, image_data, locations);
-
-        for (auto &location : locations) {
-            imreader.ReverseTransform(location);
-        }
-        return detections_result;
-    }
-    catch (...) {
-        return Utils::HandleDetectionException(job, OpenFaceDetectionLogger);
-    }
+void OcvSSDFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name){
+    LOG4CXX_DEBUG(_log, "[" << job_name << "] XLeftUpper: " << face.x_left_upper);
+    LOG4CXX_DEBUG(_log, "[" << job_name << "] YLeftUpper: " << face.y_left_upper);
+    LOG4CXX_DEBUG(_log, "[" << job_name << "] Width:      " << face.width);
+    LOG4CXX_DEBUG(_log, "[" << job_name << "] Height:     " << face.height);
+    LOG4CXX_DEBUG(_log, "[" << job_name << "] Confidence: " << face.confidence);
 }
-
-MPFDetectionError
-OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
-                                             cv::Mat &image_data,
-                                             vector<MPFImageLocation> &locations) {
-    int frame_width = 0;
-    int frame_height = 0;
-
-    /**************************/
-    /* Read and Submit Image */
-    /**************************/
-
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Getting detections");
-
-
-    cv::Mat image_gray = Utils::ConvertToGray(image_data);
-
-    frame_width = image_data.cols;
-    frame_height = image_data.rows;
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Frame_width = " << frame_width);
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Frame_height = " << frame_height);
-
-    //vector<pair<cv::Rect,float>> face_rects = ocv_detection.DetectFacesHaar(image_gray);
-    vector<pair<cv::Rect,float>> face_rects = ocv_detection.DetectFacesSSD(image_data);
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Number of faces detected = " << face_rects.size());
-
-    for (unsigned int j = 0; j < face_rects.size(); j++) {
-        cv::Rect face = face_rects[j].first;
-
-        //pass face by ref
-        AdjustRectToEdges(face, image_data);
-
-        float confidence = static_cast<float>(face_rects[j].second);
-
-        MPFImageLocation location = Utils::CvRectToImageLocation(face, confidence);
-
-        locations.push_back(location);
-    }
-
-    if (verbosity) {
-        // log the detections
-        for (unsigned int i = 0; i < locations.size(); i++) {
-            LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job.job_name << "] Detection # " << i);
-            LogDetection(locations[i], job.job_name);
-        }
-    }
-
-    if (verbosity > 0) {
-        //    Draw a rectangle onto the input image for each detection
-
-        for (unsigned int i = 0; i < locations.size(); i++) {
-            cv::Rect object(locations[i].x_left_upper,
-                            locations[i].y_left_upper,
-                            locations[i].width,
-                            locations[i].height);
-            rectangle(image_data, object, CV_RGB(0, 0, 0), 2);
-        }
-
-        QString imstr(job.data_uri.c_str());
-        QFile f(imstr);
-        QFileInfo fileInfo(f);
-        QString fstr(fileInfo.fileName());
-        string outfile_name = "output_" + fstr.toStdString();
-        try {
-            imwrite(outfile_name, image_data);
-        }
-        catch (runtime_error &ex) {
-            LOG4CXX_ERROR(OpenFaceDetectionLogger, "[" << job.job_name << "] Exception writing image output file: " << ex.what());
-            return MPF_OTHER_DETECTION_ERROR_TYPE;
-        }
-    }
-
-    LOG4CXX_INFO(OpenFaceDetectionLogger, "[" << job.job_name << "] Processing complete. Found "
-                                              << static_cast<int>(locations.size()) << " detections.");
-
-    return MPF_DETECTION_SUCCESS;
-}
-
-
-void OcvSSDFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name)
-{
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] XLeftUpper: " << face.x_left_upper);
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] YLeftUpper: " << face.y_left_upper);
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] Width:      " << face.width);
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] Height:     " << face.height);
-    LOG4CXX_DEBUG(OpenFaceDetectionLogger, "[" << job_name << "] Confidence: " << face.confidence);
-}
-
+*/
 
 MPF_COMPONENT_CREATOR(OcvSSDFaceDetection);
 MPF_COMPONENT_DELETER();

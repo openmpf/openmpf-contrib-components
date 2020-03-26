@@ -42,14 +42,8 @@
 
 #include "OcvSSDFaceDetection.h"
 
-
-using std::pair;
-using std::string;
-using std::vector;
-
-using namespace MPF;
-using namespace COMPONENT;
-
+using namespace std;
+using namespace MPF::COMPONENT;
 
 //-----------------------------------------------------------------------------
 // global variable to hold the file name parameters
@@ -121,29 +115,37 @@ TEST(OcvDetection, VerifyQuality) {
     ASSERT_TRUE(parameters.count() > 0);
 
     // 	Create an OCV  detection object.
-    std::cout << "\tCreating OCV Detection" << std::endl;
-    OcvDetection *ocv_detection = new OcvDetection();
-    ASSERT_TRUE(NULL != ocv_detection);
-    ASSERT_TRUE(ocv_detection->Init(plugins_dir));
+    cout << "\tCreating OCV Detection" << endl;
+    OcvDetection* detectionPtr = new OcvDetection(plugins_dir);
+    ASSERT_TRUE(NULL != detectionPtr);
 
+    //  Load test image
     string test_image_path = parameters["OCV_FACE_1_FILE"].toStdString();
     if(test_image_path.find_first_of('.') == 0) {
         test_image_path = current_working_dir + "/" + test_image_path;
     }
-
     cv::Mat image = cv::imread(test_image_path, CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
     ASSERT_TRUE(!image.empty());
 
-    vector<pair<cv::Rect,float>> face_rects = ocv_detection->DetectFacesSSD(image, 10);
-    ASSERT_TRUE(face_rects.size() == 1);
+    // Detect detections and check conf levels
+    MPFImageLocationVec detections = detectionPtr->detect(image, 48, 0.65);
+    ASSERT_TRUE(detections.size() == 1);
+    cout << "Detection: " << detections[0] << endl;
+    ASSERT_TRUE(detections[0].confidence > .9);
 
-    float detection_confidence = static_cast<float>(face_rects[0].second);
-    std::cout << "Ocv Detection Confidence Score: " << detection_confidence << std::endl;
-    ASSERT_TRUE(detection_confidence > .89);
+    // Detect detections and check conf levels
+    detections = detectionPtr->detect(image, 500, 0.65);
+    ASSERT_TRUE(detections.size() == 0);
 
-    delete ocv_detection;
+    // Detect detections and check conf levels
+    detections = detectionPtr->detect(image, 48, 1.1);
+    ASSERT_TRUE(detections.size() == 0);
+
+
+    delete detectionPtr;
 }
 
+/*
 //-----------------------------------------------------------------------------
 //  Test face detection and tracking in videos
 //-----------------------------------------------------------------------------
@@ -268,3 +270,4 @@ TEST(ImageGeneration, TestOnKnownImage) {
     EXPECT_TRUE(ocv_ssd_face_detection->Close());
     delete ocv_ssd_face_detection;
 }
+*/

@@ -43,7 +43,7 @@
   </appender>
 
   <logger name="OcvSSDFaceDetection" additivity="false">
-    <level value="INFO"/>
+    <level value="TRACE"/>
     <appender-ref ref="OCV-SSD-FACE-DETECTION-FILE"/>
     <appender-ref ref="Console"/>
   </logger>

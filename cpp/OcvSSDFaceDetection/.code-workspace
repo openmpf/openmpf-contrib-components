@@ -57,7 +57,9 @@
 			"utility": "cpp",
 			"typeindex": "cpp",
 			"typeinfo": "cpp",
-			"algorithm": "cpp"
-		}
+			"algorithm": "cpp",
+			"random": "cpp"
+		},
+		"editor.tabSize": 2
 	}
 }
