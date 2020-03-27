@@ -28,64 +28,122 @@
 #ifndef OPENMPF_COMPONENTS_OCVSsdFACEDETECTION_H
 #define OPENMPF_COMPONENTS_OCVSsdFACEDETECTION_H
 
-#include <map>
-#include <string>
-#include <vector>
-
-#include <QHash>
-#include <QString>
 #include <log4cxx/logger.h>
+#include <opencv2/dnn.hpp>
 
-#include <opencv2/features2d.hpp>
-#include <opencv2/video/tracking.hpp>
-#include <opencv2/highgui.hpp>
-
-#include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
-#include <MPFDetectionComponent.h>
-#include <MPFVideoCapture.h>
-
-
-
-#include "OcvDetection.h"
+// MPF sdk header files 
+#include "detectionComponentUtils.h"
+#include "adapters/MPFImageAndVideoDetectionComponentAdapter.h"
 
 namespace MPF{
  namespace COMPONENT{
 
   using namespace std;
+  typedef vector<MPFVideoTrack>    MPFVideoTrackVec;     ///< vector of MPFViseoTracks
+  typedef vector<MPFImageLocation> MPFImageLocationVec;  ///< vector of MPFImageLocations
 
   /* **************************************************************************
   * Conveniance operator to dump MPFLocation to a stream
   *************************************************************************** */ 
   std::ostream& operator<< (std::ostream& out, const MPFImageLocation& l) {
     out << "[" << l.x_left_upper << "," << l.y_left_upper << "]-("
-               << l.width << "," << l.height << "):" << l.confidence << " ";
+               << l.width        << "," << l.height       << "):"
+               << l.confidence   << " ";
     return out;
-  } 
+  }
+
+  /** ****************************************************************************
+  * Conveniance << operator template for dumping vectors
+  ***************************************************************************** */
+  template<typename T>
+  std::ostream& operator<< (std::ostream& out, const std::vector<T>& v) {
+    out << "{";
+    size_t last = v.size() - 1;
+    for(size_t i = 0; i < v.size(); ++i){
+      out << v[i];
+      if(i != last) out << ", ";
+    }
+    out << "}";
+    return out;
+  }
+
+  /** ****************************************************************************
+  * shorthands for getting configuration from environment variables if not
+  * provided by job configuration
+  ***************************************************************************** */
+  template<typename T>
+  T getEnv(const Properties &p, const string &k, const T def){
+    auto iter = p.find(k);
+    if (iter == p.end()) {
+      const char* env_p = getenv(k.c_str());
+      if(env_p != NULL){
+        map<string,string> envp;
+        envp.insert(pair<string,string>(k,string(env_p)));
+        return DetectionComponentUtils::GetProperty<T>(envp,k,def);
+      }else{
+        return def;
+      }
+    }
+    return DetectionComponentUtils::GetProperty<T>(p,k,def);
+  }
+
+  /** ****************************************************************************
+  * shorthands for getting MPF properies of various types
+  ***************************************************************************** */
+  template<typename T>
+  T get(const Properties &p, const string &k, const T def){
+    return DetectionComponentUtils::GetProperty<T>(p,k,def);
+  }
+  /** ****************************************************************************
+  * Macro for throwing exception so we can see where in the code it happened
+  ****************************************************************************** */
+  #define THROW_EXCEPTION(MSG){                                  \
+  string path(__FILE__);                                         \
+  string f(path.substr(path.find_last_of("/\\") + 1));           \
+  throw runtime_error(f + "[" + to_string(__LINE__)+"] " + MSG); \
+  }
 
   /* **************************************************************************
-  * Configuration parameters populsted with appropriate values / defaults
+  * Configuration parameters populated with appropriate values / defaults
   *************************************************************************** */
   class JobConfig{
     public:
-      size_t minDetectionSize;  ///< minimum boounding box dimension
-      float  confThresh;        ///< detection confidence threshold
-
-      JobConfig(const log4cxx::LoggerPtr log,const MPFJob &job);
+      static log4cxx::LoggerPtr _log;  ///< shared log opbject
+      size_t minDetectionSize;         ///< minimum boounding box dimension
+      float  confThresh;               ///< detection confidence threshold
+      JobConfig();
+      JobConfig(const MPFJob &job);
   };
   
+  /* **************************************************************************
+  * Conveniance operator to dump JobConfig to a stream
+  *************************************************************************** */ 
+  std::ostream& operator<< (std::ostream& out, const JobConfig& cfg) {
+    out << "{"
+        << "\"minDetectionSize\": " << cfg.minDetectionSize 
+        << "\"confThresh\":" << cfg.confThresh 
+        << "}";
+    return out;
+  }
+
   /***************************************************************************/
   class OcvSsdFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
 
     public:
       bool Init() override;
       bool Close() override;
-      string GetDetectionType();
+      string GetDetectionType(){return "FACE";};
       MPFDetectionError GetDetections(const MPFVideoJob &job, MPFVideoTrackVec    &tracks)    override;
       MPFDetectionError GetDetections(const MPFImageJob &job, MPFImageLocationVec &locations) override;
 
     private:
-      OcvDetection* _detectorPtr = NULL;
-      log4cxx::LoggerPtr _log;
+
+      log4cxx::LoggerPtr _log;     ///< log object
+      cv::dnn::Net       _ssdNet;  ///< single shot DNN face detector network
+
+      void _detect(const JobConfig     &cfg,
+                   MPFImageLocationVec &locations,
+                   const cv::Mat       &bgrFrame);   ///< get bboxes with conf. scores 
 
 /*
       MPFDetectionError GetDetectionsFromVideoCapture(const MPFVideoJob &job,

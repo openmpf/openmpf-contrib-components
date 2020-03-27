@@ -34,8 +34,17 @@ set(CMAKE_BUILD_TYPE Debug)
 add_definitions(-Wfatal-errors)
 include(../ComponentSetup.cmake)
 
-find_package(OpenCV 3.4.7 EXACT REQUIRED PATHS /opt/opencv-3.4.7
-    COMPONENTS opencv_highgui opencv_objdetect opencv_features2d opencv_ml opencv_dnn opencv_flann opencv_video)
+find_package(OpenCV 3.4.7 EXACT
+    REQUIRED PATHS /opt/opencv-3.4.7
+    COMPONENTS
+               #opencv_highgui
+               #opencv_objdetect
+               #opencv_features2d
+               #opencv_ml
+               opencv_dnn
+               #opencv_flann
+               opencv_video
+               )
 
 find_package(mpfComponentInterface REQUIRED)
 find_package(mpfDetectionComponentApi REQUIRED)
@@ -50,18 +59,20 @@ if (${GTEST_FOUND})
 endif()
 
 set(OCV_SSD_FACE_DETECTION_SOURCE_FILES
-        OcvDetection.cpp OcvDetection.h
-        OcvSsdFaceDetection.cpp OcvSsdFaceDetection.h)
+        #OcvDetection.cpp 
+        OcvSsdFaceDetection.cpp)
 
 add_library(mpfOcvSsdFaceDetection SHARED ${OCV_SSD_FACE_DETECTION_SOURCE_FILES})
-target_link_libraries(mpfOcvSsdFaceDetection mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils ${OpenCV_LIBS})
-
+target_link_libraries(mpfOcvSsdFaceDetection
+                      mpfComponentInterface
+                      mpfDetectionComponentApi
+                      mpfComponentUtils
+                      ${OpenCV_LIBS})
 
 configure_mpf_component(OcvSsdFaceDetection TARGETS mpfOcvSsdFaceDetection)
 
-
 add_subdirectory(test)
 
-add_executable(sample_ocv_ssd_face_detector sample_ocv_ssd_face_detector.cpp)
+add_executable(       sample_ocv_ssd_face_detector sample_ocv_ssd_face_detector.cpp)
 target_link_libraries(sample_ocv_ssd_face_detector mpfOcvSsdFaceDetection)
 

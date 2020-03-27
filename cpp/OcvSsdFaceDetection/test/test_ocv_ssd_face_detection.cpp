@@ -40,6 +40,7 @@
 #include <WriteDetectionsToFile.h>
 #include <ImageGeneration.h>
 
+#define private public
 #include "OcvSsdFaceDetection.h"
 
 using namespace std;
@@ -114,10 +115,13 @@ TEST(OcvDetection, VerifyQuality) {
     QHash<QString, QString> parameters = GetTestParameters();
     ASSERT_TRUE(parameters.count() > 0);
 
-    // 	Create an OCV  detection object.
-    cout << "\tCreating OCV Detection" << endl;
-    OcvDetection* detectionPtr = new OcvDetection(plugins_dir);
-    ASSERT_TRUE(NULL != detectionPtr);
+
+    // 	Create an OCV face detection object.
+    std::cout << "\tCreating OCV SSD Face Detection" << std::endl;
+    OcvSsdFaceDetection *ocv_ssd_face_detection = new OcvSsdFaceDetection();
+    ASSERT_TRUE(NULL != ocv_ssd_face_detection);
+    ocv_ssd_face_detection->SetRunDirectory(current_working_dir + "/../plugin");
+    ASSERT_TRUE(ocv_ssd_face_detection->Init());
 
     //  Load test image
     string test_image_path = parameters["OCV_FACE_1_FILE"].toStdString();
@@ -128,21 +132,30 @@ TEST(OcvDetection, VerifyQuality) {
     ASSERT_TRUE(!image.empty());
 
     // Detect detections and check conf levels
-    MPFImageLocationVec detections = detectionPtr->detect(image, 48, 0.65);
+    MPFImageLocationVec detections;
+    JobConfig cfg;
+    ocv_ssd_face_detection->_detect(cfg, detections, image);
     ASSERT_TRUE(detections.size() == 1);
     cout << "Detection: " << detections[0] << endl;
     ASSERT_TRUE(detections[0].confidence > .9);
+    detections.clear();
+
+    // Detect detections and check conf level
+    cfg.minDetectionSize = 500;
+    ocv_ssd_face_detection->_detect(cfg, detections, image);
+    ASSERT_TRUE(detections.size() == 0);
+    detections.clear();
 
     // Detect detections and check conf levels
-    detections = detectionPtr->detect(image, 500, 0.65);
+    cfg.minDetectionSize = 48;
+    cfg.confThresh = 1.1;
+    ocv_ssd_face_detection->_detect(cfg, detections, image);
     ASSERT_TRUE(detections.size() == 0);
+    detections.clear();
 
-    // Detect detections and check conf levels
-    detections = detectionPtr->detect(image, 48, 1.1);
-    ASSERT_TRUE(detections.size() == 0);
+    delete ocv_ssd_face_detection;
 
 
-    delete detectionPtr;
 }
 
 /*

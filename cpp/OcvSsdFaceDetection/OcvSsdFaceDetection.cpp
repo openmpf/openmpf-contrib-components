@@ -36,58 +36,33 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
+#include <QString>
 
+// MPF sdk header files 
 #include "Utils.h"
-#include "detectionComponentUtils.h"
 #include "MPFSimpleConfigLoader.h"
 #include "MPFImageReader.h"
 
 using namespace MPF::COMPONENT;
 
-/** ****************************************************************************
-* shorthands for getting configuration from environment variables if not
-* provided by job configuration
-***************************************************************************** */
-template<typename T>
-T getEnv(const Properties &p, const string &k, const T def){
-  auto iter = p.find(k);
-  if (iter == p.end()) {
-    const char* env_p = getenv(k.c_str());
-    if(env_p != NULL){
-      map<string,string> envp;
-      envp.insert(pair<string,string>(k,string(env_p)));
-      return DetectionComponentUtils::GetProperty<T>(envp,k,def);
-    }else{
-      return def;
-    }
-  }
-  return DetectionComponentUtils::GetProperty<T>(p,k,def);
-}
+// Temporary initializer for static member variable
+log4cxx::LoggerPtr JobConfig::_log = log4cxx::Logger::getRootLogger();
 
 /** ****************************************************************************
-* shorthands for getting MPF properies of various types
+* Default constructor
 ***************************************************************************** */
-template<typename T>
-T get(const Properties &p, const string &k, const T def){
-  return DetectionComponentUtils::GetProperty<T>(p,k,def);
-}
+JobConfig::JobConfig():
+  minDetectionSize(45),
+  confThresh(0.65){}                    
 
 /** ****************************************************************************
 * Parse setting out of MPFJob
 ***************************************************************************** */
-JobConfig::JobConfig(const log4cxx::LoggerPtr log,const MPFJob &job){
+JobConfig::JobConfig(const MPFJob &job) : JobConfig() {
   const Properties jpr = job.job_properties;
-  minDetectionSize = getEnv<int>  (jpr,"MIN_DETECTION_SIZE", 45);               LOG4CXX_TRACE(log, "MIN_DETECTION_SIZE: " << minDetectionSize);
-  confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", 0.65); LOG4CXX_TRACE(log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
-}
-
-/** ****************************************************************************
-* Return the type of detections
-* 
-* \returns "FACE"
-***************************************************************************** */
-string OcvSsdFaceDetection::GetDetectionType(){
-    return "FACE";
+  minDetectionSize = getEnv<int>  (jpr,"MIN_DETECTION_SIZE", minDetectionSize);       LOG4CXX_TRACE(_log, "MIN_DETECTION_SIZE: " << minDetectionSize);
+  confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", confThresh); LOG4CXX_TRACE(_log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
 }
 
 /** ****************************************************************************
@@ -103,12 +78,7 @@ bool OcvSsdFaceDetection::Init() {
 
     log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
     _log = log4cxx::Logger::getLogger("OcvSsdFaceDetection");                  LOG4CXX_DEBUG(_log,"Initializing OcvSSDFaceDetector");
-
-    // Create new detector instance
-    if(_detectorPtr){                                                          LOG4CXX_DEBUG(_log,"Freeing existing detector");
-      delete _detectorPtr; 
-    }
-    _detectorPtr = new OcvDetection(plugin_path);
+    JobConfig::_log = _log;
 
     // read config file and create update any missing env variables
     string config_params_path = config_path + "/mpfOcvSsdFaceDetection.ini";
@@ -130,6 +100,25 @@ bool OcvSsdFaceDetection::Init() {
         LOG4CXX_INFO(_log, "Keeping existing env variable:" << key << "=" << env_val);
       }
     }
+
+    // Load SSD Tensor Flwo Network
+        
+    string  tf_model_path = plugin_path + "/data/opencv_face_detector_uint8.pb";
+    string tf_config_path = plugin_path + "/data/opencv_face_detector.pbtxt";
+    string err_msg = "Failed to load TF model: " + tf_config_path + ", " + tf_model_path;
+
+    try{
+        _ssdNet = cv::dnn::readNetFromTensorflow(tf_model_path, tf_config_path);
+    }catch(const runtime_error& re){
+        LOG4CXX_FATAL(_log, err_msg << " Runtime error: " << re.what());
+        return false;
+    }catch(const exception& ex){
+        LOG4CXX_FATAL(_log, err_msg << " Exception: " << ex.what());
+        return false;
+    }catch(...){
+        LOG4CXX_FATAL(_log, err_msg << " Unknown failure occurred. Possible memory corruption");
+        return false;
+    }  
     
     return true;
 }
@@ -140,11 +129,52 @@ bool OcvSsdFaceDetection::Init() {
 * \returns   true on success
 ***************************************************************************** */
 bool OcvSsdFaceDetection::Close() {
-    if(_detectorPtr){
-        LOG4CXX_TRACE(_log,"Freeing detector");
-        delete _detectorPtr; 
-    }
     return true;
+}
+
+/** ****************************************************************************
+* Detect objects using SSD DNN opencv detector network.   
+* 
+* \param bgrFrame      BGR color image in which to detect objects
+* \param minBBoxSide   minimum bounding box size to keep
+* \param confThresh    minimum confidence score [0..1] to keep detection
+*
+* \returns vector of bounding boxes and conf scores for detected objects
+*
+***************************************************************************** */
+void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
+                                  MPFImageLocationVec &locations,
+                                  const cv::Mat       &bgrFrame){
+  const double inScaleFactor = 1.0;
+  const cv::Size blobSize(300, 300);
+  const cv::Scalar meanVal(104.0, 117.0, 124.0);  // BGR mean pixel color       
+
+  cv::Mat inputBlob = cv::dnn::blobFromImage(bgrFrame,      // BGR image
+                                             inScaleFactor, // no pixel value scaline (e.g. 1.0/255.0)
+                                             blobSize,      // expected network input size: 300x300
+                                             meanVal,       // mean BGR pixel value
+                                             true,          // swap RB channels
+                                             false          // center crop
+                                             );
+  _ssdNet.setInput(inputBlob,"data");
+  cv::Mat detection = _ssdNet.forward("detection_out");
+  cv::Mat detectionMat(detection.size[2], detection.size[3], CV_32F, detection.ptr<float>());
+
+  for(int i = 0; i < detectionMat.rows; i++){
+    float conf = detectionMat.at<float>(i, 2);
+    if(conf > cfg.confThresh){
+      int x1 = static_cast<int>(detectionMat.at<float>(i, 3) * bgrFrame.cols);
+      int y1 = static_cast<int>(detectionMat.at<float>(i, 4) * bgrFrame.rows);
+      int x2 = static_cast<int>(detectionMat.at<float>(i, 5) * bgrFrame.cols);
+      int y2 = static_cast<int>(detectionMat.at<float>(i, 6) * bgrFrame.rows);
+      int width  = x2 - x1;
+      int height = y2 - y1;
+      if(   width  >= cfg.minDetectionSize
+          && height >= cfg.minDetectionSize){
+        locations.push_back(MPFImageLocation(x1, y1, width, height, conf));
+      }
+    }
+  }                                              
 }
 
 /** ****************************************************************************
@@ -176,12 +206,13 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
     }
 
     Properties jpr = job.job_properties;
-    JobConfig cfg(_log, job);
+    JobConfig cfg(job);
+    size_t next_idx = locations.size();
+    _detect(cfg, locations, img);
+    size_t new_size = locations.size();
 
-    MPFImageLocationVec detections = _detectorPtr->detect(img, cfg.minDetectionSize, cfg.confThresh);
-    for (auto &detection : detections) {
-      imreader.ReverseTransform(detection);
-      locations.push_back(detection);
+    for(size_t i = next_idx; i < new_size; i++){
+      imreader.ReverseTransform(locations[i]);
     }
     
     return MPF_DETECTION_SUCCESS;

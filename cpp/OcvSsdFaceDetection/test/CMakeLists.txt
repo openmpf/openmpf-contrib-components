@@ -37,7 +37,11 @@ if (${GTEST_FOUND})
 
     include_directories(..)
     add_executable(OcvSsdFaceDetectionTest test_ocv_ssd_face_detection.cpp)
-    target_link_libraries(OcvSsdFaceDetectionTest mpfOcvSsdFaceDetection mpfComponentTestUtils GTest::GTest GTest::Main Qt4::QtCore)
+    target_link_libraries(OcvSsdFaceDetectionTest mpfOcvSsdFaceDetection
+                                                  mpfComponentTestUtils
+                                                  GTest::GTest
+                                                  GTest::Main
+                                                  Qt4::QtCore)
 
     add_test(NAME OcvSsdFaceDetectionTest COMMAND OcvSsdFaceDetectionTest)
 
