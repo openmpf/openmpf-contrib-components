@@ -42,7 +42,7 @@
     <layout class="org.apache.log4j.TTCCLayout" />
   </appender>
 
-  <logger name="OcvSSDFaceDetection" additivity="false">
+  <logger name="OcvSsdFaceDetection" additivity="false">
     <level value="TRACE"/>
     <appender-ref ref="OCV-SSD-FACE-DETECTION-FILE"/>
     <appender-ref ref="Console"/>

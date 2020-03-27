@@ -33,7 +33,7 @@ COPY . .
 RUN build-component.sh
 
 ARG RUN_TESTS=false
-RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./OcvSSDFaceDetectionTest; fi
+RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./OcvSsdFaceDetectionTest; fi
 
 
 

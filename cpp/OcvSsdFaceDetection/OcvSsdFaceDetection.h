@@ -25,8 +25,8 @@
  ******************************************************************************/
 
 
-#ifndef OPENMPF_COMPONENTS_OCVSSDFACEDETECTION_H
-#define OPENMPF_COMPONENTS_OCVSSDFACEDETECTION_H
+#ifndef OPENMPF_COMPONENTS_OCVSsdFACEDETECTION_H
+#define OPENMPF_COMPONENTS_OCVSsdFACEDETECTION_H
 
 #include <map>
 #include <string>
@@ -74,7 +74,7 @@ namespace MPF{
   };
   
   /***************************************************************************/
-  class OcvSSDFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
+  class OcvSsdFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
 
     public:
       bool Init() override;

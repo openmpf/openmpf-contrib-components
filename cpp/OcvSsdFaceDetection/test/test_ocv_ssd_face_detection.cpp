@@ -40,7 +40,7 @@
 #include <WriteDetectionsToFile.h>
 #include <ImageGeneration.h>
 
-#include "OcvSSDFaceDetection.h"
+#include "OcvSsdFaceDetection.h"
 
 using namespace std;
 using namespace MPF::COMPONENT;
@@ -85,7 +85,7 @@ TEST(Detection, Init) {
 
     string current_working_dir = GetCurrentWorkingDirectory();
 
-    OcvSSDFaceDetection *ocv_ssd_face_detection = new OcvSSDFaceDetection();
+    OcvSsdFaceDetection *ocv_ssd_face_detection = new OcvSsdFaceDetection();
     ASSERT_TRUE(NULL != ocv_ssd_face_detection);
 
     string dir_input(current_working_dir + "/../plugin");
@@ -109,7 +109,7 @@ TEST(Detection, Init) {
 TEST(OcvDetection, VerifyQuality) {
 
     string current_working_dir = GetCurrentWorkingDirectory();
-    string plugins_dir         = current_working_dir + "/../plugin/OcvSSDFaceDetection";
+    string plugins_dir         = current_working_dir + "/../plugin/OcvSsdFaceDetection";
 
     QHash<QString, QString> parameters = GetTestParameters();
     ASSERT_TRUE(parameters.count() > 0);
@@ -178,7 +178,7 @@ TEST(VideoGeneration, TestOnKnownVideo) {
 
     // 	Create an OCV face detection object.
     std::cout << "\tCreating OCV Face Detection" << std::endl;
-    OcvSSDFaceDetection *ocv_ssd_face_detection = new OcvSSDFaceDetection();
+    OcvSsdFaceDetection *ocv_ssd_face_detection = new OcvSsdFaceDetection();
     ASSERT_TRUE(NULL != ocv_ssd_face_detection);
     ocv_ssd_face_detection->SetRunDirectory(current_working_dir + "/../plugin");
     ASSERT_TRUE(ocv_ssd_face_detection->Init());
@@ -233,7 +233,7 @@ TEST(ImageGeneration, TestOnKnownImage) {
     float comparison_score_threshold = parameters["OCV_FACE_COMPARISON_SCORE_IMAGE"].toFloat();
 
     // 	Create an OCV face detection object.
-    OcvSSDFaceDetection *ocv_ssd_face_detection = new OcvSSDFaceDetection();
+    OcvSsdFaceDetection *ocv_ssd_face_detection = new OcvSsdFaceDetection();
     ASSERT_TRUE(NULL != ocv_ssd_face_detection);
 
     ocv_ssd_face_detection->SetRunDirectory(current_working_dir + "/../plugin");

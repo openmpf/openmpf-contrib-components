@@ -36,10 +36,10 @@ if (${GTEST_FOUND})
     find_package(mpfComponentTestUtils REQUIRED)
 
     include_directories(..)
-    add_executable(OcvSSDFaceDetectionTest test_ocv_ssd_face_detection.cpp)
-    target_link_libraries(OcvSSDFaceDetectionTest mpfOcvSSDFaceDetection mpfComponentTestUtils GTest::GTest GTest::Main Qt4::QtCore)
+    add_executable(OcvSsdFaceDetectionTest test_ocv_ssd_face_detection.cpp)
+    target_link_libraries(OcvSsdFaceDetectionTest mpfOcvSsdFaceDetection mpfComponentTestUtils GTest::GTest GTest::Main Qt4::QtCore)
 
-    add_test(NAME OcvSSDFaceDetectionTest COMMAND OcvSSDFaceDetectionTest)
+    add_test(NAME OcvSsdFaceDetectionTest COMMAND OcvSsdFaceDetectionTest)
 
     # allow for 'make check' 
     add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose)

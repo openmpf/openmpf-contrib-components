@@ -11,7 +11,7 @@ x-detection-component-base:
 #    replicas: 1
 
 services:
-  OcvSSDFaceDetection:
+  OcvSsdFaceDetection:
     image: openmpf/openmpf_cpp_component_dev
     build:
       context: .

@@ -24,7 +24,7 @@
  * limitations under the License.                                             *
  ******************************************************************************/
 
-#include "OcvSSDFaceDetection.h"
+#include "OcvSsdFaceDetection.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     string app_dir = (this_app->applicationDirPath()).toStdString();
     delete this_app;
 
-    OcvSSDFaceDetection ocv_ssd_face_detection;
+    OcvSsdFaceDetection ocv_ssd_face_detection;
     MPFDetectionComponent *detection_engine = &ocv_ssd_face_detection;
     detection_engine->SetRunDirectory(app_dir + "/plugin");
 

@@ -24,7 +24,7 @@
  * limitations under the License.                                             *
  ******************************************************************************/
 
-#include "OcvSSDFaceDetection.h"
+#include "OcvSsdFaceDetection.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -86,7 +86,7 @@ JobConfig::JobConfig(const log4cxx::LoggerPtr log,const MPFJob &job){
 * 
 * \returns "FACE"
 ***************************************************************************** */
-string OcvSSDFaceDetection::GetDetectionType(){
+string OcvSsdFaceDetection::GetDetectionType(){
     return "FACE";
 }
 
@@ -97,12 +97,12 @@ string OcvSSDFaceDetection::GetDetectionType(){
 *
 * \returns   true on success
 ***************************************************************************** */
-bool OcvSSDFaceDetection::Init() {
-    string plugin_path    = GetRunDirectory() + "/OcvSSDFaceDetection";
+bool OcvSsdFaceDetection::Init() {
+    string plugin_path    = GetRunDirectory() + "/OcvSsdFaceDetection";
     string config_path    = plugin_path       + "/config";
 
     log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
-    _log = log4cxx::Logger::getLogger("OcvSSDFaceDetection");                  LOG4CXX_DEBUG(_log,"Initializing OcvSSDFaceDetector");
+    _log = log4cxx::Logger::getLogger("OcvSsdFaceDetection");                  LOG4CXX_DEBUG(_log,"Initializing OcvSSDFaceDetector");
 
     // Create new detector instance
     if(_detectorPtr){                                                          LOG4CXX_DEBUG(_log,"Freeing existing detector");
@@ -111,10 +111,10 @@ bool OcvSSDFaceDetection::Init() {
     _detectorPtr = new OcvDetection(plugin_path);
 
     // read config file and create update any missing env variables
-    string config_params_path = config_path + "/mpfOcvSSDFaceDetection.ini";
+    string config_params_path = config_path + "/mpfOcvSsdFaceDetection.ini";
     QHash<QString,QString> params;
     if(LoadConfig(config_params_path, params)) {
-        LOG4CXX_ERROR(_log, "Failed to load the OcvSSDFaceDetection config from: " << config_params_path);
+        LOG4CXX_ERROR(_log, "Failed to load the OcvSsdFaceDetection config from: " << config_params_path);
         return false;
     }
     for(auto p = params.begin(); p != params.end(); p++){
@@ -139,7 +139,7 @@ bool OcvSSDFaceDetection::Init() {
 *
 * \returns   true on success
 ***************************************************************************** */
-bool OcvSSDFaceDetection::Close() {
+bool OcvSsdFaceDetection::Close() {
     if(_detectorPtr){
         LOG4CXX_TRACE(_log,"Freeing detector");
         delete _detectorPtr; 
@@ -158,7 +158,7 @@ bool OcvSSDFaceDetection::Close() {
 * \note prior to returning the features are base64 encoded ?
 *
 ***************************************************************************** */
-MPFDetectionError OcvSSDFaceDetection::GetDetections(const MPFImageJob   &job,
+MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
                                                      MPFImageLocationVec &locations) {
 
   try {                                                                      LOG4CXX_DEBUG(_log, "Data URI = " << job.data_uri);
@@ -201,12 +201,12 @@ MPFDetectionError OcvSSDFaceDetection::GetDetections(const MPFImageJob   &job,
 * \returns  an MPF error constant or MPF_DETECTION_SUCCESS
 *
 ***************************************************************************** */
-MPFDetectionError OcvSSDFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
+MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
  return MPF_DETECTION_SUCCESS; 
 }
 
 /*
-MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
+MPFDetectionError OcvSsdFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
                                              cv::Mat &image_data,
                                              vector<MPFImageLocation> &locations) {
     int frame_width = 0;
@@ -279,7 +279,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromImageData(const MPFImage
     return MPF_DETECTION_SUCCESS;
 }
 
-MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
+MPFDetectionError OcvSsdFaceDetection::GetDetectionsFromVideoCapture(
         const MPFVideoJob &job,
         MPFVideoCapture &video_capture,
         vector<MPFVideoTrack> &tracks) {
@@ -783,7 +783,7 @@ MPFDetectionError OcvSSDFaceDetection::GetDetectionsFromVideoCapture(
 }
 
 
-void OcvSSDFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name){
+void OcvSsdFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name){
     LOG4CXX_DEBUG(_log, "[" << job_name << "] XLeftUpper: " << face.x_left_upper);
     LOG4CXX_DEBUG(_log, "[" << job_name << "] YLeftUpper: " << face.y_left_upper);
     LOG4CXX_DEBUG(_log, "[" << job_name << "] Width:      " << face.width);
@@ -792,5 +792,5 @@ void OcvSSDFaceDetection::LogDetection(const MPFImageLocation& face, const strin
 }
 */
 
-MPF_COMPONENT_CREATOR(OcvSSDFaceDetection);
+MPF_COMPONENT_CREATOR(OcvSsdFaceDetection);
 MPF_COMPONENT_DELETER();

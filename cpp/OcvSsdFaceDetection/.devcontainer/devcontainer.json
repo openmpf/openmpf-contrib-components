@@ -1,10 +1,10 @@
 {
-    "name": "OcvSSDFaceDetection",
+    "name": "OcvSsdFaceDetection",
   
     // The order of the files is important since later files override previous ones
     "dockerComposeFile": ["./docker-compose.yml"],
   
-    "service": "OcvSSDFaceDetection",
+    "service": "OcvSsdFaceDetection",
     "workspaceFolder": "/home/mpf/component_src",
 	"shutdownAction": "stopCompose",
 	"extensions": [

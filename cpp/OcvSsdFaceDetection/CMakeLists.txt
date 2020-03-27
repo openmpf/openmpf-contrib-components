@@ -51,17 +51,17 @@ endif()
 
 set(OCV_SSD_FACE_DETECTION_SOURCE_FILES
         OcvDetection.cpp OcvDetection.h
-        OcvSSDFaceDetection.cpp OcvSSDFaceDetection.h)
+        OcvSsdFaceDetection.cpp OcvSsdFaceDetection.h)
 
-add_library(mpfOcvSSDFaceDetection SHARED ${OCV_SSD_FACE_DETECTION_SOURCE_FILES})
-target_link_libraries(mpfOcvSSDFaceDetection mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils ${OpenCV_LIBS})
+add_library(mpfOcvSsdFaceDetection SHARED ${OCV_SSD_FACE_DETECTION_SOURCE_FILES})
+target_link_libraries(mpfOcvSsdFaceDetection mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils ${OpenCV_LIBS})
 
 
-configure_mpf_component(OcvSSDFaceDetection TARGETS mpfOcvSSDFaceDetection)
+configure_mpf_component(OcvSsdFaceDetection TARGETS mpfOcvSsdFaceDetection)
 
 
 add_subdirectory(test)
 
 add_executable(sample_ocv_ssd_face_detector sample_ocv_ssd_face_detector.cpp)
-target_link_libraries(sample_ocv_ssd_face_detector mpfOcvSSDFaceDetection)
+target_link_libraries(sample_ocv_ssd_face_detector mpfOcvSsdFaceDetection)
 
