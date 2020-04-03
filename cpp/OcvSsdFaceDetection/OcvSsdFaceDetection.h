@@ -30,101 +30,30 @@
 
 #include <log4cxx/logger.h>
 #include <opencv2/dnn.hpp>
+#include <opencv2/face.hpp>
+
+#include <dlib/image_processing.h>
+#include <dlib/opencv.h>
 
 // MPF sdk header files 
-#include "detectionComponentUtils.h"
+
 #include "adapters/MPFImageAndVideoDetectionComponentAdapter.h"
+
+#include "OcvSsdFaceDetection_types.h"
+#include "OcvSsdFaceDetection_streamio.h"
+#include "OcvSsdFaceDetection_JobConfig.h"
 
 namespace MPF{
  namespace COMPONENT{
 
   using namespace std;
-  typedef vector<MPFVideoTrack>    MPFVideoTrackVec;     ///< vector of MPFViseoTracks
-  typedef vector<MPFImageLocation> MPFImageLocationVec;  ///< vector of MPFImageLocations
 
-  /* **************************************************************************
-  * Conveniance operator to dump MPFLocation to a stream
-  *************************************************************************** */ 
-  std::ostream& operator<< (std::ostream& out, const MPFImageLocation& l) {
-    out << "[" << l.x_left_upper << "," << l.y_left_upper << "]-("
-               << l.width        << "," << l.height       << "):"
-               << l.confidence   << " ";
-    return out;
-  }
-
-  /** ****************************************************************************
-  * Conveniance << operator template for dumping vectors
-  ***************************************************************************** */
-  template<typename T>
-  std::ostream& operator<< (std::ostream& out, const std::vector<T>& v) {
-    out << "{";
-    size_t last = v.size() - 1;
-    for(size_t i = 0; i < v.size(); ++i){
-      out << v[i];
-      if(i != last) out << ", ";
-    }
-    out << "}";
-    return out;
-  }
-
-  /** ****************************************************************************
-  * shorthands for getting configuration from environment variables if not
-  * provided by job configuration
-  ***************************************************************************** */
-  template<typename T>
-  T getEnv(const Properties &p, const string &k, const T def){
-    auto iter = p.find(k);
-    if (iter == p.end()) {
-      const char* env_p = getenv(k.c_str());
-      if(env_p != NULL){
-        map<string,string> envp;
-        envp.insert(pair<string,string>(k,string(env_p)));
-        return DetectionComponentUtils::GetProperty<T>(envp,k,def);
-      }else{
-        return def;
-      }
-    }
-    return DetectionComponentUtils::GetProperty<T>(p,k,def);
-  }
-
-  /** ****************************************************************************
-  * shorthands for getting MPF properies of various types
-  ***************************************************************************** */
-  template<typename T>
-  T get(const Properties &p, const string &k, const T def){
-    return DetectionComponentUtils::GetProperty<T>(p,k,def);
-  }
-  /** ****************************************************************************
-  * Macro for throwing exception so we can see where in the code it happened
-  ****************************************************************************** */
-  #define THROW_EXCEPTION(MSG){                                  \
-  string path(__FILE__);                                         \
-  string f(path.substr(path.find_last_of("/\\") + 1));           \
-  throw runtime_error(f + "[" + to_string(__LINE__)+"] " + MSG); \
-  }
-
-  /* **************************************************************************
-  * Configuration parameters populated with appropriate values / defaults
-  *************************************************************************** */
-  class JobConfig{
-    public:
-      static log4cxx::LoggerPtr _log;  ///< shared log opbject
-      size_t minDetectionSize;         ///< minimum boounding box dimension
-      float  confThresh;               ///< detection confidence threshold
-      JobConfig();
-      JobConfig(const MPFJob &job);
+  class Detection: public MPFImageLocation{
+    cvPoint2fVec landmarks;
+    cv::Mat      thumbnail;
+    cv::Mat      feature;
   };
-  
-  /* **************************************************************************
-  * Conveniance operator to dump JobConfig to a stream
-  *************************************************************************** */ 
-  std::ostream& operator<< (std::ostream& out, const JobConfig& cfg) {
-    out << "{"
-        << "\"minDetectionSize\": " << cfg.minDetectionSize 
-        << "\"confThresh\":" << cfg.confThresh 
-        << "}";
-    return out;
-  }
+
 
   /***************************************************************************/
   class OcvSsdFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
@@ -138,12 +67,32 @@ namespace MPF{
 
     private:
 
-      log4cxx::LoggerPtr _log;     ///< log object
-      cv::dnn::Net       _ssdNet;  ///< single shot DNN face detector network
+      log4cxx::LoggerPtr             _log;          ///< log object
+      cv::dnn::Net                   _ssdNet;       ///< single shot DNN face detector network
+      cv::Ptr<cv::face::FacemarkLBF> _facemark;     ///< landmark detector
+      dlib::shape_predictor          _shape_predictor;  ///< landmark detector
+      cv::dnn::Net                   _openFaceNet;  ///< feature generator
 
       void _detect(const JobConfig     &cfg,
                    MPFImageLocationVec &locations,
-                   const cv::Mat       &bgrFrame);   ///< get bboxes with conf. scores 
+                   const cv::Mat       &bgrFrame);   ///< get bboxes with conf. scores
+
+      cvPoint2fVecVec _getLandmarks(const JobConfig     &cfg,
+                                    MPFImageLocationVec &locations,
+                                    const cv::Mat       &bgrFrame); ///< get face landmarks
+
+      void _drawLandmarks(cv::Mat &im,
+                          cvPoint2fVec &landmarks); ///< draw landmarks on image
+
+      cvMatVec _getThumbnails(const JobConfig       &cfg,
+                              const cv::Mat         &bgrFrame,
+                              const cvPoint2fVecVec &landmarks); ///< get thumbnails for detections              
+        
+      cvMatVec _getFeatures(const JobConfig &cfg,
+                            const cvMatVec  &thumbnails); ///< get features from thumbnails
+
+      float _featureDistance(const cv::Mat &a,
+                             const cv::Mat &b){return norm(a,b,cv::NORM_L2);}  ///< compute feature distance between two features
 
 /*
       MPFDetectionError GetDetectionsFromVideoCapture(const MPFVideoJob &job,

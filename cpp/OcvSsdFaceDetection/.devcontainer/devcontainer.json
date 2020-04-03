@@ -16,6 +16,11 @@
 		"redhat.vscode-yaml"
 	],
 	"settings":{
-		"cmake.ctestPath": "/usr/bin/ctest3"
+    "cmake.ctestPath": "/usr/bin/ctest3",
+    "C_Cpp.default.includePath": [
+      "/usr/include",
+      "/opt/opencv-3.4.7/include",
+      "/home/mpf/mpf-sdk-install/include"
+    ]
 	}
   }

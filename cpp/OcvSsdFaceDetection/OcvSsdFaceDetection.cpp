@@ -31,6 +31,7 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 #include <log4cxx/xml/domconfigurator.h>
 
@@ -43,11 +44,16 @@
 #include "Utils.h"
 #include "MPFSimpleConfigLoader.h"
 #include "MPFImageReader.h"
+#include "MPFVideoCapture.h"
+#include "detectionComponentUtils.h"
+
 
 using namespace MPF::COMPONENT;
 
 // Temporary initializer for static member variable
 log4cxx::LoggerPtr JobConfig::_log = log4cxx::Logger::getRootLogger();
+
+
 
 /** ****************************************************************************
 * Default constructor
@@ -65,6 +71,41 @@ JobConfig::JobConfig(const MPFJob &job) : JobConfig() {
   confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", confThresh); LOG4CXX_TRACE(_log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
 }
 
+
+/** ****************************************************************************
+* Draw polylines for landmark features 
+***************************************************************************** */
+const cv::Scalar DRAW_COLOR(255, 200,0);
+void drawPolyline(cv::Mat &im, const cvPoint2fVec &landmarks,
+                  const int start, const int end, bool isClosed = false){
+    cvPointVec points;
+    for (int i = start; i <= end; i++){
+        points.push_back(cv::Point(landmarks[i].x, landmarks[i].y));
+    }
+    cv::polylines(im, points, isClosed, DRAW_COLOR, 2, 16);
+}
+
+/** ****************************************************************************
+* Draw landmark features
+***************************************************************************** */
+void OcvSsdFaceDetection::_drawLandmarks(cv::Mat &im, cvPoint2fVec &landmarks){
+  if (landmarks.size() == 68){
+    drawPolyline(im, landmarks, 0, 16);           // Jaw line
+    drawPolyline(im, landmarks, 17, 21);          // Left eyebrow
+    drawPolyline(im, landmarks, 22, 26);          // Right eyebrow
+    drawPolyline(im, landmarks, 27, 30);          // Nose bridge
+    drawPolyline(im, landmarks, 30, 35, true);    // Lower nose
+    drawPolyline(im, landmarks, 36, 41, true);    // Left eye
+    drawPolyline(im, landmarks, 42, 47, true);    // Right Eye
+    drawPolyline(im, landmarks, 48, 59, true);    // Outer lip
+    drawPolyline(im, landmarks, 60, 67, true);    // Inner lip
+  }else { 
+    for(int i = 0; i < landmarks.size(); i++){
+      cv::circle(im,landmarks[i],3, DRAW_COLOR, cv::FILLED);
+    }
+  }
+}
+
 /** ****************************************************************************
 * Initialize SSD face detector module by setting up paths and reading configs
 * configuration variables are turned into environment variables for late
@@ -78,45 +119,55 @@ bool OcvSsdFaceDetection::Init() {
 
     log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
     _log = log4cxx::Logger::getLogger("OcvSsdFaceDetection");                  LOG4CXX_DEBUG(_log,"Initializing OcvSSDFaceDetector");
-    JobConfig::_log = _log;
+    JobConfig::_log = _log;                                                    LOG4CXX_TRACE(_log, cv::getBuildInformation() << std::endl);
+
 
     // read config file and create update any missing env variables
     string config_params_path = config_path + "/mpfOcvSsdFaceDetection.ini";
     QHash<QString,QString> params;
-    if(LoadConfig(config_params_path, params)) {
-        LOG4CXX_ERROR(_log, "Failed to load the OcvSsdFaceDetection config from: " << config_params_path);
+    if(LoadConfig(config_params_path, params)) {                               LOG4CXX_ERROR(_log, "Failed to load the OcvSsdFaceDetection config from: " << config_params_path);
         return false;
-    }
+    }                                                                          LOG4CXX_TRACE(_log,"read config file:" << config_params_path);
     for(auto p = params.begin(); p != params.end(); p++){
-      const char* key = qPrintable(p.key());
-      const char* val = qPrintable(p.value());
-      const char* env_val = getenv(key);
+      const string key = p.key().toStdString();                                   
+      const string val = p.value().toStdString();                              LOG4CXX_TRACE(_log,"Config    Vars:" << key << "=" << val);
+      const char* env_val = getenv(key.c_str());                               LOG4CXX_TRACE(_log,"Veryfying ENVs:" << key << "=" << env_val);
       if(env_val == NULL){
-        if(setenv(key, val, 0) !=0){
-          LOG4CXX_ERROR(_log, "Failed to convert config to env variable: " << key << "=" << val);
+        if(setenv(key.c_str(), val.c_str(), 0) !=0){                           LOG4CXX_ERROR(_log, "Failed to convert config to env variable: " << key << "=" << val);
           return false;
         }
-      }else if(strcmp(env_val, val) != 0){
-        LOG4CXX_INFO(_log, "Keeping existing env variable:" << key << "=" << env_val);
+      }else if(string(env_val) != val){                                        LOG4CXX_INFO(_log, "Keeping existing env variable:" << key << "=" << string(env_val));
       }
     }
 
-    // Load SSD Tensor Flwo Network
-        
+    // Load SSD Tensor Flow Network
     string  tf_model_path = plugin_path + "/data/opencv_face_detector_uint8.pb";
     string tf_config_path = plugin_path + "/data/opencv_face_detector.pbtxt";
-    string err_msg = "Failed to load TF model: " + tf_config_path + ", " + tf_model_path;
+    string lbf_model_path = plugin_path + "/data/lbfmodel.yaml";
+    //string  sp_model_path = plugin_path + "/data/shape_predictor_68_face_landmarks.dat";
+    string  sp_model_path = plugin_path + "/data/shape_predictor_5_face_landmarks.dat";
+    string  tr_model_path = plugin_path + "/data/nn4.small2.v1.t7";
+
+    string err_msg = "Failed to load models: " + tf_config_path + ", " + tf_model_path + ", " + lbf_model_path;
 
     try{
+        // load detecore net
         _ssdNet = cv::dnn::readNetFromTensorflow(tf_model_path, tf_config_path);
-    }catch(const runtime_error& re){
-        LOG4CXX_FATAL(_log, err_msg << " Runtime error: " << re.what());
+        
+        // load landmark finder
+        _facemark = cv::face::FacemarkLBF::create();
+        _facemark->loadModel(lbf_model_path);
+
+        dlib::deserialize(sp_model_path) >> _shape_predictor;
+
+        // load feature generator
+        _openFaceNet = cv::dnn::readNetFromTorch(tr_model_path);
+
+    }catch(const runtime_error& re){                                           LOG4CXX_FATAL(_log, err_msg << " Runtime error: " << re.what());
         return false;
-    }catch(const exception& ex){
-        LOG4CXX_FATAL(_log, err_msg << " Exception: " << ex.what());
+    }catch(const exception& ex){                                               LOG4CXX_FATAL(_log, err_msg << " Exception: " << ex.what());
         return false;
-    }catch(...){
-        LOG4CXX_FATAL(_log, err_msg << " Unknown failure occurred. Possible memory corruption");
+    }catch(...){                                                               LOG4CXX_FATAL(_log, err_msg << " Unknown failure occurred. Possible memory corruption");
         return false;
     }  
     
@@ -135,11 +186,9 @@ bool OcvSsdFaceDetection::Close() {
 /** ****************************************************************************
 * Detect objects using SSD DNN opencv detector network.   
 * 
-* \param bgrFrame      BGR color image in which to detect objects
-* \param minBBoxSide   minimum bounding box size to keep
-* \param confThresh    minimum confidence score [0..1] to keep detection
-*
-* \returns vector of bounding boxes and conf scores for detected objects
+* \param         cfg       Config settings
+* \param[in,out] locations detections to add to    
+* \param         bgrFrame  BGR color image in which to detect objects
 *
 ***************************************************************************** */
 void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
@@ -178,6 +227,129 @@ void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
 }
 
 /** ****************************************************************************
+* Get landmark points for detections.   
+* 
+* \param         cfg       Config settings
+* \param[in,out] locations detections to find landmarks from   
+* \param         bgrFrame  BGR color image in which detections were found
+*
+* \returns landmarks for each detection  
+*
+***************************************************************************** */
+cvPoint2fVecVec OcvSsdFaceDetection::_getLandmarks(const JobConfig     &cfg,
+                                       MPFImageLocationVec &locations,
+                                       const cv::Mat       &bgrFrame){
+  // cvRectVec detections;                                       
+  // for(auto &l:locations){
+  //   detections.push_back(cv::Rect(l.x_left_upper,l.y_left_upper,l.width,l.height));
+  // }
+  // cvPoint2fVecVec landmarks;
+  // if(! _facemark->fit(bgrFrame, detections, landmarks)){
+  //   LOG4CXX_WARN(_log,"failed to generate facial landmarks");
+  // }
+
+   cvPoint2fVecVec landmarks;
+  vector<dlib::rectangle> detections;
+  dlib::cv_image<dlib::bgr_pixel> cimg(bgrFrame);
+  for(auto &l:locations){
+    dlib::full_object_detection
+       shape = _shape_predictor(cimg, dlib::rectangle(l.x_left_upper,             // left
+                                                      l.y_left_upper,             // top
+                                                      l.x_left_upper + l.width-1, // right
+                                                      l.y_left_upper + l.height-1 // bottom
+                                                      ));
+    cvPoint2fVec lm;
+    for(size_t i=0; i<shape.num_parts(); i++){
+      dlib::point pt = shape.part(i);                                          LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));
+      lm.push_back(cv::Point2f(pt.x(),pt.y()));
+    }
+    landmarks.push_back(lm);
+  }
+
+  return landmarks;
+}
+
+/** ****************************************************************************
+* Get aligned thumbnails from detections using landmarks.   
+* 
+* \param         cfg       Config settings
+* \param[in,out] locations detections to which features will be added    
+* \param         bgrFrame  BGR color image in which detections were found
+* \param         landmarks landmark points used for alignement
+*
+* \returns thumbnails for detections
+*
+***************************************************************************** */
+cvMatVec OcvSsdFaceDetection::_getThumbnails(const JobConfig       &cfg,
+                                             const cv::Mat         &bgrFrame,
+                                             const cvPoint2fVecVec &landmarks){
+  const float  THUMBNAIL_SIZE = 96;
+  const cv::Size THUMB_SIZE(THUMBNAIL_SIZE,THUMBNAIL_SIZE);
+  // Landmark indices for OpenFace nn4.v1
+  // const size_t lmIdx[] = {39,42,57};
+  // const cv::Mat dst =  THUMBNAIL_SIZE * (cv::Mat_<float>(3,2)
+  //                                         << 0.36378494, 0.17794687,
+  //                                            0.61896320, 0.17277813,
+  //                                            0.50020397, 0.75058440); 
+  
+  // Landmark indecies for OpenFace nn4.v2, nn4.small1.v1, nn4.small2.v1
+  //const size_t lmIdx[] = {36,45,33};  // 68 pt landmarks
+  const size_t lmIdx[] = {2,0,4};       // 5 pt landmarks
+  const cv::Mat dst = THUMBNAIL_SIZE * (cv::Mat_<float>(3,2)
+                                         << 0.1941570 , 0.16926692,
+                                            0.7888591 , 0.15817115,
+                                            0.4949509 , 0.51444140);
+  cvMatVec thumbnails;
+  cv::Mat src = cv::Mat_<float>(3,2);
+  
+  for(auto &lm:landmarks){
+    for(size_t r=0; r<3; r++){
+      float* rowPtr = src.ptr<float>(r);
+      rowPtr[0] = lm[lmIdx[r]].x; 
+      rowPtr[1] = lm[lmIdx[r]].y;      
+    }
+    cv::Mat xfrm = cv::getAffineTransform(src,dst);
+    cv::Mat thumbnail(THUMB_SIZE,bgrFrame.type());
+    cv::warpAffine(bgrFrame,thumbnail,cv::getAffineTransform(src,dst),
+                   THUMB_SIZE,cv::INTER_CUBIC,cv::BORDER_REPLICATE);
+    thumbnails.push_back(thumbnail);
+  }
+
+  return thumbnails;
+}
+
+/** ****************************************************************************
+* Get similarity features from thumbnails   
+* 
+* \param         cfg        config settings
+* \param         thumbnails landmark aligned thumbnails
+*
+* \returns features for detections
+*
+***************************************************************************** */
+cvMatVec OcvSsdFaceDetection::_getFeatures(const JobConfig &cfg,
+                                           const cvMatVec  &thumbnails){
+  const double inScaleFactor = 1.0 / 255.0;
+  const cv::Size blobSize(96, 96);
+  const cv::Scalar meanVal(0.0, 0.0, 0.0);  // BGR mean pixel color 
+
+  cvMatVec features;
+  for(auto tmb:thumbnails){
+    cv::Mat inputBlob = cv::dnn::blobFromImage(tmb,      // BGR image
+                                              inScaleFactor, // no pixel value scaline (e.g. 1.0/255.0)
+                                              blobSize,      // expected network input size: 300x300
+                                              meanVal,       // mean BGR pixel value
+                                              true,          // swap RB channels
+                                              false);        // center crop
+    _openFaceNet.setInput(inputBlob);
+    cv::Mat feature = _openFaceNet.forward().clone();
+    features.push_back(feature);
+  }
+  return features;
+
+}
+
+/** ****************************************************************************
 * Read an image and get object detections and features
 *
 * \param          job     MPF Image job
@@ -191,35 +363,36 @@ void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
 MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
                                                      MPFImageLocationVec &locations) {
 
-  try {                                                                      LOG4CXX_DEBUG(_log, "Data URI = " << job.data_uri);
-    if(job.data_uri.empty()) {
-        LOG4CXX_ERROR(_log, "Invalid image file");
+  try {                                                                        LOG4CXX_DEBUG(_log, "[" << job.job_name << "Data URI = " << job.data_uri);
+    if(job.data_uri.empty()) {                                                 LOG4CXX_ERROR(_log, "[" << job.job_name << "Invalid image url");
         return MPF_INVALID_DATAFILE_URI;
     }
 
     MPFImageReader imreader(job);
     cv::Mat img(imreader.GetImage());
 
-    if(img.empty()){
-      LOG4CXX_ERROR(_log, "Could not read image file: " << job.data_uri);
+    if(img.empty()){                                                           LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not read image file: " << job.data_uri);
       return MPF_IMAGE_READ_ERROR;
-    }
-
-    Properties jpr = job.job_properties;
+    }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] img.width  = " << img.cols);
+                                                                               LOG4CXX_DEBUG(_log, "[" << job.job_name << "] img.height = " << img.rows);
     JobConfig cfg(job);
     size_t next_idx = locations.size();
     _detect(cfg, locations, img);
-    size_t new_size = locations.size();
+    size_t new_size = locations.size();                                        LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of faces detected = " << (new_size - next_idx));
 
-    for(size_t i = next_idx; i < new_size; i++){
+    for(size_t i = next_idx; i < new_size; i++){                               LOG4CXX_TRACE(_log, "[" << job.job_name << "] location[" << i << "]" << locations[i]);
       imreader.ReverseTransform(locations[i]);
     }
-    
-    return MPF_DETECTION_SUCCESS;
 
-  }catch (...) {
+  }catch(const runtime_error& re){                                             LOG4CXX_FATAL(_log, "[" << job.job_name << "] runtime error: " << re.what());
     return Utils::HandleDetectionException(job, _log);
+  }catch(const exception& ex){                                                 LOG4CXX_FATAL(_log, "[" << job.job_name << "] exception: " << ex.what());
+    return Utils::HandleDetectionException(job, _log);
+  }catch (...) {                                                               LOG4CXX_FATAL(_log, "[" << job.job_name << "] unknown error");
+    return Utils::HandleDetectionException(job, _log);                         
   }
+                                                                               LOG4CXX_DEBUG(_log,"[" << job.job_name << "] complete.");
+  return MPF_DETECTION_SUCCESS;
 }
 
 
@@ -232,84 +405,60 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
 * \returns  an MPF error constant or MPF_DETECTION_SUCCESS
 *
 ***************************************************************************** */
-MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
- return MPF_DETECTION_SUCCESS; 
+MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job, MPFVideoTrackVec &tracks) {
+
+  try{                                                                         LOG4CXX_DEBUG(_log, "[" << job.job_name << "Data URI = " << job.data_uri);
+
+    if(job.data_uri.empty()) {                                                 LOG4CXX_ERROR(_log, "[" << job.job_name << "Invalid video url");
+        return MPF_INVALID_DATAFILE_URI;
+    }
+
+    MPFVideoCapture video_capture(job, true, true);
+    if( !video_capture.IsOpened() ){                                           LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not initialize capturing");
+      return MPF_COULD_NOT_OPEN_DATAFILE;
+    }
+
+    Properties jpr = job.job_properties;
+    JobConfig cfg(job);
+    size_t next_idx = tracks.size();
+
+    cv::Mat frame;
+    
+
+    int frameIdx = 0;
+    while (video_capture.Read(frame)) {
+      MPFImageLocationVec locations;
+      _detect(cfg, locations, frame);
+      if(locations.size() > 0){
+        if(tracks.size() == 0 ){
+          tracks.push_back(MPFVideoTrack());
+          tracks.back().start_frame = frameIdx;
+        }
+        for(auto &loc:locations){
+          tracks.back().frame_locations.insert(pair<int,MPFImageLocation>(frameIdx,loc));
+        }
+        tracks.back().stop_frame = frameIdx;
+      }
+      frameIdx++;  
+    }
+
+    size_t new_size = tracks.size();                                           LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of tracks detected = " << (new_size - next_idx));
+    for(size_t i = next_idx; i < new_size; i++){                               LOG4CXX_TRACE(_log, "[" << job.job_name << "] track[" << i << "]" << endl << tracks[i]);
+      video_capture.ReverseTransform(tracks[i]);
+    }
+
+  }catch(const runtime_error& re){                                             LOG4CXX_FATAL(_log, "[" << job.job_name << "] runtime error: " << re.what());
+    return Utils::HandleDetectionException(job, _log);
+  }catch(const exception& ex){                                                 LOG4CXX_FATAL(_log, "[" << job.job_name << "] exception: " << ex.what());
+    return Utils::HandleDetectionException(job, _log);
+  }catch (...) {                                                               LOG4CXX_FATAL(_log, "[" << job.job_name << "] unknown error");
+    return Utils::HandleDetectionException(job, _log);                         
+  }
+                                                                               LOG4CXX_DEBUG(_log,"[" << job.job_name << "] complete.");
+  return MPF_DETECTION_SUCCESS;
 }
 
 /*
-MPFDetectionError OcvSsdFaceDetection::GetDetectionsFromImageData(const MPFImageJob &job,
-                                             cv::Mat &image_data,
-                                             vector<MPFImageLocation> &locations) {
-    int frame_width = 0;
-    int frame_height = 0;
-
-
-    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Getting detections");
-
-
-    cv::Mat image_gray = Utils::ConvertToGray(image_data);
-
-    frame_width = image_data.cols;
-    frame_height = image_data.rows;
-    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Frame_width = " << frame_width);
-    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Frame_height = " << frame_height);
-
-    //vector<pair<cv::Rect,float>> faces = ocv_detection.DetectFacesHaar(image_gray);
-    RectScorePairVec faces = _detectorPtr->detectFaces(image_data);
-    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of faces detected = " << faces.size());
-
-    for (unsigned int j = 0; j < faces.size(); j++) {
-        cv::Rect face = faces[j].first;
-
-        //pass face by ref
-        AdjustRectToEdges(face, image_data);
-
-        float confidence = static_cast<float>(faces[j].second);
-
-        MPFImageLocation location = Utils::CvRectToImageLocation(face, confidence);
-
-        locations.push_back(location);
-    }
-
-    if (verbosity) {
-        // log the detections
-        for (unsigned int i = 0; i < locations.size(); i++) {
-            LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Detection # " << i);
-            LogDetection(locations[i], job.job_name);
-        }
-    }
-
-    if (verbosity > 0) {
-        //    Draw a rectangle onto the input image for each detection
-
-        for (unsigned int i = 0; i < locations.size(); i++) {
-            cv::Rect object(locations[i].x_left_upper,
-                            locations[i].y_left_upper,
-                            locations[i].width,
-                            locations[i].height);
-            rectangle(image_data, object, CV_RGB(0, 0, 0), 2);
-        }
-
-        QString imstr(job.data_uri.c_str());
-        QFile f(imstr);
-        QFileInfo fileInfo(f);
-        QString fstr(fileInfo.fileName());
-        string outfile_name = "output_" + fstr.toStdString();
-        try {
-            imwrite(outfile_name, image_data);
-        }
-        catch (runtime_error &ex) {
-            LOG4CXX_ERROR(_log, "[" << job.job_name << "] Exception writing image output file: " << ex.what());
-            return MPF_OTHER_DETECTION_ERROR_TYPE;
-        }
-    }
-
-    LOG4CXX_INFO(_log, "[" << job.job_name << "] Processing complete. Found "
-                                              << static_cast<int>(locations.size()) << " detections.");
-
-    return MPF_DETECTION_SUCCESS;
-}
-
 MPFDetectionError OcvSsdFaceDetection::GetDetectionsFromVideoCapture(
         const MPFVideoJob &job,
         MPFVideoCapture &video_capture,

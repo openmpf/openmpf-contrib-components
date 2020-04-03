@@ -44,8 +44,10 @@ find_package(OpenCV 3.4.7 EXACT
                opencv_dnn
                #opencv_flann
                opencv_video
+               opencv_face
                )
 
+find_package(dlib REQUIRED)
 find_package(mpfComponentInterface REQUIRED)
 find_package(mpfDetectionComponentApi REQUIRED)
 find_package(mpfComponentUtils REQUIRED)
@@ -67,7 +69,8 @@ target_link_libraries(mpfOcvSsdFaceDetection
                       mpfComponentInterface
                       mpfDetectionComponentApi
                       mpfComponentUtils
-                      ${OpenCV_LIBS})
+                      ${OpenCV_LIBS}
+                      dlib)
 
 configure_mpf_component(OcvSsdFaceDetection TARGETS mpfOcvSsdFaceDetection)
 

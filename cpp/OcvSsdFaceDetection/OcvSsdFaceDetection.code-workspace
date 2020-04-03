@@ -6,10 +6,8 @@
 	],
 	"settings": {
 		"C_Cpp.default.cppStandard": "c++11",
-		"C_Cpp.default.cStandard": "c11",
-		"C_Cpp.default.includePath": [
-			"/home/mpf/mpf-sdk-install/include","/opt/opencv-3.4.7/include"
-		],
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.loggingLevel": "Debug",
 		"cmake.cmakePath": "cmake3",
 		"files.associations": {
       "cctype": "cpp",
@@ -59,7 +57,19 @@
       "typeinfo": "cpp",
       "algorithm": "cpp",
       "random": "cpp",
-      "qhash": "cpp"
+      "qhash": "cpp",
+      "csignal": "cpp",
+      "atomic": "cpp",
+      "hash_map": "cpp",
+      "hash_set": "cpp",
+      "condition_variable": "cpp",
+      "forward_list": "cpp",
+      "unordered_set": "cpp",
+      "future": "cpp",
+      "mutex": "cpp",
+      "system_error": "cpp",
+      "thread": "cpp",
+      "valarray": "cpp"
     },
 		"editor.tabSize": 2
 	}

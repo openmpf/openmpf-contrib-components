@@ -57,3 +57,5 @@ cmake-build-debug/
 *.out
 *.app
 
+# Pre-downloaded libs for devcontainer
+.devcontainer/fsroot/
