@@ -17,10 +17,14 @@
 	],
 	"settings":{
     "cmake.ctestPath": "/usr/bin/ctest3",
-    "C_Cpp.default.includePath": [
-      "/usr/include",
-      "/opt/opencv-3.4.7/include",
-      "/home/mpf/mpf-sdk-install/include"
-    ]
+    "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/CVS": true,
+      "**/.DS_Store": true,
+      "${workspaceRoot}/build": true,
+      "${workspaceRoot}/.devcontainer/fsroot": true
+    }
 	}
-  }
+}

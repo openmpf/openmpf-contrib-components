@@ -1,11 +1,13 @@
 
-#ifndef OCVFACEDETECTION_JOBCONFIG_H
-#define OCVFACEDETECTION_JOBCONFIG_H
+#ifndef OCVSSDFACEDETECTION_JOBCONFIG_H
+#define OCVSSDFACEDETECTION_JOBCONFIG_H
 
 #include <log4cxx/logger.h>
 
 #include "detectionComponentUtils.h"
 #include "adapters/MPFImageAndVideoDetectionComponentAdapter.h"
+#include "MPFImageReader.h"
+#include "MPFVideoCapture.h"
 
 namespace MPF{
  namespace COMPONENT{
@@ -58,10 +60,34 @@ namespace MPF{
       static log4cxx::LoggerPtr _log;  ///< shared log opbject
       size_t minDetectionSize;         ///< minimum boounding box dimension
       float  confThresh;               ///< detection confidence threshold
+
+      cv::Mat bgrFrame;                ///< current BGR image frame
+      size_t  frameIdx;                ///< index of current frame
+      MPFDetectionError lastError;     ///< last MPF error that should be returned    
+
       JobConfig();
-      JobConfig(const MPFJob &job);
+      JobConfig(const MPFImageJob &job);
+      JobConfig(const MPFVideoJob &job);
+      ~JobConfig();
+
+      void ReverseTransform(MPFImageLocation loc){_imreaderPtr->ReverseTransform(loc);}
+      void ReverseTransform(MPFVideoTrack track){_videocapPtr->ReverseTransform(track);}
+      bool nextFrame(){frameIdx++; return _videocapPtr->Read(bgrFrame);}
+
+    private:
+      MPFImageReader*  _imreaderPtr;
+      MPFVideoCapture* _videocapPtr;
+
+      void _parse(const MPFJob &job);
+
+
   };
   
+  /* **************************************************************************
+  * Conveniance operator to dump JobConfig to a stream
+  *************************************************************************** */ 
+  ostream& operator<< (ostream& out, const JobConfig& cfg);
+
  }
 }
 

@@ -61,7 +61,7 @@ if (${GTEST_FOUND})
 endif()
 
 set(OCV_SSD_FACE_DETECTION_SOURCE_FILES
-        #OcvDetection.cpp 
+        JobConfig.cpp
         OcvSsdFaceDetection.cpp)
 
 add_library(mpfOcvSsdFaceDetection SHARED ${OCV_SSD_FACE_DETECTION_SOURCE_FILES})

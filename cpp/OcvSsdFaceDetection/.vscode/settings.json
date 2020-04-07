@@ -2,5 +2,14 @@
     "cmake.ctestPath": "/usr/bin/ctest3",
     "editor.tabSize": 2,
     "editor.insertSpaces": true,
-    "editor.detectIndentation": false
+    "editor.detectIndentation": false,
+    "files.exclude": {
+      "**/.git":true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/CVS": true,
+      "**/.DS_Store": true,
+      "${workspaceRoot}/build": true,
+      "${workspaceRoot}/.devcontainer/fsroot": true
+    }
 }

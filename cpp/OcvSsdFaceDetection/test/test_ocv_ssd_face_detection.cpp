@@ -51,32 +51,32 @@ using namespace MPF::COMPONENT;
 //-----------------------------------------------------------------------------
  QHash<QString, QString> GetTestParameters(){
 
-    QString current_path = QDir::currentPath();
-    QHash<QString, QString> parameters;
-    string config_path(current_path.toStdString() + "/config/test_ocv_ssd_face_config.ini");
-    std::cout << "config path: " << config_path << std::endl;
-    int rc = LoadConfig(config_path, parameters);
-    if(rc == 0){
-      std::cout << "config file loaded" << std::endl;
-    }else{
-      parameters.clear();
-      std::cout << "config file failed to load with error:"<< rc << std::endl;
-    }
-    return parameters;
+  QString current_path = QDir::currentPath();
+  QHash<QString, QString> parameters;
+  string config_path(current_path.toStdString() + "/config/test_ocv_ssd_face_config.ini");
+  std::cout << "config path: " << config_path << std::endl;
+  int rc = LoadConfig(config_path, parameters);
+  if(rc == 0){
+    std::cout << "config file loaded" << std::endl;
+  }else{
+    parameters.clear();
+    std::cout << "config file failed to load with error:"<< rc << std::endl;
+  }
+  return parameters;
 }
 
 //-----------------------------------------------------------------------------
 // get current working directory with minimal error checking
 //-----------------------------------------------------------------------------
 static string GetCurrentWorkingDirectory() {
-    char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        std::cout << "Current working dir: " << cwd << std::endl;
-        return string(cwd);
-    }else{
-        std::cout << "getcwd() error";
-        return "";
-    }
+  char cwd[1024];
+  if (getcwd(cwd, sizeof(cwd)) != NULL) {
+      std::cout << "Current working dir: " << cwd << std::endl;
+      return string(cwd);
+  }else{
+      std::cout << "getcwd() error";
+      return "";
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -84,23 +84,23 @@ static string GetCurrentWorkingDirectory() {
 //-----------------------------------------------------------------------------
 TEST(Detection, Init) {
 
-    string current_working_dir = GetCurrentWorkingDirectory();
+  string current_working_dir = GetCurrentWorkingDirectory();
 
-    OcvSsdFaceDetection *ocv_ssd_face_detection = new OcvSsdFaceDetection();
-    ASSERT_TRUE(NULL != ocv_ssd_face_detection);
+  OcvSsdFaceDetection *ocv_ssd_face_detection = new OcvSsdFaceDetection();
+  ASSERT_TRUE(NULL != ocv_ssd_face_detection);
 
-    string dir_input(current_working_dir + "/../plugin");
-    ocv_ssd_face_detection->SetRunDirectory(dir_input);
-    string rundir = ocv_ssd_face_detection->GetRunDirectory();
-    EXPECT_EQ(dir_input, rundir);
+  string dir_input(current_working_dir + "/../plugin");
+  ocv_ssd_face_detection->SetRunDirectory(dir_input);
+  string rundir = ocv_ssd_face_detection->GetRunDirectory();
+  EXPECT_EQ(dir_input, rundir);
 
-    ASSERT_TRUE(ocv_ssd_face_detection->Init());
+  ASSERT_TRUE(ocv_ssd_face_detection->Init());
 
-    MPFComponentType comp_type = ocv_ssd_face_detection->GetComponentType();
-    ASSERT_TRUE(MPF_DETECTION_COMPONENT == comp_type);
+  MPFComponentType comp_type = ocv_ssd_face_detection->GetComponentType();
+  ASSERT_TRUE(MPF_DETECTION_COMPONENT == comp_type);
 
-    EXPECT_TRUE(ocv_ssd_face_detection->Close());
-    delete ocv_ssd_face_detection;
+  EXPECT_TRUE(ocv_ssd_face_detection->Close());
+  delete ocv_ssd_face_detection;
 }
 
 //-----------------------------------------------------------------------------
@@ -132,9 +132,10 @@ TEST(OcvDetection, VerifyQuality) {
     ASSERT_TRUE(!image.empty());
 
     // Detect detections and check conf levels
-    MPFImageLocationVec detections;
+    DetectionLocationVec detections;
     JobConfig cfg;
-    ocv_ssd_face_detection->_detect(cfg, detections, image);
+    cfg.bgrFrame = image;
+    ocv_ssd_face_detection->_detect(cfg, detections);
     ASSERT_TRUE(detections.size() == 1);
     cout << "Detection: " << detections[0] << endl;
     ASSERT_TRUE(detections[0].confidence > .9);
@@ -142,14 +143,14 @@ TEST(OcvDetection, VerifyQuality) {
 
     // Detect detections and check conf level
     cfg.minDetectionSize = 500;
-    ocv_ssd_face_detection->_detect(cfg, detections, image);
+    ocv_ssd_face_detection->_detect(cfg, detections);
     ASSERT_TRUE(detections.size() == 0);
     detections.clear();
 
     // Detect detections and check conf levels
     cfg.minDetectionSize = 48;
     cfg.confThresh = 1.1;
-    ocv_ssd_face_detection->_detect(cfg, detections, image);
+    ocv_ssd_face_detection->_detect(cfg, detections);
     ASSERT_TRUE(detections.size() == 0);
     detections.clear();
 
@@ -216,8 +217,9 @@ TEST(ImageGeneration, TestOnKnownImage) {
 
 
 //-----------------------------------------------------------------------------
-//  Test facerecognition with thumbnail images
-//-----------------------------------------------------------------------------
+//  Test face-recognition with thumbnail images
+//----------------------------------------------------------------------------- 
+
 TEST(FaceRecognition, TestOnKnownImages) {
     string current_working_dir = GetCurrentWorkingDirectory();
     QHash<QString, QString> parameters = GetTestParameters();
@@ -225,6 +227,7 @@ TEST(FaceRecognition, TestOnKnownImages) {
     string test_output_dir = current_working_dir + "/test/test_output/";
     std::cout << "Reading parameters for thumbnail test." << endl;
 
+    // Get test image filenames into vector
     string test_file_dir = parameters["OCV_FACE_THUMBNAIL_TEST_FILE_DIR"].toStdString();
     std::cout << "Input Image Dir: " << test_file_dir << endl;
     vector<string> img_file_names;
@@ -242,7 +245,6 @@ TEST(FaceRecognition, TestOnKnownImages) {
 
     // 	Create an OCV face detection object.
     OcvSsdFaceDetection *ssd = new OcvSsdFaceDetection();
-    
     ASSERT_TRUE(NULL != ssd);
 
     ssd->SetRunDirectory(current_working_dir + "/../plugin");
@@ -254,41 +256,44 @@ TEST(FaceRecognition, TestOnKnownImages) {
       MPFImageLocationVec found_detections;
       MPFImageJob job("Testing", img_file, { }, { });
 
-      cv::Mat img = cv::imread(img_file);
-      EXPECT_TRUE(NULL != img.data) << "Could not load:" << img_file;
-
       JobConfig cfg(job);
-      MPFImageLocationVec detections;
-      ssd->_detect(cfg, detections, img);
+      cfg.bgrFrame = cv::imread(img_file);
+      EXPECT_TRUE(NULL != cfg.bgrFrame.data) << "Could not load:" << img_file;
+
+      // find detections
+      DetectionLocationVec detections;
+      ssd->_detect(cfg, detections);
       EXPECT_FALSE(detections.empty());
 
-      cvPoint2fVecVec landmarks = ssd->_getLandmarks(cfg, detections, img);
-      EXPECT_FALSE(landmarks.empty());
-      cv::Mat img_cp = img.clone();
-
-      for(auto lm:landmarks){
-        cvPoint2fVec pts;
-        pts.push_back(lm[36]);
-        pts.push_back(lm[45]);
-        pts.push_back(lm[33]);
-        ssd->_drawLandmarks(img_cp,lm);
-        ssd->_drawLandmarks(img_cp,pts);
+      // get landmarks
+      ssd->_findLandmarks(cfg, detections);
+      for(auto &det:detections){
+        EXPECT_FALSE(det.landmarks.empty());
       }
-      cv::imwrite(test_output_dir + "lm_" + img_file_name,img_cp);
 
-      cvMatVec thumbnails = ssd->_getThumbnails(cfg,img_cp,landmarks);
-      EXPECT_FALSE(thumbnails.empty());
-      for(size_t i=0; i<thumbnails.size(); i++){
+      // draw landmarks
+      JobConfig cfg2(job);
+      cfg2.bgrFrame = ssd->_drawLandmarks(cfg,detections);
+      cv::imwrite(test_output_dir + "lm_" + img_file_name,cfg2.bgrFrame);
+
+      // create thumbnails
+      ssd->_createThumbnails(cfg2,detections);
+
+      // write out thumbneil images
+      for(size_t i=0; i<detections.size(); i++){
+        EXPECT_FALSE(detections[i].thumbnail.empty());
         stringstream ss;
         ss << test_output_dir << "tmb" << i << img_file_name;
         string out_file = ss.str();
         cout << "Writing tumbnail: " << out_file << endl;
-        cv::imwrite(out_file,thumbnails[i]);
+        cv::imwrite(out_file,detections[i].thumbnail);
       }
 
-      cvMatVec features = ssd->_getFeatures(cfg, thumbnails);
-      EXPECT_FALSE(features.empty());
-      frameFeatures.insert(pair<string,cvMatVec>(img_file_name,features));
+      // calculate feature vectors
+      ssd->_calcFeatures(cfg, detections);
+      for(auto &det:detections){
+        EXPECT_FALSE(det.feature.empty());
+      }
     }
 
     

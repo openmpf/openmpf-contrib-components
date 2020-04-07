@@ -39,23 +39,16 @@
 
 #include "adapters/MPFImageAndVideoDetectionComponentAdapter.h"
 
-#include "OcvSsdFaceDetection_types.h"
-#include "OcvSsdFaceDetection_streamio.h"
-#include "OcvSsdFaceDetection_JobConfig.h"
+#include "types.h"
+#include "DetectionLocation.h"
+#include "JobConfig.h"
 
 namespace MPF{
  namespace COMPONENT{
 
   using namespace std;
 
-  class Detection: public MPFImageLocation{
-    cvPoint2fVec landmarks;
-    cv::Mat      thumbnail;
-    cv::Mat      feature;
-  };
 
-
-  /***************************************************************************/
   class OcvSsdFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
 
     public:
@@ -73,23 +66,20 @@ namespace MPF{
       dlib::shape_predictor          _shape_predictor;  ///< landmark detector
       cv::dnn::Net                   _openFaceNet;  ///< feature generator
 
-      void _detect(const JobConfig     &cfg,
-                   MPFImageLocationVec &locations,
-                   const cv::Mat       &bgrFrame);   ///< get bboxes with conf. scores
+      void _detect(const JobConfig      &cfg,
+                   DetectionLocationVec &detections);   ///< get bboxes with conf. scores
 
-      cvPoint2fVecVec _getLandmarks(const JobConfig     &cfg,
-                                    MPFImageLocationVec &locations,
-                                    const cv::Mat       &bgrFrame); ///< get face landmarks
+      void _findLandmarks(const JobConfig     &cfg,
+                         DetectionLocationVec &detections); ///< get face landmarks
 
-      void _drawLandmarks(cv::Mat &im,
-                          cvPoint2fVec &landmarks); ///< draw landmarks on image
+      cv::Mat _drawLandmarks(const JobConfig     &cfg,
+                             DetectionLocationVec &detections);   ///< draw landmarks 
 
-      cvMatVec _getThumbnails(const JobConfig       &cfg,
-                              const cv::Mat         &bgrFrame,
-                              const cvPoint2fVecVec &landmarks); ///< get thumbnails for detections              
+      void _createThumbnails(const JobConfig   &cfg,
+                          DetectionLocationVec &detections); ///< get thumbnails for detections              
         
-      cvMatVec _getFeatures(const JobConfig &cfg,
-                            const cvMatVec  &thumbnails); ///< get features from thumbnails
+      void _calcFeatures(const JobConfig     &cg,
+                        DetectionLocationVec &detections); ///< get features from thumbnails
 
       float _featureDistance(const cv::Mat &a,
                              const cv::Mat &b){return norm(a,b,cv::NORM_L2);}  ///< compute feature distance between two features

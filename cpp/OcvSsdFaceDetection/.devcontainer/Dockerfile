@@ -32,6 +32,10 @@ RUN yum install --assumeyes \
               bzip2 libtiff-devel libdc1394-devel tbb-devel libv4l-devel \
               gstreamer-plugins-base-devel ffmpeg-devel \
               gcc-gfortran gcc-c++ openblas openblas-devel lapack lapack-devel
+
+RUN echo '/usr/local/lib64' > /etc/ld.so.conf.d/usr_local_lib64.conf; \
+    ldconfig;  
+
 RUN mkdir -p /tmp/opencv; \
     cd  /tmp/opencv; \
     [[ -e opencv-3.4.7 ]]         || curl --location 'https://github.com/opencv/opencv/archive/3.4.7.tar.gz' | tar --extract --gzip; \
@@ -54,7 +58,8 @@ RUN mkdir -p /tmp/opencv; \
     make --jobs "$(nproc)" install; \
     ln --symbolic /opt/opencv-3.4.7/include/opencv2 /usr/local/include/opencv2; \
     ln --symbolic /opt/opencv-3.4.7/include/opencv /usr/local/include/opencv; \
-    rm --recursive /tmp/opencv;
+    rm --recursive /tmp/opencv; \
+    ldconfig;
 
 RUN mkdir -p /tmp/dlib; \
     cd /tmp/dlib; \
@@ -66,7 +71,6 @@ RUN mkdir -p /tmp/dlib; \
     cmake3 -DBUILD_SHARED_LIBS:BOOL="1" ..; \
     cmake3 --build . --config Release; \
     make --jobs "$(nproc)" install; \
-    echo '/usr/local/lib64' > /etc/ld.so.conf.d/usr_local_lib64.conf; \
     ldconfig;  
 
 LABEL org.label-schema.license="Apache 2.0" \

@@ -43,8 +43,6 @@
 // MPF sdk header files 
 #include "Utils.h"
 #include "MPFSimpleConfigLoader.h"
-#include "MPFImageReader.h"
-#include "MPFVideoCapture.h"
 #include "detectionComponentUtils.h"
 
 
@@ -52,25 +50,6 @@ using namespace MPF::COMPONENT;
 
 // Temporary initializer for static member variable
 log4cxx::LoggerPtr JobConfig::_log = log4cxx::Logger::getRootLogger();
-
-
-
-/** ****************************************************************************
-* Default constructor
-***************************************************************************** */
-JobConfig::JobConfig():
-  minDetectionSize(45),
-  confThresh(0.65){}                    
-
-/** ****************************************************************************
-* Parse setting out of MPFJob
-***************************************************************************** */
-JobConfig::JobConfig(const MPFJob &job) : JobConfig() {
-  const Properties jpr = job.job_properties;
-  minDetectionSize = getEnv<int>  (jpr,"MIN_DETECTION_SIZE", minDetectionSize);       LOG4CXX_TRACE(_log, "MIN_DETECTION_SIZE: " << minDetectionSize);
-  confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", confThresh); LOG4CXX_TRACE(_log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
-}
-
 
 /** ****************************************************************************
 * Draw polylines for landmark features 
@@ -88,22 +67,27 @@ void drawPolyline(cv::Mat &im, const cvPoint2fVec &landmarks,
 /** ****************************************************************************
 * Draw landmark features
 ***************************************************************************** */
-void OcvSsdFaceDetection::_drawLandmarks(cv::Mat &im, cvPoint2fVec &landmarks){
-  if (landmarks.size() == 68){
-    drawPolyline(im, landmarks, 0, 16);           // Jaw line
-    drawPolyline(im, landmarks, 17, 21);          // Left eyebrow
-    drawPolyline(im, landmarks, 22, 26);          // Right eyebrow
-    drawPolyline(im, landmarks, 27, 30);          // Nose bridge
-    drawPolyline(im, landmarks, 30, 35, true);    // Lower nose
-    drawPolyline(im, landmarks, 36, 41, true);    // Left eye
-    drawPolyline(im, landmarks, 42, 47, true);    // Right Eye
-    drawPolyline(im, landmarks, 48, 59, true);    // Outer lip
-    drawPolyline(im, landmarks, 60, 67, true);    // Inner lip
-  }else { 
-    for(int i = 0; i < landmarks.size(); i++){
-      cv::circle(im,landmarks[i],3, DRAW_COLOR, cv::FILLED);
+cv::Mat OcvSsdFaceDetection::_drawLandmarks(const JobConfig      &cfg,
+                                            DetectionLocationVec &detections){
+  cv::Mat img = cfg.bgrFrame.clone();
+  for(auto &det:detections){
+    if(det.landmarks.size() == 68){
+      drawPolyline(img, det.landmarks, 0, 16);           // Jaw line
+      drawPolyline(img, det.landmarks, 17, 21);          // Left eyebrow
+      drawPolyline(img, det.landmarks, 22, 26);          // Right eyebrow
+      drawPolyline(img, det.landmarks, 27, 30);          // Nose bridge
+      drawPolyline(img, det.landmarks, 30, 35, true);    // Lower nose
+      drawPolyline(img, det.landmarks, 36, 41, true);    // Left eye
+      drawPolyline(img, det.landmarks, 42, 47, true);    // Right Eye
+      drawPolyline(img, det.landmarks, 48, 59, true);    // Outer lip
+      drawPolyline(img, det.landmarks, 60, 67, true);    // Inner lip
+    }else { 
+      for(size_t i = 0; i < det.landmarks.size(); i++){
+        cv::circle(img,det.landmarks[i],3, DRAW_COLOR, cv::FILLED);
+      }
     }
   }
+  return img;
 }
 
 /** ****************************************************************************
@@ -188,17 +172,15 @@ bool OcvSsdFaceDetection::Close() {
 * 
 * \param         cfg       Config settings
 * \param[in,out] locations detections to add to    
-* \param         bgrFrame  BGR color image in which to detect objects
 *
 ***************************************************************************** */
-void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
-                                  MPFImageLocationVec &locations,
-                                  const cv::Mat       &bgrFrame){
+void OcvSsdFaceDetection::_detect(const JobConfig      &cfg,
+                                  DetectionLocationVec &detections){
   const double inScaleFactor = 1.0;
   const cv::Size blobSize(300, 300);
   const cv::Scalar meanVal(104.0, 117.0, 124.0);  // BGR mean pixel color       
 
-  cv::Mat inputBlob = cv::dnn::blobFromImage(bgrFrame,      // BGR image
+  cv::Mat inputBlob = cv::dnn::blobFromImage(cfg.bgrFrame,  // BGR image
                                              inScaleFactor, // no pixel value scaline (e.g. 1.0/255.0)
                                              blobSize,      // expected network input size: 300x300
                                              meanVal,       // mean BGR pixel value
@@ -212,15 +194,15 @@ void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
   for(int i = 0; i < detectionMat.rows; i++){
     float conf = detectionMat.at<float>(i, 2);
     if(conf > cfg.confThresh){
-      int x1 = static_cast<int>(detectionMat.at<float>(i, 3) * bgrFrame.cols);
-      int y1 = static_cast<int>(detectionMat.at<float>(i, 4) * bgrFrame.rows);
-      int x2 = static_cast<int>(detectionMat.at<float>(i, 5) * bgrFrame.cols);
-      int y2 = static_cast<int>(detectionMat.at<float>(i, 6) * bgrFrame.rows);
+      int x1 = static_cast<int>(detectionMat.at<float>(i, 3) * cfg.bgrFrame.cols);
+      int y1 = static_cast<int>(detectionMat.at<float>(i, 4) * cfg.bgrFrame.rows);
+      int x2 = static_cast<int>(detectionMat.at<float>(i, 5) * cfg.bgrFrame.cols);
+      int y2 = static_cast<int>(detectionMat.at<float>(i, 6) * cfg.bgrFrame.rows);
       int width  = x2 - x1;
       int height = y2 - y1;
-      if(   width  >= cfg.minDetectionSize
+      if(    width  >= cfg.minDetectionSize
           && height >= cfg.minDetectionSize){
-        locations.push_back(MPFImageLocation(x1, y1, width, height, conf));
+        detections.push_back(DetectionLocation(x1, y1, width, height, conf));
       }
     }
   }                                              
@@ -230,61 +212,52 @@ void OcvSsdFaceDetection::_detect(const JobConfig     &cfg,
 * Get landmark points for detections.   
 * 
 * \param         cfg       Config settings
-* \param[in,out] locations detections to find landmarks from   
-* \param         bgrFrame  BGR color image in which detections were found
+* \param[in,out] detections to find landmarks from   
 *
 * \returns landmarks for each detection  
 *
 ***************************************************************************** */
-cvPoint2fVecVec OcvSsdFaceDetection::_getLandmarks(const JobConfig     &cfg,
-                                       MPFImageLocationVec &locations,
-                                       const cv::Mat       &bgrFrame){
+void OcvSsdFaceDetection::_findLandmarks(const JobConfig      &cfg,
+                                         DetectionLocationVec &detections){
+  // OpenCV 68-landmark detector
   // cvRectVec detections;                                       
   // for(auto &l:locations){
   //   detections.push_back(cv::Rect(l.x_left_upper,l.y_left_upper,l.width,l.height));
   // }
   // cvPoint2fVecVec landmarks;
-  // if(! _facemark->fit(bgrFrame, detections, landmarks)){
+  // if(! _facemark->fit(cfg.bgrFrame, detections, landmarks)){
   //   LOG4CXX_WARN(_log,"failed to generate facial landmarks");
   // }
 
-   cvPoint2fVecVec landmarks;
-  vector<dlib::rectangle> detections;
-  dlib::cv_image<dlib::bgr_pixel> cimg(bgrFrame);
-  for(auto &l:locations){
+  cvPoint2fVecVec landmarks;
+  dlib::cv_image<dlib::bgr_pixel> cimg(cfg.bgrFrame);
+  for(auto &det:detections){
     dlib::full_object_detection
-       shape = _shape_predictor(cimg, dlib::rectangle(l.x_left_upper,             // left
-                                                      l.y_left_upper,             // top
-                                                      l.x_left_upper + l.width-1, // right
-                                                      l.y_left_upper + l.height-1 // bottom
-                                                      ));
-    cvPoint2fVec lm;
+       shape = _shape_predictor(cimg, dlib::rectangle(det.x_left_upper,                  // left
+                                                      det.y_left_upper,                  // top
+                                                      det.x_left_upper + det.width-1,    // right
+                                                      det.y_left_upper + det.height-1)); // bottom
+                                                      
     for(size_t i=0; i<shape.num_parts(); i++){
-      dlib::point pt = shape.part(i);                                          LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));
-      lm.push_back(cv::Point2f(pt.x(),pt.y()));
+      dlib::point pt = shape.part(i);                                          LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));                  
+      det.landmarks.push_back(cv::Point2f(pt.x(),pt.y()));   
     }
-    landmarks.push_back(lm);
   }
-
-  return landmarks;
 }
 
 /** ****************************************************************************
 * Get aligned thumbnails from detections using landmarks.   
 * 
-* \param         cfg       Config settings
-* \param[in,out] locations detections to which features will be added    
-* \param         bgrFrame  BGR color image in which detections were found
-* \param         landmarks landmark points used for alignement
+* \param         cfg        Config settings
+* \param[in,out] detections to which features will be added    
 *
-* \returns thumbnails for detections
 *
 ***************************************************************************** */
-cvMatVec OcvSsdFaceDetection::_getThumbnails(const JobConfig       &cfg,
-                                             const cv::Mat         &bgrFrame,
-                                             const cvPoint2fVecVec &landmarks){
+void OcvSsdFaceDetection::_createThumbnails(const JobConfig      &cfg,
+                                            DetectionLocationVec &detections){
   const float  THUMBNAIL_SIZE = 96;
   const cv::Size THUMB_SIZE(THUMBNAIL_SIZE,THUMBNAIL_SIZE);
+
   // Landmark indices for OpenFace nn4.v1
   // const size_t lmIdx[] = {39,42,57};
   // const cv::Mat dst =  THUMBNAIL_SIZE * (cv::Mat_<float>(3,2)
@@ -299,23 +272,19 @@ cvMatVec OcvSsdFaceDetection::_getThumbnails(const JobConfig       &cfg,
                                          << 0.1941570 , 0.16926692,
                                             0.7888591 , 0.15817115,
                                             0.4949509 , 0.51444140);
-  cvMatVec thumbnails;
   cv::Mat src = cv::Mat_<float>(3,2);
   
-  for(auto &lm:landmarks){
+  for(auto &det:detections){
     for(size_t r=0; r<3; r++){
       float* rowPtr = src.ptr<float>(r);
-      rowPtr[0] = lm[lmIdx[r]].x; 
-      rowPtr[1] = lm[lmIdx[r]].y;      
+      rowPtr[0] = det.landmarks[lmIdx[r]].x; 
+      rowPtr[1] = det.landmarks[lmIdx[r]].y;      
     }
     cv::Mat xfrm = cv::getAffineTransform(src,dst);
-    cv::Mat thumbnail(THUMB_SIZE,bgrFrame.type());
-    cv::warpAffine(bgrFrame,thumbnail,cv::getAffineTransform(src,dst),
+    det.thumbnail = cv::Mat(THUMB_SIZE,cfg.bgrFrame.type());
+    cv::warpAffine(cfg.bgrFrame,det.thumbnail,cv::getAffineTransform(src,dst),
                    THUMB_SIZE,cv::INTER_CUBIC,cv::BORDER_REPLICATE);
-    thumbnails.push_back(thumbnail);
   }
-
-  return thumbnails;
 }
 
 /** ****************************************************************************
@@ -327,26 +296,22 @@ cvMatVec OcvSsdFaceDetection::_getThumbnails(const JobConfig       &cfg,
 * \returns features for detections
 *
 ***************************************************************************** */
-cvMatVec OcvSsdFaceDetection::_getFeatures(const JobConfig &cfg,
-                                           const cvMatVec  &thumbnails){
+void OcvSsdFaceDetection::_calcFeatures(const JobConfig &cfg,
+                                       DetectionLocationVec &detections){
   const double inScaleFactor = 1.0 / 255.0;
   const cv::Size blobSize(96, 96);
   const cv::Scalar meanVal(0.0, 0.0, 0.0);  // BGR mean pixel color 
 
-  cvMatVec features;
-  for(auto tmb:thumbnails){
-    cv::Mat inputBlob = cv::dnn::blobFromImage(tmb,      // BGR image
-                                              inScaleFactor, // no pixel value scaline (e.g. 1.0/255.0)
-                                              blobSize,      // expected network input size: 300x300
-                                              meanVal,       // mean BGR pixel value
-                                              true,          // swap RB channels
-                                              false);        // center crop
+  for(auto &det:detections){
+    cv::Mat inputBlob = cv::dnn::blobFromImage(det.thumbnail, // BGR image
+                                              inScaleFactor,  // no pixel value scaline (e.g. 1.0/255.0)
+                                              blobSize,       // expected network input size: 300x300
+                                              meanVal,        // mean BGR pixel value
+                                              true,           // swap RB channels
+                                              false);         // center crop
     _openFaceNet.setInput(inputBlob);
-    cv::Mat feature = _openFaceNet.forward().clone();
-    features.push_back(feature);
+    det.feature = _openFaceNet.forward().clone();             // need to clone as mem gets reused
   }
-  return features;
-
 }
 
 /** ****************************************************************************
@@ -364,24 +329,16 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
                                                      MPFImageLocationVec &locations) {
 
   try {                                                                        LOG4CXX_DEBUG(_log, "[" << job.job_name << "Data URI = " << job.data_uri);
-    if(job.data_uri.empty()) {                                                 LOG4CXX_ERROR(_log, "[" << job.job_name << "Invalid image url");
-        return MPF_INVALID_DATAFILE_URI;
-    }
 
-    MPFImageReader imreader(job);
-    cv::Mat img(imreader.GetImage());
-
-    if(img.empty()){                                                           LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not read image file: " << job.data_uri);
-      return MPF_IMAGE_READ_ERROR;
-    }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] img.width  = " << img.cols);
-                                                                               LOG4CXX_DEBUG(_log, "[" << job.job_name << "] img.height = " << img.rows);
     JobConfig cfg(job);
-    size_t next_idx = locations.size();
-    _detect(cfg, locations, img);
-    size_t new_size = locations.size();                                        LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of faces detected = " << (new_size - next_idx));
+    if(cfg.lastError != MPF_DETECTION_SUCCESS) return cfg.lastError;
 
-    for(size_t i = next_idx; i < new_size; i++){                               LOG4CXX_TRACE(_log, "[" << job.job_name << "] location[" << i << "]" << locations[i]);
-      imreader.ReverseTransform(locations[i]);
+    DetectionLocationVec detections;
+    _detect(cfg, detections);                                                  LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of faces detected = " << detections.size());
+
+    for(auto &det:detections){                                                 
+      cfg.ReverseTransform(det);
+      locations.push_back(det);
     }
 
   }catch(const runtime_error& re){                                             LOG4CXX_FATAL(_log, "[" << job.job_name << "] runtime error: " << re.what());
@@ -407,44 +364,31 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
 ***************************************************************************** */
 MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job, MPFVideoTrackVec &tracks) {
 
-  try{                                                                         LOG4CXX_DEBUG(_log, "[" << job.job_name << "Data URI = " << job.data_uri);
+  try{ 
 
-    if(job.data_uri.empty()) {                                                 LOG4CXX_ERROR(_log, "[" << job.job_name << "Invalid video url");
-        return MPF_INVALID_DATAFILE_URI;
-    }
-
-    MPFVideoCapture video_capture(job, true, true);
-    if( !video_capture.IsOpened() ){                                           LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not initialize capturing");
-      return MPF_COULD_NOT_OPEN_DATAFILE;
-    }
-
-    Properties jpr = job.job_properties;
-    JobConfig cfg(job);
     size_t next_idx = tracks.size();
 
-    cv::Mat frame;
-    
+    JobConfig cfg(job);
+    if(cfg.lastError != MPF_DETECTION_SUCCESS) return cfg.lastError;
 
-    int frameIdx = 0;
-    while (video_capture.Read(frame)) {
-      MPFImageLocationVec locations;
-      _detect(cfg, locations, frame);
-      if(locations.size() > 0){
+    while(cfg.nextFrame()) {
+      DetectionLocationVec detections;
+      _detect(cfg, detections);
+      if(detections.size() > 0){
         if(tracks.size() == 0 ){
           tracks.push_back(MPFVideoTrack());
-          tracks.back().start_frame = frameIdx;
+          tracks.back().start_frame = cfg.frameIdx;
         }
-        for(auto &loc:locations){
-          tracks.back().frame_locations.insert(pair<int,MPFImageLocation>(frameIdx,loc));
+        for(auto &det:detections){
+          tracks.back().frame_locations.insert(pair<int,MPFImageLocation>(cfg.frameIdx,det));
         }
-        tracks.back().stop_frame = frameIdx;
+        tracks.back().stop_frame = cfg.frameIdx;
       }
-      frameIdx++;  
     }
 
     size_t new_size = tracks.size();                                           LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of tracks detected = " << (new_size - next_idx));
     for(size_t i = next_idx; i < new_size; i++){                               LOG4CXX_TRACE(_log, "[" << job.job_name << "] track[" << i << "]" << endl << tracks[i]);
-      video_capture.ReverseTransform(tracks[i]);
+      cfg.ReverseTransform(tracks[i]);
     }
 
   }catch(const runtime_error& re){                                             LOG4CXX_FATAL(_log, "[" << job.job_name << "] runtime error: " << re.what());
