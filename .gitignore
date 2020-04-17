@@ -12,7 +12,8 @@ hs_err_pid*
 *.idea*
 
 target/
-
+tmp/
+test_vids/
 
 # CMake Files
 CMakeCache.txt
@@ -54,4 +55,3 @@ cmake-build-debug/
 *.exe
 *.out
 *.app
-

@@ -62,6 +62,7 @@ endif()
 
 set(OCV_SSD_FACE_DETECTION_SOURCE_FILES
         JobConfig.cpp
+        munkres.cpp
         OcvSsdFaceDetection.cpp)
 
 add_library(mpfOcvSsdFaceDetection SHARED ${OCV_SSD_FACE_DETECTION_SOURCE_FILES})
@@ -79,3 +80,8 @@ add_subdirectory(test)
 add_executable(       sample_ocv_ssd_face_detector sample_ocv_ssd_face_detector.cpp)
 target_link_libraries(sample_ocv_ssd_face_detector mpfOcvSsdFaceDetection)
 
+# update configs if they change
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  plugin-files/config/mpfOcvSsdFaceDetection.ini
+  plugin-files/config/Log4cxxConfig.xml
+  plugin-files/descriptor/descriptor.json)
