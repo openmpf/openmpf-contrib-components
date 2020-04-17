@@ -28,6 +28,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <chrono> 
 
 #include <gtest/gtest.h>
 #include <MPFDetectionComponent.h>
@@ -35,13 +36,14 @@
 #include <MPFSimpleConfigLoader.h>
 #include <Utils.h>
 #include <ReadDetectionsFromFile.h>
-#include <DetectionComparison.h>
+//#include <DetectionComparison.h>
 #include <VideoGeneration.h>
 #include <WriteDetectionsToFile.h>
 #include <ImageGeneration.h>
 
 #define private public
 #include "OcvSsdFaceDetection.h"
+#include "DetectionComparisonA.h"
 
 using namespace std;
 using namespace MPF::COMPONENT;
@@ -82,7 +84,7 @@ static string GetCurrentWorkingDirectory() {
 //-----------------------------------------------------------------------------
 // Test initializing component 
 //-----------------------------------------------------------------------------
-TEST(Detection, Init) {
+TEST(OcvSsdFaceDetection, Init) {
 
   string current_working_dir = GetCurrentWorkingDirectory();
 
@@ -107,7 +109,7 @@ TEST(Detection, Init) {
 // This test checks the confidence of faces detected by the OpenCV low-level 
 // detection facility, which is used by the OpenCV face detection component.
 //-----------------------------------------------------------------------------
-TEST(OcvDetection, VerifyQuality) {
+TEST(OcvSsdFaceDetection, DISABLED_VerifyQuality) {
 
     string current_working_dir = GetCurrentWorkingDirectory();
     string plugins_dir         = current_working_dir + "/../plugin/OcvSsdFaceDetection";
@@ -162,7 +164,7 @@ TEST(OcvDetection, VerifyQuality) {
 //-----------------------------------------------------------------------------
 //  Test face detection in images
 //-----------------------------------------------------------------------------
-TEST(ImageGeneration, TestOnKnownImage) {
+TEST(OcvSsdFaceDetection, DISABLED_TestOnKnownImage) {
     string current_working_dir = GetCurrentWorkingDirectory();
     QHash<QString, QString> parameters = GetTestParameters();
 
@@ -198,7 +200,7 @@ TEST(ImageGeneration, TestOnKnownImage) {
     ASSERT_FALSE(ocv_ssd_face_detection->GetDetections(image_job, found_detections));
     EXPECT_FALSE(found_detections.empty());
 
-    float comparison_score = DetectionComparison::CompareDetectionOutput(found_detections, known_detections);
+    float comparison_score = DetectionComparisonA::CompareDetectionOutput(found_detections, known_detections);
     std::cout << "Detection comparison score: " << comparison_score << std::endl;
     ASSERT_TRUE(comparison_score > comparison_score_threshold);
 
@@ -220,7 +222,7 @@ TEST(ImageGeneration, TestOnKnownImage) {
 //  Test face-recognition with thumbnail images
 //----------------------------------------------------------------------------- 
 
-TEST(FaceRecognition, TestOnKnownImages) {
+TEST(OcvSsdFaceDetection, DISABLED_Thumbnails) {
     string current_working_dir = GetCurrentWorkingDirectory();
     QHash<QString, QString> parameters = GetTestParameters();
 
@@ -250,7 +252,7 @@ TEST(FaceRecognition, TestOnKnownImages) {
     ssd->SetRunDirectory(current_working_dir + "/../plugin");
     ASSERT_TRUE(ssd->Init());
 
-    map<string,cvMatVec> frameFeatures;
+    TrackList tracks;
     for(auto img_file_name:img_file_names){
       string img_file = test_file_dir + img_file_name;
       MPFImageLocationVec found_detections;
@@ -277,38 +279,49 @@ TEST(FaceRecognition, TestOnKnownImages) {
       cv::imwrite(test_output_dir + "lm_" + img_file_name,cfg2.bgrFrame);
 
       // create thumbnails
-      ssd->_createThumbnails(cfg2,detections);
+      ssd->_createThumbnails(cfg,detections);
 
-      // write out thumbneil images
-      for(size_t i=0; i<detections.size(); i++){
-        EXPECT_FALSE(detections[i].thumbnail.empty());
-        stringstream ss;
-        ss << test_output_dir << "tmb" << i << img_file_name;
-        string out_file = ss.str();
-        cout << "Writing tumbnail: " << out_file << endl;
-        cv::imwrite(out_file,detections[i].thumbnail);
-      }
 
       // calculate feature vectors
       ssd->_calcFeatures(cfg, detections);
       for(auto &det:detections){
         EXPECT_FALSE(det.feature.empty());
       }
+
+      if(tracks.size() == 0){
+        for(auto &det:detections){
+          //DetectionLocationVec newTrack= {det};
+          tracks.push_back({det});
+        }
+      }else{
+        cv::Mat ass = ssd->_calcAssignemntMatrix(cfg,tracks,detections);
+        ssd->_assignDetections2Tracks(cfg,tracks,detections, ass);
+      }
     }
 
-    
-
+    // write out thumbnail image tracks
+    MPF::COMPONENT::TrackList::iterator tracksItr = tracks.begin();
+    for(size_t t=0; t<tracks.size();t++){
+      Track track = *tracksItr;
+      for(size_t i=0; i<track.size(); i++){
+        EXPECT_FALSE(track[i].thumbnail.empty());
+        stringstream ss;
+        ss << test_output_dir << "t" << t << "_i"<< i << ".png";
+        string out_file = ss.str();
+        cout << "Writing tumbnail: " << out_file << endl;
+        cv::imwrite(out_file,track[i].thumbnail);
+      }
+      tracksItr++;
+    }
 
     EXPECT_TRUE(ssd->Close());
     delete ssd;
 }
 
-
-/*
 //-----------------------------------------------------------------------------
 //  Test face detection and tracking in videos
 //-----------------------------------------------------------------------------
-TEST(VideoGeneration, TestOnKnownVideo) {
+TEST(OcvSsdFaceDetection, TestOnKnownVideo) {
 
     string         current_working_dir = GetCurrentWorkingDirectory();
     QHash<QString, QString> parameters = GetTestParameters();
@@ -347,12 +360,23 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     vector<MPFVideoTrack> known_tracks;
     ASSERT_TRUE(ReadDetectionsFromFile::ReadVideoTracks(inTrackFile, known_tracks));
 
+    // create output kown video to view ground truth
+    // std::cout << "\tWriting ground truth video and test tracks to files." << std::endl;
+    // VideoGeneration video_generation_gt;
+    // video_generation_gt.WriteTrackOutputVideo(inVideoFile, known_tracks, (test_output_dir + "/ground_truth.avi"));
+    // WriteDetectionsToFile::WriteVideoTracks((test_output_dir + "/ground_truth.txt"), known_tracks);
+
     // 	Evaluate the known video file to generate the test tracks.
     std::cout << "\tRunning the tracker on the video: " << inVideoFile << std::endl;
     vector<MPFVideoTrack> found_tracks;
     MPFVideoJob videoJob("Testing", inVideoFile, start, stop, { }, { });
+    auto start_time = chrono::high_resolution_clock::now();
     ASSERT_FALSE(ocv_ssd_face_detection->GetDetections(videoJob, found_tracks));
+    auto end_time = chrono::high_resolution_clock::now();
     EXPECT_FALSE(found_tracks.empty());
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end_time - start_time).count();
+    time_taken = time_taken * 1e-9;
+    std::cout << "\tVideoJob processing time: " << fixed << setprecision(5) << time_taken << "[sec]" << std::endl;
 
     // create output video to view performance
     std::cout << "\tWriting detected video and test tracks to files." << std::endl;
@@ -362,7 +386,7 @@ TEST(VideoGeneration, TestOnKnownVideo) {
 
     // 	Compare the known and test track output.
     std::cout << "\tComparing the known and test tracks." << std::endl;
-    float comparison_score = DetectionComparison::CompareDetectionOutput(found_tracks, known_tracks);
+    float comparison_score = DetectionComparisonA::CompareDetectionOutput(found_tracks, known_tracks);
     std::cout << "Tracker comparison score: " << comparison_score << std::endl;
     ASSERT_TRUE(comparison_score > comparison_score_threshold);
 
@@ -374,4 +398,8 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     delete ocv_ssd_face_detection;
 }
 
-*/
+//-----------------------------------------------------------------------------
+int main(int argc, char **argv){
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

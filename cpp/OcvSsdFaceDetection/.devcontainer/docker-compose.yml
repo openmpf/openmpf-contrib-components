@@ -1,4 +1,4 @@
-version: '3.7'
+version: '2.2'
 
 x-detection-component-base:
   &detection-component-base
@@ -12,11 +12,12 @@ x-detection-component-base:
 
 services:
   OcvSsdFaceDetection:
+    cpuset: "0,1,2,3"
+    #cpus: "1.0"
     image: openmpf/openmpf_cpp_component_dev
     build:
       context: .
       dockerfile: Dockerfile
-
     volumes:
       # Mounts the project folder to '/workspace'. While this file is in .devcontainer,
       # mounts are relative to the first file in the list, which is a level up.

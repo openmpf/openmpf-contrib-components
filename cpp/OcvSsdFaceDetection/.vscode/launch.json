@@ -8,10 +8,10 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/sample_ocv_ssd_face_detector",
-            "args": ["./test/data/test_imgs/meds_faces_image.png"],
+            "program": "${workspaceFolder}/build//test/OcvSsdFaceDetectionTest",
+            // "args": ["./test/data/test_imgs/meds_faces_image.png"],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/build/test",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -20,6 +20,11 @@
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
+                },
+                {
+                  "description": "Enable all-exceptions",
+                  "text": "catch throw",
+                  "ignoreFailures": true
                 }
             ]
         }

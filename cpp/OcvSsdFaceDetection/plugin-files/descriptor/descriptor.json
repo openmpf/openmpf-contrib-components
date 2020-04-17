@@ -36,7 +36,26 @@
           "description": "Minimum bounding box dimension to keep detection and start a track.",
           "type": "INT",
           "defaultValue": "48"
+        },
+        {
+          "name": "TRACKING_FEATURE_WEIGHT",
+          "description": "Weighting factor for feature distance [0..1] used in tracking assignment cost function",
+          "type": "FLOAT",
+          "defaultValue": "0.5"
+        },
+        {
+          "name": "TRACKING_CENTER_DIST_WEIGHT",
+          "description": "Weighting factor for centroid distance [0..2] used in tracking assignment cost function",
+          "type": "FLOAT",
+          "defaultValue": "0.25"
+        },
+        {
+          "name": "TRACKING_FRAME_GAP_WEIGHT",
+          "description": "Weighting factor for frame distance used in tracking assignment cost function",
+          "type": "FLOAT",
+          "defaultValue": "0.25"
         }
+
       ]
     }
   },

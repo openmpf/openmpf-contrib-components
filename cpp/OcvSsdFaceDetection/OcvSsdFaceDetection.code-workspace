@@ -7,7 +7,7 @@
 	"settings": {
 		"C_Cpp.default.cppStandard": "c++11",
     "C_Cpp.default.cStandard": "c11",
-    "C_Cpp.loggingLevel": "Debug",
+    "C_Cpp.loggingLevel": "Error",
     "C_Cpp.includePath": [
       "${workspaceFolder}"
     ],
