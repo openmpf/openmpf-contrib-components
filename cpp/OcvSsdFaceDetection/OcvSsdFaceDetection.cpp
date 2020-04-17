@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <limits.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
@@ -40,7 +41,10 @@
 #include <QHash>
 #include <QString>
 
-// MPF sdk header files 
+// 3rd party code
+#include "munkres.h"
+
+// MPF-SDK header files 
 #include "Utils.h"
 #include "MPFSimpleConfigLoader.h"
 #include "detectionComponentUtils.h"
@@ -50,6 +54,15 @@ using namespace MPF::COMPONENT;
 
 // Temporary initializer for static member variable
 log4cxx::LoggerPtr JobConfig::_log = log4cxx::Logger::getRootLogger();
+
+
+string format(cv::Mat m){
+  stringstream ss;
+  ss << m;
+  string str = ss.str();
+  str.erase(remove(str.begin(),str.end(),'\n'),str.end());
+  return str;
+}
 
 /** ****************************************************************************
 * Draw polylines for landmark features 
@@ -103,7 +116,7 @@ bool OcvSsdFaceDetection::Init() {
 
     log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
     _log = log4cxx::Logger::getLogger("OcvSsdFaceDetection");                  LOG4CXX_DEBUG(_log,"Initializing OcvSSDFaceDetector");
-    JobConfig::_log = _log;                                                    LOG4CXX_TRACE(_log, cv::getBuildInformation() << std::endl);
+    JobConfig::_log = _log;                                                    //LOG4CXX_TRACE(_log, cv::getBuildInformation() << std::endl);
 
 
     // read config file and create update any missing env variables
@@ -194,17 +207,20 @@ void OcvSsdFaceDetection::_detect(const JobConfig      &cfg,
   for(int i = 0; i < detectionMat.rows; i++){
     float conf = detectionMat.at<float>(i, 2);
     if(conf > cfg.confThresh){
-      int x1 = static_cast<int>(detectionMat.at<float>(i, 3) * cfg.bgrFrame.cols);
-      int y1 = static_cast<int>(detectionMat.at<float>(i, 4) * cfg.bgrFrame.rows);
-      int x2 = static_cast<int>(detectionMat.at<float>(i, 5) * cfg.bgrFrame.cols);
-      int y2 = static_cast<int>(detectionMat.at<float>(i, 6) * cfg.bgrFrame.rows);
-      int width  = x2 - x1;
-      int height = y2 - y1;
+      cv::Point2f ul(detectionMat.at<float>(i, 3),detectionMat.at<float>(i, 4));
+      cv::Point2f lr(detectionMat.at<float>(i, 5),detectionMat.at<float>(i, 6));
+      cv::Point2f wh = lr - ul;
+      int x1     = static_cast<int>(ul.x * cfg.bgrFrame.cols);
+      int y1     = static_cast<int>(ul.y * cfg.bgrFrame.rows);
+      int width  = static_cast<int>(wh.x * cfg.bgrFrame.cols);
+      int height = static_cast<int>(wh.y * cfg.bgrFrame.rows);
+
       if(    width  >= cfg.minDetectionSize
           && height >= cfg.minDetectionSize){
-        detections.push_back(DetectionLocation(x1, y1, width, height, conf));
+        detections.push_back(DetectionLocation(x1, y1, width, height, conf,
+                                               (ul + lr) / 2.0, cfg.frameIdx));
       }
-    }
+    }                                                                               
   }                                              
 }
 
@@ -228,7 +244,8 @@ void OcvSsdFaceDetection::_findLandmarks(const JobConfig      &cfg,
   // if(! _facemark->fit(cfg.bgrFrame, detections, landmarks)){
   //   LOG4CXX_WARN(_log,"failed to generate facial landmarks");
   // }
-
+  
+  // DLib 5-landmark detector
   cvPoint2fVecVec landmarks;
   dlib::cv_image<dlib::bgr_pixel> cimg(cfg.bgrFrame);
   for(auto &det:detections){
@@ -239,10 +256,15 @@ void OcvSsdFaceDetection::_findLandmarks(const JobConfig      &cfg,
                                                       det.y_left_upper + det.height-1)); // bottom
                                                       
     for(size_t i=0; i<shape.num_parts(); i++){
-      dlib::point pt = shape.part(i);                                          LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));                  
+      dlib::point pt = shape.part(i);                                          //LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));                  
       det.landmarks.push_back(cv::Point2f(pt.x(),pt.y()));   
     }
   }
+  // remove detections that failed to produce landmarks 5 landmarks
+  detections.erase(remove_if(detections.begin(),
+                             detections.end(),
+                             [](DetectionLocation const& d){return d.landmarks.size()<5;}),
+                   detections.end());
 }
 
 /** ****************************************************************************
@@ -315,6 +337,128 @@ void OcvSsdFaceDetection::_calcFeatures(const JobConfig &cfg,
 }
 
 /** ****************************************************************************
+* Computes distance squared between centers of location bounding boxes
+***************************************************************************** */
+float iou(const DetectionLocation &a, const DetectionLocation &b){
+  
+	// determine the (x, y)-coordinates of the intersection rectangle
+	int ulx = max(a.x_left_upper, b.x_left_upper);
+	int uly = max(a.y_left_upper, b.y_left_upper);
+	int lrx = min(a.x_left_upper + a.width,  b.x_left_upper + b.width);
+	int lry = min(a.y_left_upper + a.height, b.y_left_upper + b.height);
+
+	// compute the area of intersection rectangle
+	float inter_area = max(0, lrx - ulx + 1) * max(0, lry - uly + 1);	
+  float union_area = a.width * a.height + b.width * b.height - inter_area;
+
+  return inter_area / union_area;
+}
+
+/** ****************************************************************************
+* Computes distance squared between centers of location bounding boxes
+***************************************************************************** */
+int OcvSsdFaceDetection::_calcAssignmentCost(const JobConfig         &cfg,
+                                             const DetectionLocation &a,
+                                             const DetectionLocation &b){
+
+                                                                              LOG4CXX_TRACE(_log, "trk = " << a);
+                                                                              LOG4CXX_TRACE(_log, "det = " << b);
+  // frame gap cost
+  float frameGapCost = (a.frameIdx > b.frameIdx) ? a.frameIdx-b.frameIdx
+                                                 : b.frameIdx-a.frameIdx; 
+  if(frameGapCost > cfg.maxFrameGap){                                         LOG4CXX_TRACE(_log,"frameGapCost="<< frameGapCost <<" > " << cfg.maxFrameGap << "=max");
+    return INT_MAX;
+  } 
+
+  // intersection over union cost
+  float iouCost = 1.0f - iou(a,b);
+  if(iouCost > cfg.maxIOUDist){                                               LOG4CXX_TRACE(_log,"iouCost="<< iouCost <<" > " << cfg.maxIOUDist << "=max");
+    return INT_MAX;
+  }
+
+  // center to center distance cost
+  cv::Point2f d = a.center - b.center;
+  d.x *= cfg.widthOdiag;
+  d.y *= cfg.heightOdiag;
+  float centerDistCost = sqrt(d.x*d.x + d.y*d.y);
+  if(centerDistCost > cfg.maxCenterDist){                                     LOG4CXX_TRACE(_log,"centerDistCost="<< centerDistCost <<" > " << cfg.maxCenterDist << "=max");
+    return INT_MAX;
+  }                  
+
+  // openFace feature cost
+  float featureCost = norm(a.feature, b.feature,cv::NORM_L2);                                                                     
+  if(featureCost > cfg.maxFeatureDist){                                       LOG4CXX_TRACE(_log,"featureCost="<< featureCost <<" > " << cfg.maxFeatureDist << "=max");
+    return INT_MAX;
+  }
+                                                                              LOG4CXX_TRACE(_log, "costs [frame,iou,centd,feat] = [" << frameGapCost << "," << iouCost << "," << centerDistCost << "," << featureCost << "]");
+  return static_cast<int>(1000.0 * (
+                          cfg.featureWeight    * featureCost + 
+                          cfg.centerDistWeight * centerDistCost +
+                          cfg.frameGapWeight   * frameGapCost));
+}
+
+/** ****************************************************************************
+* Computes distance squared between centers of location bounding boxes
+***************************************************************************** */
+cv::Mat_<int> OcvSsdFaceDetection::_calcAssignemntMatrix(const JobConfig            &cfg,
+                                                         const TrackList            &tracks,
+                                                         const DetectionLocationVec &detections){
+  // rows -> tracks, cols -> detections
+  cv::Mat_<int> costs(tracks.size(),detections.size());
+  size_t r = 0;
+  for(auto &track:tracks){
+    for(size_t c=0; c<costs.cols; c++){
+      costs[r][c] = _calcAssignmentCost(cfg, track.back(), detections[c]);
+    }
+    r++;
+  }                                                                           LOG4CXX_TRACE(_log,"Cost Matrix[" << costs.rows << "," << costs.cols << "]: " << format(costs));
+
+  Munkres lap;
+  cv::Mat_<int> am = costs.clone();
+  lap.solve(am);                                                              LOG4CXX_TRACE(_log,"Solved Matrix: " << format(am));                                       
+
+  // knock out assignments that are too costly (i.e. new track needed)
+  for(size_t r=0; r<costs.rows; r++){
+    //int* costRowPtr = costs.ptr<int>(r);
+    for(size_t c=0; c<costs.cols; c++){
+      if(costs[r][c] == INT_MAX){
+        am[r][c] = -1;                   // remove potential assignment (-1)
+      }
+    }
+  }                                                                           LOG4CXX_TRACE(_log,"Modified Matrix: " << format(am));
+  return am;
+}
+
+/** ****************************************************************************
+* Computes distance squared between centers of location bounding boxes
+***************************************************************************** */
+void OcvSsdFaceDetection::_assignDetections2Tracks(const JobConfig       &cfg,
+                                                   TrackList             &tracks,
+                                                   DetectionLocationVec  &detections,
+                                                   const cv::Mat_<int>   &assignmentMatrix){
+  DetectionLocation dummy(-1,-1,-1,-1);
+  dummy.frameIdx = -1;
+  size_t r=0;                                                   
+  for(auto &track:tracks){
+    const int* rowPtr = assignmentMatrix.ptr<int>(r);
+    for(size_t c=0; c<assignmentMatrix.cols; c++){
+      if(rowPtr[c] == 0){
+        track.push_back(detections[c]);              LOG4CXX_TRACE(_log,"assigning det: " << detections[c] << "to track " << track);
+        detections[c] = dummy;
+      }
+    }
+    r++;
+  }
+
+  // remove detections that were assigned to tracks
+  detections.erase(remove_if(detections.begin(),
+                             detections.end(),
+                             [](DetectionLocation const& d){return d.frameIdx == -1;}),
+                   detections.end());
+
+}
+
+/** ****************************************************************************
 * Read an image and get object detections and features
 *
 * \param          job     MPF Image job
@@ -352,6 +496,34 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
   return MPF_DETECTION_SUCCESS;
 }
 
+/** ****************************************************************************
+* Convert track to MPFVideoTracks
+*
+* \param          job     MPF Video job
+* \param[in,out]  tracks  Tracks collection to which detections will be added
+*
+* \returns
+*
+***************************************************************************** */
+MPFVideoTrack OcvSsdFaceDetection::_convert_track(const Track &track){
+
+  MPFVideoTrack mpf_track;
+  mpf_track.start_frame = track.front().frameIdx;
+  mpf_track.stop_frame  = track.back().frameIdx;
+  stringstream start_feature;
+  stringstream stop_feature;
+  start_feature << track.front().feature;
+  stop_feature << track.back().feature;
+  mpf_track.detection_properties["START_FEATURE"] = start_feature.str();
+  mpf_track.detection_properties["STOP_FEATURE"]  = stop_feature.str();
+  for(auto &det:track){
+    mpf_track.confidence += det.confidence;                                                    
+    mpf_track.frame_locations.insert(mpf_track.frame_locations.end(),{det.frameIdx,det});
+  }
+  mpf_track.confidence /= static_cast<float>(track.size());
+
+  return mpf_track;
+}
 
 /** ****************************************************************************
 * Read frames from a video, get object detections and make tracks
@@ -362,33 +534,50 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFImageJob   &job,
 * \returns  an MPF error constant or MPF_DETECTION_SUCCESS
 *
 ***************************************************************************** */
-MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job, MPFVideoTrackVec &tracks) {
+MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job,
+                                                     MPFVideoTrackVec  &mpf_tracks) {
 
   try{ 
 
-    size_t next_idx = tracks.size();
+    TrackList tracks;
 
     JobConfig cfg(job);
     if(cfg.lastError != MPF_DETECTION_SUCCESS) return cfg.lastError;
 
-    while(cfg.nextFrame()) {
+    while(cfg.nextFrame()) {                                                   LOG4CXX_TRACE(_log, "processing frame " << cfg.frameIdx);                                
       DetectionLocationVec detections;
       _detect(cfg, detections);
-      if(detections.size() > 0){
-        if(tracks.size() == 0 ){
-          tracks.push_back(MPFVideoTrack());
-          tracks.back().start_frame = cfg.frameIdx;
+      if(detections.size() > 0){                                               // found some detections in current frame
+        tracks.remove_if([&](const Track& t){                                  // remove any tracks too far in the past
+          if(cfg.frameIdx - t.back().frameIdx > cfg.maxFrameGap){
+            mpf_tracks.push_back(_convert_track(t));                           LOG4CXX_TRACE(_log,"droping old track: " << t);
+            return true;
+          }else{
+            return false;
+          }
+        }); 
+
+        _findLandmarks(cfg, detections);                                       // get their landmarks 
+        _createThumbnails(cfg, detections);                                    // create aligned thumbnails
+        _calcFeatures(cfg, detections);                                        // calculate features from thumbnails
+ 
+
+        if(tracks.size() >= 0 ){                                               // some current tracks exist, so determine potential assignments
+          cv::Mat_<int> am = _calcAssignemntMatrix(cfg,tracks,detections);     //  assign detection to current tracks
+          _assignDetections2Tracks(cfg,tracks,detections, am);
         }
-        for(auto &det:detections){
-          tracks.back().frame_locations.insert(pair<int,MPFImageLocation>(cfg.frameIdx,det));
+        for(auto &det:detections){                                             // make any unassigned detections into new tracks
+            tracks.push_back({det});                                           LOG4CXX_TRACE(_log,"created new track " << tracks.back());
         }
-        tracks.back().stop_frame = cfg.frameIdx;
       }
+    }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of tracks detected = " << tracks.size());
+
+    for(auto &track:tracks){
+      mpf_tracks.push_back(_convert_track(track));
     }
 
-    size_t new_size = tracks.size();                                           LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of tracks detected = " << (new_size - next_idx));
-    for(size_t i = next_idx; i < new_size; i++){                               LOG4CXX_TRACE(_log, "[" << job.job_name << "] track[" << i << "]" << endl << tracks[i]);
-      cfg.ReverseTransform(tracks[i]);
+    for(auto &mpf_track:mpf_tracks){
+      cfg.ReverseTransform(mpf_track);
     }
 
   }catch(const runtime_error& re){                                             LOG4CXX_FATAL(_log, "[" << job.job_name << "] runtime error: " << re.what());
@@ -401,520 +590,6 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job, MPF
                                                                                LOG4CXX_DEBUG(_log,"[" << job.job_name << "] complete.");
   return MPF_DETECTION_SUCCESS;
 }
-
-/*
-MPFDetectionError OcvSsdFaceDetection::GetDetectionsFromVideoCapture(
-        const MPFVideoJob &job,
-        MPFVideoCapture &video_capture,
-        vector<MPFVideoTrack> &tracks) {
-
-
-    long total_frames = video_capture.GetFrameCount();
-    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Total video frames: " << total_frames);
-
-    int frame_index = 0;
-
-    Mat frame, frame_draw, frame_draw_pre_verified;
-    //need to store the previous frame
-    Mat gray, prev_gray;
-
-    while (video_capture.Read(frame)) {
-
-        //Convert to grayscale
-        gray = Utils::ConvertToGray(frame);
-
-        //look for new faces
-        //vector <pair<Rect, float>> faces = ocv_detection.DetectFacesHaar(gray, min_face_size);
-        RectScorePairVec faces = _detectorPtr->detectFaces(frame, min_face_size);
-
-
-        int track_index = -1;
-        for(auto track = current_tracks.begin(); track != current_tracks.end(); ++track) {
-            ++track_index;
-            //assume track lost at start
-            track->track_lost = true;
-
-            if (track->previous_points.empty()) {
-                //should never get here!! - current points of first detection will be swapped to previous!!
-                //kill the track if this case does occur
-                LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                           << "] Track contains no previous points - killing tracks");
-                continue;
-            }
-
-            vector <Point2f> new_points;
-            vector <uchar> status;
-            vector <float> err;
-            //get new points
-            calcOpticalFlowPyrLK(prev_gray, gray, track->previous_points,
-                                 new_points, status, err); //, win_size, 3, term_criteria, 0, 0.001);
-
-            //stores the detected rect properly matched up to the current track
-            //if certain requirements are met
-            pair<Rect, int> correct_detected_rect_pair;
-            correct_detected_rect_pair.first = Rect(0, 0, 0, 0);
-
-            //set to true if template matching is used to keep the track going
-            //this will be used to determine if points can be redetected
-            bool track_recovered = false;
-
-            if (new_points.empty()) {
-                //no new points - this track will be killed
-                LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                           << "] Optical flow could not find any new points - killing track");
-                continue;
-            }else {
-                //don't want to display any of the drawn points or bounding boxes of tracks that aren't kept
-                frame_draw_pre_verified = frame_draw.clone();
-
-                //store the correct bounding box here
-                //Rect final_bounding_box(0,0,0,0);
-
-                //GOAL: try to find the current detection with the most contained points
-                //the goal is to use the opencv bounding box rather than estimate one using
-                //an enclosed circle and a bounding rect
-                //it will also be good to remove points not in this bounding box to improve the continued tracking
-                //Rect correct_detected_rect(0,0,0,0);
-
-                int points_within_detected_rect = 0;
-                //store the percentage of intersection for each detected face
-                map <int, float> rect_point_percentage_map;
-                int face_rect_index = 0;
-                for (vector <pair<Rect, float>>::iterator face_rect = faces.begin(); face_rect != faces.end(); ++face_rect) {
-                    points_within_detected_rect = 0;
-
-                    for (unsigned i = 0; i < new_points.size(); i++) { //TODO: could also use the err vector (from calcOpticalFlowPyrLK) with a float threshold
-                        if (face_rect->first.contains(new_points[i])) {
-                            ++points_within_detected_rect;
-                        }
-                    }
-
-                    //if points were found inside one of the rects then it needs to be stored in the map
-                    if (points_within_detected_rect > 0) {
-                        rect_point_percentage_map[face_rect_index] = (static_cast<float>(points_within_detected_rect) /
-                                                                      static_cast<float>(new_points.size()));
-                    }
-
-                    ++face_rect_index;
-                }
-
-                //TODO: could combine this with the loop above
-                //also probably want the best intersection percentage to be > 75 or 80 percent
-                // - if only a few points are intersecting then there is clearly an issue
-                //float best_intersection_percentage = 0.0;
-                //must be greater than 0.75
-                float best_intersection_percentage = 0.75;
-                for (map<int, float>::iterator map_iter = rect_point_percentage_map.begin();
-                     map_iter != rect_point_percentage_map.end(); ++map_iter) {
-                    float intersection_percentage(map_iter->second);
-                    if (intersection_percentage > best_intersection_percentage) {
-                        best_intersection_percentage = intersection_percentage;
-                        correct_detected_rect_pair = faces[map_iter->first];
-                    }
-                }
-
-                //if enters here means there is good point intersection with a detected rect
-                if (correct_detected_rect_pair.first.area() > 0) {
-                    //have to clear the old points first!
-                    track->current_points.clear();
-                    //only add new points if they are a '1' in the status vector and within the correctly detected rect!!
-                    //TODO: could also use the err vector with a float threshold
-                    for (unsigned i = 0; i < status.size(); i++) {
-                        if (static_cast<int>(status[i])) {
-                            //TODO: keep track of how many missed detections per track - think about stopping the track if not
-                            //detecting the face for a few frames in a row
-                            //only keep if within the correct detected face rect
-                            if (correct_detected_rect_pair.first.contains(new_points[i])) {
-                                track->current_points.push_back(new_points[i]);
-                                circle(frame_draw_pre_verified, new_points[i], 2, Scalar(255, 255, 255), CV_FILLED);
-                            }
-                            else {
-                                circle(frame_draw_pre_verified, new_points[i], 2, Scalar(0, 0, 255), CV_FILLED);
-                            }
-                        }
-                    }
-                }
-                else {
-                    //if turning the additional three displays on then make sure they are killed when finished tracking or detecting!
-                    //Display("current frame at lost face", frame);
-
-                    //have to clear the old points first! - points are still in the new points vector
-                    track->current_points.clear();
-
-                    //add all of the points
-                    for (unsigned i = 0; i < new_points.size(); i++) {
-                        track->current_points.push_back(new_points[i]);
-                        //draw the points as red
-                        circle(frame_draw_pre_verified, new_points[i], 2, Scalar(0, 0, 255), CV_FILLED);
-                    }
-
-                    //draw a circle around the points
-                    Point2f center;
-                    float radius;
-                    minEnclosingCircle(track->current_points, center, radius);
-                    //radius is increased
-                    circle(frame_draw_pre_verified, center, radius * 1.2, Scalar(255, 255, 255), 1, 8);
-
-                    //get a bound rect using the current points
-                    Rect face_rect = boundingRect(track->current_points);
-                    //check to see how small the bounding rect is
-                    if (face_rect.height < 32) //face_rect.width < 32 ||
-                    {
-                        //if face smaller than 32 pixels then we don't want to keep it
-                        LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                                   << "] Face too small to track - killing track");
-                        continue;
-                    }
-
-                    //increase size since the size was decreased when detecting the points
-                    Rect upscaled_face = GetUpscaledFaceRect(face_rect);
-                    rectangle(frame_draw_pre_verified, face_rect, Scalar(255, 255, 0));
-
-                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Getting template match");
-
-                    //try template matching
-                    //make sure the template is not out of bounds
-                    AdjustRectToEdges(upscaled_face, gray);
-
-                    //get first face - TODO: might not be the best face - should use the quality tool if available
-                    //or could use the last face
-                    Rect last_face_rect = Utils::ImageLocationToCvRect(track->face_track.frame_locations.rbegin()->second); // last element in map
-                    Mat templ = prev_gray(last_face_rect);
-
-                    //Display("last face", templ);
-
-                    Rect match_rect = GetMatch(frame, gray, templ);
-                    Mat new_frame_copy = frame.clone();
-
-                    rectangle(new_frame_copy, match_rect, Scalar(255, 255, 255), 2);
-                    //draw the previous face even though it was from the previous frame
-                    rectangle(new_frame_copy, last_face_rect, Scalar(0, 255, 0), 2);
-
-                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Match rect area: "
-                                                               << match_rect.area());
-
-                    Rect match_intersection = match_rect & last_face_rect; //opencv allows for this operation
-                    rectangle(new_frame_copy, match_intersection, Scalar(255, 0, 0), 2);
-
-                    //Display("intersection", new_frame_copy);
-
-                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Finished getting match");
-
-                    //look for a certain percentage of intersection
-                    if (match_intersection.area() > 0) {
-                        float intersection_rate = static_cast<float>(match_intersection.area()) /
-                                                  static_cast<float>(last_face_rect.area());
-
-                        LOG4CXX_TRACE(_log, "[" << job.job_name << "] Intersection rate: "
-                                                                   << intersection_rate);
-
-                        //was at 0.5 - should be much higher - don't want to be very permissive here - the template
-                        //matching is not that good - TODO: need some sort of score could use openbr to do matching
-                        if (intersection_rate < 0.7) {
-                            continue;
-                        }
-                    }
-                    else {
-                        continue;
-                    }
-
-                    //NEED TO TRIM THE POINTS TO THE TEMPLATE MATCH RECT!!!
-                    //some of the calc optical flow next points will start to get away!!
-                    //TODO: make sure to set the actual rect to the template rect
-
-                    //set the rescaled face that is used for the object detection to the template match
-                    correct_detected_rect_pair.first = match_rect;
-
-                    //set to true to make sure we don't redetect points in this case
-                    track_recovered = true;
-
-                    int points_within_template_match_rect = 0;
-                    vector <Point2f> temp_points_copy(track->current_points);
-                    //have to be cleared once again
-                    track->current_points.clear();
-
-                    //for(unsigned i=0; i < track->current_points.size(); i++)
-                    for (unsigned i = 0; i < temp_points_copy.size(); i++) {
-                        //USING the match intersection rect - might fix some issues with there is a transition in the video
-                        //- might want to use the intserection for the actual face rect as well
-                        if (match_rect.contains(temp_points_copy[i])) {
-                            //TODO: need to check the count of these points - also need to kill the track if a bounding
-                            //rect of these new points gets to be too small!!!
-                            track->current_points.push_back(temp_points_copy[i]);
-                            ++points_within_template_match_rect;
-
-                        }
-                    }
-                }
-
-
-                //TODO: does it seem necessary to do this again?
-                //check corrected rect area again to check point percent
-                if (correct_detected_rect_pair.first.area() > 0) {
-                    //now can check the point percentage!
-                    float current_point_percent = static_cast<float>(track->current_points.size()) /
-                                                  static_cast<float>(track->init_point_count);
-
-                    //TODO: probably need an intersection rate specific to the track continuation
-                    //update current track info
-                    track->current_point_count = static_cast<int>(track->current_points.size());
-                    track->current_point_percent = current_point_percent;
-
-                    if (current_point_percent < min_point_percent) {
-                        //lost too many of original points - kill track
-                        //set something to continue onto the feature matching portion - no reason to kill the track here
-                        LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                                   << "] Lost too many points, current percent: " << current_point_percent);
-                        continue;
-                    }
-                }
-            }
-
-            bool redetect_feature_points = true;
-
-            //if a face bounding box is now set and we can redetect feature points
-            //if track is not recovered
-            if(correct_detected_rect_pair.first.area() > 0 && redetect_feature_points &&
-               !track_recovered && track->current_point_percent < min_redetect_point_perecent) {
-                LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                           << "] Attempting to redetect feature points");
-                vector <KeyPoint> keypoints;
-                Mat mask = GetMask(gray, correct_detected_rect_pair.first);
-                //search for keypoints in the frame using a mask
-                feature_detector->detect(gray, keypoints, mask);
-
-                //calcOpticalFlowPyrLK uses float points - no need to store the KeyPoint vector - convert
-                track->current_points.clear(); //why not clear before
-                KeyPoint::convert(keypoints, track->current_points);
-
-                //min init point count should be different for each detector!
-                //TODO: not sure if I want to kill the track here - just don't update the init point count and continue
-                if(keypoints.size() < min_init_point_count)
-                {
-                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Not enough initial points: " <<
-                                                               static_cast<int>(track->current_points.size()));
-
-                    //set the init to min init point count because we are now below that
-                    track->init_point_count = min_init_point_count;
-                    track->current_point_count = static_cast<int>(track->current_points.size());
-
-                    //now need to re-check the percentage - TODO: put this in a member function
-                    float current_point_percent = static_cast<float>(track->current_points.size()) /
-                                                  static_cast<float>(track->init_point_count);
-                    //set track info for display
-                    track->current_point_count = static_cast<int>(track->current_points.size());
-                    track->current_point_percent = current_point_percent;
-
-                    if (current_point_percent < min_point_percent) {
-                        //lost too many of original points - kill track
-                        LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                                   << "] Lost too many points below min point percent, "
-                                                                   << "current percent: " << current_point_percent);
-                        continue;
-                    }
-
-                    LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                               << "] Keeping track below min_init_point_count with current percent: "
-                                                               << current_point_percent);
-                }
-                else {
-                    //reset the init and current point count also!
-                    track->init_point_count = static_cast<int>(track->current_points.size());
-                    track->current_point_count = track->init_point_count;
-                }
-
-                //must update the last detection index!
-                track->last_face_detected_index = frame_index;
-            }
-
-            //at this point if the correct detected rect has an area we can keep the track
-            if (correct_detected_rect_pair.first.area() > 0) {
-                rectangle(frame_draw_pre_verified, correct_detected_rect_pair.first, Scalar(0, 255, 0), 2);
-
-                //don't want to store a face that isn't within the bounds of the image
-                AdjustRectToEdges(correct_detected_rect_pair.first, gray);
-                MPFImageLocation fd = Utils::CvRectToImageLocation(correct_detected_rect_pair.first);
-
-                fd.confidence = static_cast<float>(correct_detected_rect_pair.second);
-                //can finally store the MPFImageLocation
-                track->face_track.frame_locations.insert(pair<int, MPFImageLocation>(frame_index, fd));
-                track->face_track.confidence = std::max(track->face_track.confidence, fd.confidence);
-            }
-            else {
-                continue;
-            }
-
-            //if makes it here then we want to keep the track!!
-            track->track_lost = false;
-            //can also set the frame_draw to frame_draw_pre_verified Mat - TODO: should think of showing the pre verified Mat if the
-            //track is lost
-            frame_draw = frame_draw_pre_verified.clone();
-        }
-
-        //check if there is intersection between new objects and existing tracks
-        //if not then add the new tracks
-        for (unsigned i = 0; i < faces.size(); ++i) {
-            int intersection_index = -1;
-            if (!IsExistingTrackIntersection(faces[i].first, intersection_index)) {
-                Track track_new;
-
-                //set face detection
-                Rect face(faces[i].first);
-                AdjustRectToEdges(face, gray);
-
-                float first_face_confidence = static_cast<float>(faces[i].second);
-
-                bool use_face = false;
-                if (first_face_confidence > min_initial_confidence) {
-                    use_face = true;
-                }
-                else {
-
-                    LOG4CXX_TRACE(_log, "[" << job.job_name
-                                                               << "] Detected face does not meet initial quality: " << first_face_confidence);
-                }
-
-                if (use_face) {
-                    //if the face meets quality or we don't care about quality
-                    //the keypoints can now be detected
-
-                    vector <KeyPoint> keypoints;
-                    Mat mask = GetMask(gray, faces[i].first);
-                    //search for keypoints in the frame using a mask
-                    feature_detector->detect(gray, keypoints, mask);
-
-                    //min init point count should be different for each detector!
-                    if(keypoints.size() < min_init_point_count)
-                    {
-                        LOG4CXX_TRACE(_log, "[" << job.job_name << "] Not enough initial points: "
-                                                                   << static_cast<int>(keypoints.size()));
-
-                        continue;
-                    }
-
-                    //set first keypoints and mat
-                    track_new.first_detected_keypoints = keypoints;
-                    track_new.first_gray_frame = gray.clone();
-
-                    //calcOpticalFlowPyrLK uses float points - no need to store the KeyPoint vector - convert
-                    KeyPoint::convert(keypoints, track_new.current_points);
-
-                    //set start frame and initial point count
-                    track_new.face_track.start_frame = frame_index;
-                    //set first face detection index
-                    track_new.last_face_detected_index = frame_index;
-                    track_new.init_point_count = static_cast<int>(track_new.current_points.size());
-
-                    //set face detection
-                    Rect face(faces[i].first);
-                    AdjustRectToEdges(face, gray);
-                    MPFImageLocation first_face_detection(face.x, face.y, face.width, face.height);
-                    //first_face_confidence is already a float value
-                    first_face_detection.confidence = first_face_confidence;
-
-                    //add the first detection
-                    track_new.face_track.frame_locations.insert(pair<int, MPFImageLocation>(frame_index, first_face_detection));
-                    track_new.face_track.confidence = std::max(track_new.face_track.confidence,
-                                                               first_face_detection.confidence);
-                    //add the new track
-                    current_tracks.push_back(track_new);
-
-                    LOG4CXX_TRACE(_log, "[" << job.job_name << "] Creating new track");
-                }
-
-
-            }
-
-        }
-
-        vector <Track> tracks_to_keep;
-        for(vector<Track>::iterator track = current_tracks.begin(); track != current_tracks.end(); ++track)
-        {
-            if(track->track_lost)
-            {
-                LOG4CXX_TRACE(_log, "[" << job.job_name << "] Killing track");
-
-                //did not pass the rules to continue this frame_index, it ended on the previous index
-                track->face_track.stop_frame = frame_index - 1;
-
-                //only saving tracks lasting more than 1 frame to eliminate badly started tracks
-                if (track->face_track.stop_frame - track->face_track.start_frame > 1) {
-                    saved_tracks.push_back(*track);
-                }
-            }
-            else {
-                tracks_to_keep.push_back(*track);
-            }
-        }
-
-        //now clear the current tracks and add the tracks to keep
-        current_tracks.clear();
-        for (vector<Track>::iterator track = tracks_to_keep.begin(); track != tracks_to_keep.end(); track++) {
-            current_tracks.push_back(*track);
-        }
-
-        //set previous frame
-        prev_gray = gray.clone();
-        //swap points
-        for (vector<Track>::iterator it = current_tracks.begin(); it != current_tracks.end(); it++) {
-            swap(it->current_points, it->previous_points);
-        }
-
-        ++frame_index;
-    }
-
-    CloseAnyOpenTracks(video_capture.GetFrameCount() - 1);
-
-    //set tracks reference!
-    for (unsigned int i = 0; i < saved_tracks.size(); i++) {
-        tracks.push_back(saved_tracks[i].face_track);
-    }
-
-    //clear any internal structures that could carry over before the destructor is called
-    //these can be cleared - the data has been moved to tracks
-    current_tracks.clear();
-    saved_tracks.clear();
-
-    LOG4CXX_INFO(_log, "[" << job.job_name << "] Processing complete. Found "
-                                              << static_cast<int>(tracks.size()) << " tracks.");
-
-    if (verbosity > 0) {
-        //now print tracks if available
-        if(!tracks.empty())
-        {
-            for(unsigned int i=0; i<tracks.size(); i++)
-            {
-                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Track index: " << i);
-                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Track start index: " << tracks[i] .start_frame);
-                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Track end index: " << tracks[i] .stop_frame);
-
-                for (map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it)
-                {
-                    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Frame num: " << it->first);
-                    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Bounding rect: (" << it->second .x_left_upper << ","
-                                                               <<  it->second.y_left_upper << "," << it->second.width << "," << it->second.height << ")");
-                    LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Confidence: " << it->second.confidence);
-                }
-            }
-        }
-        else
-        {
-            LOG4CXX_DEBUG(_log, "[" << job.job_name << "] No tracks found");
-        }
-    }
-
-    return MPF_DETECTION_SUCCESS;
-}
-
-
-void OcvSsdFaceDetection::LogDetection(const MPFImageLocation& face, const string& job_name){
-    LOG4CXX_DEBUG(_log, "[" << job_name << "] XLeftUpper: " << face.x_left_upper);
-    LOG4CXX_DEBUG(_log, "[" << job_name << "] YLeftUpper: " << face.y_left_upper);
-    LOG4CXX_DEBUG(_log, "[" << job_name << "] Width:      " << face.width);
-    LOG4CXX_DEBUG(_log, "[" << job_name << "] Height:     " << face.height);
-    LOG4CXX_DEBUG(_log, "[" << job_name << "] Confidence: " << face.confidence);
-}
-*/
 
 MPF_COMPONENT_CREATOR(OcvSsdFaceDetection);
 MPF_COMPONENT_DELETER();

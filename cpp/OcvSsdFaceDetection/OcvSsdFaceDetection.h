@@ -60,11 +60,11 @@ namespace MPF{
 
     private:
 
-      log4cxx::LoggerPtr             _log;          ///< log object
-      cv::dnn::Net                   _ssdNet;       ///< single shot DNN face detector network
-      cv::Ptr<cv::face::FacemarkLBF> _facemark;     ///< landmark detector
+      log4cxx::LoggerPtr             _log;              ///< log object
+      cv::dnn::Net                   _ssdNet;           ///< single shot DNN face detector network
+      cv::Ptr<cv::face::FacemarkLBF> _facemark;         ///< landmark detector
       dlib::shape_predictor          _shape_predictor;  ///< landmark detector
-      cv::dnn::Net                   _openFaceNet;  ///< feature generator
+      cv::dnn::Net                   _openFaceNet;      ///< feature generator
 
       void _detect(const JobConfig      &cfg,
                    DetectionLocationVec &detections);   ///< get bboxes with conf. scores
@@ -73,27 +73,29 @@ namespace MPF{
                          DetectionLocationVec &detections); ///< get face landmarks
 
       cv::Mat _drawLandmarks(const JobConfig     &cfg,
-                             DetectionLocationVec &detections);   ///< draw landmarks 
+                             DetectionLocationVec &detections); ///< draw landmarks 
 
       void _createThumbnails(const JobConfig   &cfg,
                           DetectionLocationVec &detections); ///< get thumbnails for detections              
         
-      void _calcFeatures(const JobConfig     &cg,
-                        DetectionLocationVec &detections); ///< get features from thumbnails
+      void _calcFeatures(const JobConfig     &cfg,
+                        DetectionLocationVec &detections);   ///< get features from thumbnails
 
-      float _featureDistance(const cv::Mat &a,
-                             const cv::Mat &b){return norm(a,b,cv::NORM_L2);}  ///< compute feature distance between two features
+      int _calcAssignmentCost(const JobConfig         &cfg,
+                              const DetectionLocation &a,
+                              const DetectionLocation &b);      ///< assignment cost function for tracking
 
-/*
-      MPFDetectionError GetDetectionsFromVideoCapture(const MPFVideoJob &job,
-                                                      MPFVideoCapture   &video_capture,
-                                                      MPFVideoTrackVec  &tracks);
+      cv::Mat_<int> _calcAssignemntMatrix(const JobConfig            &cfg,
+                                          const TrackList            &tracks,
+                                          const DetectionLocationVec &detections); ///< determine costs of assigning detections to tracks
 
-      MPFDetectionError GetDetectionsFromImageData(const MPFImageJob   &job,
-                                                   cv::Mat             &image_data,
-                                                   MPFImageLocationVec &locations);
+      void _assignDetections2Tracks(const JobConfig         &cfg,
+                                    TrackList               &tracks,
+                                    DetectionLocationVec    &detections,
+                                    const cv::Mat_<int>     &assignmentMatrix);      ///< assign detections to tracks
+    
+      MPFVideoTrack _convert_track(const Track &track);
 
-*/
   };
  }
 }
