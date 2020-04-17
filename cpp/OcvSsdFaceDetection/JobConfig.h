@@ -30,14 +30,14 @@ namespace MPF{
   template<typename T>
   T getEnv(const Properties &p, const string &k, const T def){
     auto iter = p.find(k);
-    if (iter == p.end()) {
+    if (iter == p.end()) {                       
       const char* env_p = getenv(k.c_str());
-      if(env_p != NULL){
+      if(env_p != NULL){                          
         map<string,string> envp;
         envp.insert(pair<string,string>(k,string(env_p)));
         return DetectionComponentUtils::GetProperty<T>(envp,k,def);
-      }else{
-        return def;
+      }else{                                      
+        return def;                            
       }
     }
     return DetectionComponentUtils::GetProperty<T>(p,k,def);
@@ -60,8 +60,20 @@ namespace MPF{
       static log4cxx::LoggerPtr _log;  ///< shared log opbject
       size_t minDetectionSize;         ///< minimum boounding box dimension
       float  confThresh;               ///< detection confidence threshold
+      
+      float  featureWeight;            ///< weight for feature distance in assignment cost function
+      float  centerDistWeight;         ///< weight for centroid distance in assignment cost function
+      float  frameGapWeight;           ///< weight for frame gap distance in assignment cost function
+      float  iouWeight;                ///< weight for 1 - intersection/union cost
+
+      float  maxFeatureDist;           ///< maximum feature distance to maintain track continuity
+      float  maxCenterDist;            ///< maximum spatial distance normalized by diagonal to maintain track continuity
+      long   maxFrameGap;              ///< maximum temporal distance (frames) to maintain track continuity
+      float  maxIOUDist;               ///< maximum for (1 - Intersection/Union) to maintain track continuity
 
       cv::Mat bgrFrame;                ///< current BGR image frame
+      float   widthOdiag;              ///< image (width/diagonal)
+      float   heightOdiag;             ///< image (height/diagonal)
       size_t  frameIdx;                ///< index of current frame
       MPFDetectionError lastError;     ///< last MPF error that should be returned    
 
@@ -71,7 +83,7 @@ namespace MPF{
       ~JobConfig();
 
       void ReverseTransform(MPFImageLocation loc){_imreaderPtr->ReverseTransform(loc);}
-      void ReverseTransform(MPFVideoTrack track){_videocapPtr->ReverseTransform(track);}
+      void ReverseTransform(MPFVideoTrack  track){_videocapPtr->ReverseTransform(track);}
       bool nextFrame(){frameIdx++; return _videocapPtr->Read(bgrFrame);}
 
     private:
