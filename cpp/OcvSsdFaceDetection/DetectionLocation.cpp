@@ -85,15 +85,15 @@ void DetectionLocation::drawLandmarks(cv::Mat &img,
 }
 
 /** **************************************************************************
-* Compute the Intersection Over Union metric for two detections comprised of 
-* the ratio of the area of the intersection of the detection rectangels
-* divided by the area of the union of the detection rectangles 
+* Compute 1 - Intersection Over Union metric for two detections comprised of 
+* 1 - the ratio of the area of the intersection of the detection rectangels
+* divided by the area of the union of the detection rectangles. 
 * 
 * \param   d second detection 
-* \returns   intersection over union
+* \returns   1- intersection over union [0.0 ... 1.0]
 *
 *************************************************************************** */
-float DetectionLocation::iou(const DetectionLocation &d) const {
+float DetectionLocation::iouDist(const DetectionLocation &d) const {
 	int ulx = max(x_left_upper         , d.x_left_upper           );
 	int uly = max(y_left_upper         , d.y_left_upper           );
 	int lrx = min(x_left_upper + width , d.x_left_upper + d.width );
@@ -101,7 +101,7 @@ float DetectionLocation::iou(const DetectionLocation &d) const {
 
 	float inter_area = max(0, lrx - ulx + 1) * max(0, lry - uly + 1);	
   float union_area = width * height + d.width * d.height - inter_area;
-  return inter_area / union_area;
+  return 1.0f - inter_area / union_area;
 }
 
 /** **************************************************************************
@@ -111,7 +111,7 @@ float DetectionLocation::iou(const DetectionLocation &d) const {
 * \returns   absolute difference in frame indecies
 *
 *************************************************************************** */
-float DetectionLocation::frameGap(const DetectionLocation &d) const {
+float DetectionLocation::frameDist(const DetectionLocation &d) const {
   if(frameIdx > d.frameIdx){
     return frameIdx - d.frameIdx;
   }else{

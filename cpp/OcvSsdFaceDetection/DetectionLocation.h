@@ -43,8 +43,8 @@ namespace MPF{
       const cv::Mat&       getThumbnail() const;                            ///< get thumbnail image for detection
       const cv::Mat&       getFeature()   const;                            ///< get DNN features for detection 
 
-      float               iou(const DetectionLocation &d) const;            ///< compute intersection over union
-      float          frameGap(const DetectionLocation &d) const;            ///< compute temporal frame gap
+      float           iouDist(const DetectionLocation &d) const;            ///< 1 - compute intersection over union
+      float         frameDist(const DetectionLocation &d) const;            ///< compute temporal frame gap
       float center2CenterDist(const DetectionLocation &d) const;            ///< compute normalized center to center distance
       float       featureDist(const DetectionLocation &d) const;            ///< compute deep feature similarity distance
       
