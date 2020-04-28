@@ -28,7 +28,8 @@ from openmpf/openmpf_cpp_component_build
 COPY fsroot/ /
 
 RUN yum install --assumeyes \
-              gdb which mlocate jasper-devel openexr-devel libwebp-devel \
+              git gdb which mlocate \
+              jasper-devel openexr-devel libwebp-devel \
               bzip2 libtiff-devel libdc1394-devel tbb-devel libv4l-devel \
               gstreamer-plugins-base-devel ffmpeg-devel \
               gcc-gfortran gcc-c++ openblas openblas-devel lapack lapack-devel

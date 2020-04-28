@@ -16,9 +16,10 @@ namespace MPF{
   typedef vector<cv::Point2f>      cvPoint2fVec;         ///< vector of OpenCV 2D float points
   typedef vector<cvPoint2fVec>     cvPoint2fVecVec;      ///< vector of vectors of OpenCV 2D float points
 
-  /* **************************************************************************
+  /** **************************************************************************
   * Conveniance operator to dump MPFLocation to a stream
   *************************************************************************** */ 
+  inline
   ostream& operator<< (ostream& out, const MPFImageLocation& l) {
     out << "[" << l.x_left_upper << "," << l.y_left_upper << "]-("
                << l.width        << "," << l.height       << "):"
@@ -28,9 +29,10 @@ namespace MPF{
     return out;
   }
 
-  /* **************************************************************************
+  /** **************************************************************************
   * Conveniance operator to dump MPFTrack to a stream
   *************************************************************************** */ 
+  inline
   ostream& operator<< (ostream& out, const MPFVideoTrack& t) {
     out << t.start_frame << endl;
     out << t.stop_frame  << endl;

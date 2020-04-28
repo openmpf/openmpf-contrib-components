@@ -29,13 +29,6 @@
 #define OPENMPF_COMPONENTS_OCVSsdFACEDETECTION_H
 
 #include <log4cxx/logger.h>
-#include <opencv2/dnn.hpp>
-#include <opencv2/face.hpp>
-
-#include <dlib/image_processing.h>
-#include <dlib/opencv.h>
-
-// MPF sdk header files 
 
 #include "adapters/MPFImageAndVideoDetectionComponentAdapter.h"
 
@@ -61,40 +54,18 @@ namespace MPF{
     private:
 
       log4cxx::LoggerPtr             _log;              ///< log object
-      cv::dnn::Net                   _ssdNet;           ///< single shot DNN face detector network
-      cv::Ptr<cv::face::FacemarkLBF> _facemark;         ///< landmark detector
-      dlib::shape_predictor          _shape_predictor;  ///< landmark detector
-      cv::dnn::Net                   _openFaceNet;      ///< feature generator
 
-      void _detect(const JobConfig      &cfg,
-                   DetectionLocationVec &detections);   ///< get bboxes with conf. scores
 
-      void _findLandmarks(const JobConfig     &cfg,
-                         DetectionLocationVec &detections); ///< get face landmarks
+      template<DetectionLocationCostFunc COST_FUNC>
+      cv::Mat_<int> _calcAssignemntMatrix(const TrackPtrList            &tracks,
+                                          const DetectionLocationPtrVec &detections,
+                                          const float                    maxCost); ///< determine costs of assigning detections to tracks
 
-      cv::Mat _drawLandmarks(const JobConfig     &cfg,
-                             DetectionLocationVec &detections); ///< draw landmarks 
-
-      void _createThumbnails(const JobConfig   &cfg,
-                          DetectionLocationVec &detections); ///< get thumbnails for detections              
-        
-      void _calcFeatures(const JobConfig     &cfg,
-                        DetectionLocationVec &detections);   ///< get features from thumbnails
-
-      int _calcAssignmentCost(const JobConfig         &cfg,
-                              const DetectionLocation &a,
-                              const DetectionLocation &b);      ///< assignment cost function for tracking
-
-      cv::Mat_<int> _calcAssignemntMatrix(const JobConfig            &cfg,
-                                          const TrackList            &tracks,
-                                          const DetectionLocationVec &detections); ///< determine costs of assigning detections to tracks
-
-      void _assignDetections2Tracks(const JobConfig         &cfg,
-                                    TrackList               &tracks,
-                                    DetectionLocationVec    &detections,
-                                    const cv::Mat_<int>     &assignmentMatrix);      ///< assign detections to tracks
+      void _assignDetections2Tracks(TrackPtrList               &tracks,
+                                    DetectionLocationPtrVec    &detections,
+                                    const cv::Mat_<int>        &assignmentMatrix);      ///< assign detections to tracks
     
-      MPFVideoTrack _convert_track(const Track &track);
+      MPFVideoTrack _convert_track(Track &track);  ///< convert to MFVideoTrack and release
 
   };
  }

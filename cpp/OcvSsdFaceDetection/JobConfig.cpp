@@ -50,8 +50,8 @@ JobConfig::JobConfig():
   maxFrameGap(30),
   frameIdx(-1),
   lastError(MPF_DETECTION_SUCCESS),
-  _imreaderPtr(NULL),
-  _videocapPtr(NULL){}                    
+  _imreaderPtr(unique_ptr<MPFImageReader>()),
+  _videocapPtr(unique_ptr<MPFVideoCapture>()){}                    
 
 /* **************************************************************************
 * ImageJob constructor
@@ -64,13 +64,19 @@ JobConfig::JobConfig(const MPFImageJob &job):
   if(job.data_uri.empty()) {                                                   LOG4CXX_ERROR(_log, "[" << job.job_name << "Invalid image url");
     lastError = MPF_INVALID_DATAFILE_URI;
   }else{
-    _imreaderPtr = new MPFImageReader(job);
+    _imreaderPtr = unique_ptr<MPFImageReader>(new MPFImageReader(job));
+    /*
+    bgrFramePtr = shared_ptr<cv::Mat>(new cv::Mat(_imreaderPtr->GetImage()));   // maybe memory leak here?  check cv::Mat.ref addref() / release()
+    if(bgrFramePtr->empty()){                                                  LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not read image file: " << job.data_uri);
+      lastError = MPF_IMAGE_READ_ERROR;
+    }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] image.width  = " << bgrFramePtr->cols);
+                                                                               LOG4CXX_DEBUG(_log, "[" << job.job_name << "] image.height = " << bgrFramePtr->rows);
+    */
     bgrFrame = _imreaderPtr->GetImage();
     if(bgrFrame.empty()){                                                      LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not read image file: " << job.data_uri);
       lastError = MPF_IMAGE_READ_ERROR;
     }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] image.width  = " << bgrFrame.cols);
                                                                                LOG4CXX_DEBUG(_log, "[" << job.job_name << "] image.height = " << bgrFrame.rows);
-
   }
 }
 
@@ -85,7 +91,7 @@ JobConfig::JobConfig(const MPFVideoJob &job):
   if(job.data_uri.empty()) {                                                   LOG4CXX_ERROR(_log, "[" << job.job_name << "Invalid video url");
     lastError = MPF_INVALID_DATAFILE_URI;
   }else{
-    _videocapPtr = new MPFVideoCapture(job, true, true);
+    _videocapPtr = unique_ptr<MPFVideoCapture>(new MPFVideoCapture(job, true, true));
     if(!_videocapPtr->IsOpened()){                                             LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not initialize capturing");
       lastError = MPF_COULD_NOT_OPEN_DATAFILE;
     }
@@ -100,12 +106,21 @@ JobConfig::JobConfig(const MPFVideoJob &job):
 /* **************************************************************************
 * Destructor
 *************************************************************************** */ 
+bool JobConfig::nextFrame(){
+  frameIdx++;
+  //bgrFramePtr = shared_ptr<cv::Mat>(new cv::Mat);
+  return _videocapPtr->Read(bgrFrame);
+}
+
+/* **************************************************************************
+* Destructor
+*************************************************************************** */ 
 JobConfig::~JobConfig(){
-  if(_imreaderPtr != NULL){
-    delete _imreaderPtr;
+  if(_imreaderPtr){
+    _imreaderPtr.reset();
   }
-  if(_videocapPtr != NULL){
+  if(_videocapPtr){
     _videocapPtr->Release();
-    delete _videocapPtr;
+    _videocapPtr.reset();
   }
 }

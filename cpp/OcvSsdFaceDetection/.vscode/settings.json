@@ -21,5 +21,5 @@
       "/home/mpf/mpf-sdk-install/include/**": true,
       "${workspaceRoot}/build": true,
       "${workspaceRoot}/.devcontainer/fsroot": true
-    },
+    }
 }

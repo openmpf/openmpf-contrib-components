@@ -62,6 +62,7 @@ endif()
 
 set(OCV_SSD_FACE_DETECTION_SOURCE_FILES
         JobConfig.cpp
+        DetectionLocation.cpp
         munkres.cpp
         OcvSsdFaceDetection.cpp)
 

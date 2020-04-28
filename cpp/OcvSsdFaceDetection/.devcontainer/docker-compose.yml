@@ -18,10 +18,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      MPF_LOG_PATH: .
+      THIS_MPF_NODE: .
     volumes:
       # Mounts the project folder to '/workspace'. While this file is in .devcontainer,
       # mounts are relative to the first file in the list, which is a level up.
-      - ..:/home/mpf/component_src:cached
+      - ../../..:/home/mpf/openmpf-contrib-components:cached
 
     # [Optional] Required for ptrace-based debuggers like C++, Go, and Rust
     cap_add:

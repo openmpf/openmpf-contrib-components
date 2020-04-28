@@ -5,7 +5,7 @@
     "dockerComposeFile": ["./docker-compose.yml"],
   
     "service": "OcvSsdFaceDetection",
-    "workspaceFolder": "/home/mpf/component_src",
+    "workspaceFolder": "/home/mpf/openmpf-contrib-components/cpp/OcvSsdFaceDetection",
 	"shutdownAction": "stopCompose",
 	"extensions": [
 		"ms-vscode.cpptools",
@@ -13,9 +13,11 @@
 		"sleistner.vscode-fileutils",
 		"bierner.markdown-preview-github-styles",
 		"ryanmcalister.unotes",
-		"redhat.vscode-yaml"
+		"redhat.vscode-yaml",
+		"matepek.vscode-catch2-test-adapter"
 	],
 	"settings":{
+    "gtest-adapter.debugConfig": "Debug",
     "cmake.ctestPath": "/usr/bin/ctest3",
     "files.exclude": {
       "**/.git": true,

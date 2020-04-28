@@ -6,34 +6,14 @@
 
 using namespace MPF::COMPONENT;
  
-// Shared static members
+// Shared static members (might need mutex locks and condition variable if multithreading... )
 log4cxx::LoggerPtr                DetectionLocation::_log;
-unique_ptr<cv::dnn::Net>          DetectionLocation::_ssdNetPtr         = NULL;   ///< single shot DNN face detector network
+cv::dnn::Net                      DetectionLocation::_ssdNet;                     ///< single shot DNN face detector network
+cv::dnn::Net                      DetectionLocation::_openFaceNet;                ///< feature generator
 unique_ptr<dlib::shape_predictor> DetectionLocation::_shapePredFuncPtr  = NULL;   ///< landmark detector function pointer
-unique_ptr<cv::dnn::Net>          DetectionLocation::_openFaceNetPtr    = NULL;   ///< feature generator
 cv::Ptr<cv::face::FacemarkLBF>    DetectionLocation::_facemarkPtr;                ///< landmark detector
 
-/** **************************************************************************
-* Conveniance operator to dump MPFLocation to a stream
-*************************************************************************** */ 
-ostream& operator<< (ostream& out, const MPF::COMPONENT::DetectionLocation& d) {
-  out << "[" << (MPF::COMPONENT::MPFImageLocation)d 
-            // << " L:" << d.landmarks << " F["
-              << d.getFeature().size() << "] T["
-              << d.getThumbnail().rows << "," << d.getThumbnail().cols << "]";
-  return out;
-}
 
-/** **************************************************************************
-* Conveniance operator to dump MPF::COMPONENT::Track to a stream
-*************************************************************************** */ 
-ostream& operator<< (ostream& out, const MPF::COMPONENT::Track& t) {
-  MPF::COMPONENT::DetectionLocation d = t.back();
-  out << "("<<t.size()<<") ... [" << (MPF::COMPONENT::MPFImageLocation)d 
-              << d.getFeature().size() << "] T["
-              << d.getThumbnail().rows << "," << d.getThumbnail().cols << "]";
-  return out;
-}
 
 /** ****************************************************************************
 *  Draw polylines to visualize landmark features
@@ -132,19 +112,20 @@ float  DetectionLocation::center2CenterDist(const DetectionLocation &d) const {
   return sqrt( dx*dx + dy*dy );
 }
 
+
 /** **************************************************************************
 * Compute feature distance (similarity) between two detection feature vectors
 *
 * \param   d second detection 
-* \returns   cos distance [0 ... 1.0]
+* \returns cos distance [0 ... 1.0]
 *
 * \note Feature vectors are expected to be of unit magnitude
 *
 *************************************************************************** */
-float DetectionLocation::featureDist(const DetectionLocation &d) const {
-  return static_cast<float>(norm(getFeature(), d.getFeature(),cv::NORM_L2));
+float DetectionLocation::featureDist(const DetectionLocation &d) const { 
+//  return static_cast<float>(norm(getFeature(), d.getFeature(),cv::NORM_L2));
+  return 1.0f - max(0.0f,static_cast<float>(getFeature().dot(d.getFeature())));
 }
-
 
 /** **************************************************************************
 * Lazy accessor method to get/compute landmark points
@@ -167,16 +148,22 @@ const cvPoint2fVec& DetectionLocation::getLandmarks() const {
     // }
 
     // DLib 5-landmark detector
-    dlib::cv_image<dlib::bgr_pixel> cimg(*_bgrFramePtr);
-    dlib::full_object_detection
-      shape = (*_shapePredFuncPtr)(cimg, dlib::rectangle(x_left_upper,               // left
-                                                          y_left_upper,              // top
-                                                          x_left_upper + width-1,    // right
-                                                          y_left_upper + height-1)); // bottom
-                                                      
-    for(size_t i=0; i<shape.num_parts(); i++){
-      dlib::point pt = shape.part(i);                                          //LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));                  
-      _landmarks.push_back(cv::Point2f(pt.x(),pt.y()));   
+    try{
+      dlib::cv_image<dlib::bgr_pixel> cimg(_bgrFrame);
+      dlib::full_object_detection
+        shape = (*_shapePredFuncPtr)(cimg, dlib::rectangle(x_left_upper,               // left
+                                                            y_left_upper,              // top
+                                                            x_left_upper + width-1,    // right
+                                                            y_left_upper + height-1)); // bottom
+                                                        
+      for(size_t i=0; i<shape.num_parts(); i++){
+        dlib::point pt = shape.part(i);                                          //LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));                  
+        _landmarks.push_back(cv::Point2f(pt.x(),pt.y()));   
+      }
+    }catch(...){
+      exception_ptr eptr = current_exception();                                                              
+      LOG4CXX_FATAL(_log, "failed to determine landmarks");
+      rethrow_exception(eptr);      
     }
   }
   return _landmarks;
@@ -216,9 +203,15 @@ const cv::Mat& DetectionLocation::getThumbnail() const {
         rowPtr[1] = getLandmarks()[lmIdx[r]].y;      
       }
       cv::Mat xfrm = cv::getAffineTransform(src,dst);
-      _thumbnail = cv::Mat(THUMB_SIZE,_bgrFramePtr->type());
-      cv::warpAffine(*_bgrFramePtr,_thumbnail,cv::getAffineTransform(src,dst),
-                    THUMB_SIZE,cv::INTER_CUBIC,cv::BORDER_REPLICATE);
+      try{
+        _thumbnail = cv::Mat(THUMB_SIZE,_bgrFrame.type());
+        cv::warpAffine(_bgrFrame,_thumbnail,cv::getAffineTransform(src,dst),
+                      THUMB_SIZE,cv::INTER_CUBIC,cv::BORDER_REPLICATE);
+      }catch (...) { 
+        exception_ptr eptr = current_exception();                                                              
+        LOG4CXX_FATAL(_log, "failed to generate thumbnail");
+        rethrow_exception(eptr);
+      }
 
   }
   return _thumbnail;
@@ -232,17 +225,28 @@ const cv::Mat& DetectionLocation::getThumbnail() const {
 *************************************************************************** */
 const cv::Mat& DetectionLocation::getFeature() const {
   if(_feature.empty()){
-    const double inScaleFactor = 1.0 / 255.0;
-    const cv::Size blobSize(96, 96);
-    const cv::Scalar meanVal(0.0, 0.0, 0.0);  // BGR mean pixel color 
-    cv::Mat inputBlob = cv::dnn::blobFromImage(getThumbnail(), // BGR image
-                                              inScaleFactor,   // no pixel value scaline (e.g. 1.0/255.0)
-                                              blobSize,        // expected network input size: 90x90
-                                              meanVal,         // mean BGR pixel value
-                                              true,            // swap RB channels
-                                              false);          // center crop
-    _openFaceNetPtr->setInput(inputBlob);
-    _feature = _openFaceNetPtr->forward().clone();             // need to clone as mem gets reused
+    float aspect_ratio = width / height;
+    if(   x_left_upper > 0
+       && y_left_upper > 0
+       && x_left_upper + width  < _bgrFrame.cols - 1
+       && y_left_upper + height < _bgrFrame.rows - 1
+       || (0.8 < aspect_ratio && aspect_ratio < 1.2)){
+      const double inScaleFactor = 1.0 / 255.0;
+      const cv::Size blobSize(96, 96);
+      const cv::Scalar meanVal(0.0, 0.0, 0.0);  // BGR mean pixel color 
+      cv::Mat inputBlob = cv::dnn::blobFromImage(getThumbnail(), // BGR image
+                                                inScaleFactor,   // no pixel value scaline (e.g. 1.0/255.0)
+                                                blobSize,        // expected network input size: 90x90
+                                                meanVal,         // mean BGR pixel value
+                                                true,            // swap RB channels
+                                                false);          // center crop
+      _openFaceNet.setInput(inputBlob);
+      _feature = _openFaceNet.forward().clone();             // need to clone as mem gets reused
+
+    }else{                                                   // can't trust feature of detections on the edge
+                                                             LOG4CXX_TRACE(_log,"'Zero-feature' for detection at frame edge with poor aspect ratio = " << aspect_ratio);                 
+      _feature = cv::Mat::zeros(1, 128, CV_32F);             // zero feature will wipe out any dot products...
+    }
   }
   return _feature;
 }
@@ -258,22 +262,22 @@ const cv::Mat& DetectionLocation::getFeature() const {
 *       should be released once no longer needed (i.e. features care computed)
 *
 *************************************************************************** */
-DetectionLocationVec DetectionLocation::createDetections(const JobConfig &cfg){
-  DetectionLocationVec detections;
+DetectionLocationPtrVec DetectionLocation::createDetections(const JobConfig &cfg){
+  DetectionLocationPtrVec detections;
 
   const double inScaleFactor = 1.0;
   const cv::Size blobSize(300, 300);
   const cv::Scalar meanVal(104.0, 117.0, 124.0);  // BGR mean pixel color       
 
-  cv::Mat inputBlob = cv::dnn::blobFromImage(*cfg.bgrFramePtr,  // BGR image
+  cv::Mat inputBlob = cv::dnn::blobFromImage(cfg.bgrFrame,  // BGR image
                                             inScaleFactor, // no pixel value scaline (e.g. 1.0/255.0)
                                             blobSize,      // expected network input size: 300x300
                                             meanVal,       // mean BGR pixel value
                                             true,          // swap RB channels
                                             false          // center crop
                                             );
-  _ssdNetPtr->setInput(inputBlob,"data");
-  cv::Mat detection = _ssdNetPtr->forward("detection_out");
+  _ssdNet.setInput(inputBlob,"data");
+  cv::Mat detection = _ssdNet.forward("detection_out");
   cv::Mat detectionMat(detection.size[2], detection.size[3], CV_32F, detection.ptr<float>());
 
   for(int i = 0; i < detectionMat.rows; i++){
@@ -282,16 +286,16 @@ DetectionLocationVec DetectionLocation::createDetections(const JobConfig &cfg){
       cv::Point2f ul(detectionMat.at<float>(i, 3),detectionMat.at<float>(i, 4));
       cv::Point2f lr(detectionMat.at<float>(i, 5),detectionMat.at<float>(i, 6));
       cv::Point2f wh = lr - ul;
-      int x1     = static_cast<int>(ul.x * cfg.bgrFramePtr->cols);
-      int y1     = static_cast<int>(ul.y * cfg.bgrFramePtr->rows);
-      int width  = static_cast<int>(wh.x * cfg.bgrFramePtr->cols);
-      int height = static_cast<int>(wh.y * cfg.bgrFramePtr->rows);
+      int x1     = static_cast<int>(ul.x * cfg.bgrFrame.cols);
+      int y1     = static_cast<int>(ul.y * cfg.bgrFrame.rows);
+      int width  = static_cast<int>(wh.x * cfg.bgrFrame.cols);
+      int height = static_cast<int>(wh.y * cfg.bgrFrame.rows);
 
       if(    width  >= cfg.minDetectionSize
           && height >= cfg.minDetectionSize){
-        detections.push_back(DetectionLocation(x1, y1, width, height, conf,
-                                              (ul + lr) / 2.0,
-                                                cfg.frameIdx, cfg.bgrFramePtr));
+        detections.push_back(unique_ptr<DetectionLocation>(
+          new DetectionLocation(x1, y1, width, height, conf, (ul + lr) / 2.0,
+                                cfg.frameIdx, cfg.bgrFrame)));                 LOG4CXX_TRACE(_log,"detection:" << *detections.back());
       }
     }                                                                               
   }
@@ -319,7 +323,7 @@ bool DetectionLocation::Init(log4cxx::LoggerPtr log, string plugin_path){
 
   try{
       // load detector net
-      _ssdNetPtr = unique_ptr<cv::dnn::Net>(&cv::dnn::readNetFromTensorflow(tf_model_path, tf_config_path));
+      _ssdNet = cv::dnn::readNetFromTensorflow(tf_model_path, tf_config_path);
       
       // load landmark finder
       _facemarkPtr = cv::face::FacemarkLBF::create();
@@ -329,7 +333,7 @@ bool DetectionLocation::Init(log4cxx::LoggerPtr log, string plugin_path){
       dlib::deserialize(sp_model_path) >> *_shapePredFuncPtr;
 
       // load feature generator
-      _openFaceNetPtr = unique_ptr<cv::dnn::Net>(&cv::dnn::readNetFromTorch(tr_model_path));
+      _openFaceNet = cv::dnn::readNetFromTorch(tr_model_path);
 
   }catch(const runtime_error& re){                                           LOG4CXX_FATAL(_log, err_msg << " Runtime error: " << re.what());
       return false;
@@ -338,5 +342,6 @@ bool DetectionLocation::Init(log4cxx::LoggerPtr log, string plugin_path){
   }catch(...){                                                               LOG4CXX_FATAL(_log, err_msg << " Unknown failure occurred. Possible memory corruption");
       return false;
   } 
-}
 
+  return true;
+}

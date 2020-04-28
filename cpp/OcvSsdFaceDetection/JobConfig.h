@@ -71,11 +71,12 @@ namespace MPF{
       long   maxFrameGap;              ///< maximum temporal distance (frames) to maintain track continuity
       float  maxIOUDist;               ///< maximum for (1 - Intersection/Union) to maintain track continuity
 
-      cv::Mat bgrFrame;                ///< current BGR image frame
       float   widthOdiag;              ///< image (width/diagonal)
       float   heightOdiag;             ///< image (height/diagonal)
       size_t  frameIdx;                ///< index of current frame
-      MPFDetectionError lastError;     ///< last MPF error that should be returned    
+      cv::Mat bgrFrame;                ///< current BGR image frame
+
+      MPFDetectionError   lastError;   ///< last MPF error that should be returned    
 
       JobConfig();
       JobConfig(const MPFImageJob &job);
@@ -84,11 +85,11 @@ namespace MPF{
 
       void ReverseTransform(MPFImageLocation loc){_imreaderPtr->ReverseTransform(loc);}
       void ReverseTransform(MPFVideoTrack  track){_videocapPtr->ReverseTransform(track);}
-      bool nextFrame(){frameIdx++; return _videocapPtr->Read(bgrFrame);}
+      bool nextFrame();
 
     private:
-      MPFImageReader*  _imreaderPtr;
-      MPFVideoCapture* _videocapPtr;
+      unique_ptr<MPFImageReader>  _imreaderPtr;
+      unique_ptr<MPFVideoCapture> _videocapPtr;
 
       void _parse(const MPFJob &job);
 
