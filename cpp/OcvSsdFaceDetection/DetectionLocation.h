@@ -24,9 +24,9 @@ namespace MPF{
   typedef vector<unique_ptr<DetectionLocation>> DetectionLocationPtrVec;  ///< vector of DetectionLocation pointers
   typedef DetectionLocationPtrVec               Track;                    ///< track as vector of detection pointers
   typedef list<unique_ptr<Track>>               TrackPtrList;             ///< list of track pointers
-  typedef float (DetectionLocation::*DetectionLocationCostFunc)(const DetectionLocation &d) const; ///< cost member function pointer type
+  typedef float (DetectionLocation::*DetectionLocationCostFunc)(const DetectionLocation &d) const; ///< cost member-function pointer type
 
-  class DetectionLocation: public MPFImageLocation{
+  class DetectionLocation: public MPFImageLocation{ // extend MPFImageLocation
 
     public: 
       using MPFImageLocation::MPFImageLocation;  // C++11 inherit all constructors for MPFImageLocation
@@ -73,7 +73,7 @@ namespace MPF{
   };
  
   /** **************************************************************************
-  * Conveniance operator to dump MPFLocation to a stream
+  *   Dump MPFLocation to a stream
   *************************************************************************** */
   inline 
   ostream& operator<< (ostream& out, const DetectionLocation& d) {
@@ -85,12 +85,12 @@ namespace MPF{
   }
 
   /** **************************************************************************
-  * Conveniance operator to dump MPF::COMPONENT::Track to a stream
+  *   Dump MPF::COMPONENT::Track to a stream
   *************************************************************************** */
   inline 
   ostream& operator<< (ostream& out, const Track& t) {
     out << "<f"   << t.front()->frameIdx << (MPFImageLocation)(*t.front())
-        << "...f" << t.back()->frameIdx << (MPFImageLocation)(*t.back()) 
+        << "...f" << t.back()->frameIdx  << (MPFImageLocation)(*t.back()) 
         << ">("<<t.size()<<")";
     return out;
   }

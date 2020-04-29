@@ -17,7 +17,7 @@ namespace MPF{
   typedef vector<cvPoint2fVec>     cvPoint2fVecVec;      ///< vector of vectors of OpenCV 2D float points
 
   /** **************************************************************************
-  * Conveniance operator to dump MPFLocation to a stream
+  *   Dump MPFLocation to a stream
   *************************************************************************** */ 
   inline
   ostream& operator<< (ostream& out, const MPFImageLocation& l) {
@@ -30,7 +30,7 @@ namespace MPF{
   }
 
   /** **************************************************************************
-  * Conveniance operator to dump MPFTrack to a stream
+  *   Dump MPFTrack to a stream
   *************************************************************************** */ 
   inline
   ostream& operator<< (ostream& out, const MPFVideoTrack& t) {
@@ -44,7 +44,7 @@ namespace MPF{
   }
 
   /** ****************************************************************************
-  * Conveniance << operator template for dumping vectors
+  *   Dump vectors to a stream
   ***************************************************************************** */
   template<typename T>
   ostream& operator<< (ostream& out, const vector<T>& v) {

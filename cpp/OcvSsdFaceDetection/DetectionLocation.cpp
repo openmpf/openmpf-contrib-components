@@ -13,8 +13,6 @@ cv::dnn::Net                      DetectionLocation::_openFaceNet;              
 unique_ptr<dlib::shape_predictor> DetectionLocation::_shapePredFuncPtr  = NULL;   ///< landmark detector function pointer
 cv::Ptr<cv::face::FacemarkLBF>    DetectionLocation::_facemarkPtr;                ///< landmark detector
 
-
-
 /** ****************************************************************************
 *  Draw polylines to visualize landmark features
 *
@@ -40,8 +38,8 @@ void drawPolyline(cv::Mat &im, const cvPoint2fVec &landmarks,
 * Visualize landmark point on image by drawing them.  If 68 landmarks are
 * available, they are drawn as polygons, otherwise just as points
 *
-* \param im        image to draw landmarks on
-* \param drawColor color to use for drawing
+* \param [in,out] im        image to draw landmarks on
+* \param          drawColor color to use for drawing
 *
 ***************************************************************************** */
 void DetectionLocation::drawLandmarks(cv::Mat &img,
@@ -70,7 +68,7 @@ void DetectionLocation::drawLandmarks(cv::Mat &img,
 * divided by the area of the union of the detection rectangles. 
 * 
 * \param   d second detection 
-* \returns   1- intersection over union [0.0 ... 1.0]
+* \returns 1- intersection over union [0.0 ... 1.0]
 *
 *************************************************************************** */
 float DetectionLocation::iouDist(const DetectionLocation &d) const {
@@ -123,7 +121,6 @@ float  DetectionLocation::center2CenterDist(const DetectionLocation &d) const {
 *
 *************************************************************************** */
 float DetectionLocation::featureDist(const DetectionLocation &d) const { 
-//  return static_cast<float>(norm(getFeature(), d.getFeature(),cv::NORM_L2));
   return 1.0f - max(0.0f,static_cast<float>(getFeature().dot(d.getFeature())));
 }
 
@@ -157,7 +154,7 @@ const cvPoint2fVec& DetectionLocation::getLandmarks() const {
                                                             y_left_upper + height-1)); // bottom
                                                         
       for(size_t i=0; i<shape.num_parts(); i++){
-        dlib::point pt = shape.part(i);                                          //LOG4CXX_TRACE(_log, "lm[" << i << "]: " << shape.part(i));                  
+        dlib::point pt = shape.part(i);                                                          
         _landmarks.push_back(cv::Point2f(pt.x(),pt.y()));   
       }
     }catch(...){
@@ -226,11 +223,11 @@ const cv::Mat& DetectionLocation::getThumbnail() const {
 const cv::Mat& DetectionLocation::getFeature() const {
   if(_feature.empty()){
     float aspect_ratio = width / height;
-    if(   x_left_upper > 0
-       && y_left_upper > 0
-       && x_left_upper + width  < _bgrFrame.cols - 1
-       && y_left_upper + height < _bgrFrame.rows - 1
-       || (0.8 < aspect_ratio && aspect_ratio < 1.2)){
+    if(   (   x_left_upper > 0
+           && y_left_upper > 0
+           && x_left_upper + width  < _bgrFrame.cols - 1
+           && y_left_upper + height < _bgrFrame.rows - 1)
+       || (   0.8 < aspect_ratio && aspect_ratio < 1.2)){
       const double inScaleFactor = 1.0 / 255.0;
       const cv::Size blobSize(96, 96);
       const cv::Scalar meanVal(0.0, 0.0, 0.0);  // BGR mean pixel color 
@@ -305,6 +302,11 @@ DetectionLocationPtrVec DetectionLocation::createDetections(const JobConfig &cfg
 /** **************************************************************************
 * Setup class shared static configurations and initialize / load shared 
 * detectors and feature generator objects.
+*
+* \param log         logger object for logging
+* \param plugin_path plugin directory so configs and models can be loaded
+*
+* \return true if eveything was properly initialized, flase otherwise
 *************************************************************************** */
 bool DetectionLocation::Init(log4cxx::LoggerPtr log, string plugin_path){
 

@@ -45,7 +45,7 @@ namespace MPF{
   class OcvSsdFaceDetection : public MPFImageAndVideoDetectionComponentAdapter {
 
     public:
-      bool Init() override;
+      bool Init() override;      
       bool Close() override;
       string GetDetectionType(){return "FACE";};
       MPFDetectionError GetDetections(const MPFVideoJob &job, MPFVideoTrackVec    &tracks)    override;
@@ -55,7 +55,6 @@ namespace MPF{
 
       log4cxx::LoggerPtr             _log;              ///< log object
 
-
       template<DetectionLocationCostFunc COST_FUNC>
       cv::Mat_<int> _calcAssignemntMatrix(const TrackPtrList            &tracks,
                                           const DetectionLocationPtrVec &detections,
@@ -63,7 +62,7 @@ namespace MPF{
 
       void _assignDetections2Tracks(TrackPtrList               &tracks,
                                     DetectionLocationPtrVec    &detections,
-                                    const cv::Mat_<int>        &assignmentMatrix);      ///< assign detections to tracks
+                                    const cv::Mat_<int>        &assignmentMatrix); ///< assign detections to tracks
     
       MPFVideoTrack _convert_track(Track &track);  ///< convert to MFVideoTrack and release
 

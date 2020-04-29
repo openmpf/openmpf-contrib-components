@@ -8,53 +8,45 @@ void JobConfig::_parse(const MPFJob &job){
   minDetectionSize = getEnv<int>  (jpr,"MIN_DETECTION_SIZE",             minDetectionSize);  LOG4CXX_TRACE(_log, "MIN_DETECTION_SIZE: " << minDetectionSize);
   confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", confThresh);        LOG4CXX_TRACE(_log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
   
-  featureWeight    = getEnv<float>(jpr,"TRACKING_FEATURE_WEIGHT",        featureWeight);     LOG4CXX_TRACE(_log, "TRACKING_FEATURE_WEIGHT: " << featureWeight);
-  centerDistWeight = getEnv<float>(jpr,"TRACKING_CENTER_DIST_WEIGHT",    centerDistWeight);  LOG4CXX_TRACE(_log, "TRACKING_CENTER_DIST_WEIGHT: " << centerDistWeight);
-  frameGapWeight   = getEnv<float>(jpr,"TRACKING_FRAME_GAP_WEIGHT",      frameGapWeight);    LOG4CXX_TRACE(_log, "TRACKING_FRAME_GAP_WEIGHT: " << frameGapWeight);
-  iouWeight        = getEnv<float>(jpr,"TRACKING_IOU_WEIGHT",            iouWeight);         LOG4CXX_TRACE(_log, "TRACKING_IOU_WEIGHT: " << iouWeight);
-
   maxFeatureDist   = getEnv<float>(jpr,"TRACKING_MAX_FEATURE_DIST",      maxFeatureDist);    LOG4CXX_TRACE(_log, "TRACKING_MAX_FEATURE_DIST: " << maxFeatureDist);
   maxFrameGap      = getEnv<int>  (jpr,"TRACKING_MAX_FRAME_GAP",         maxFrameGap);       LOG4CXX_TRACE(_log, "TRACKING_MAX_FRAME_GAP: " << maxFrameGap);
   maxCenterDist    = getEnv<float>(jpr,"TRACKING_MAX_CENTER_DIST",       maxCenterDist);     LOG4CXX_TRACE(_log, "TRACKING_MAX_CENTER_DIST: " << maxCenterDist);
   maxIOUDist       = getEnv<float>(jpr,"TRACKING_MAX_IOU_DIST",          maxIOUDist);        LOG4CXX_TRACE(_log, "TRACKING_MAX_IOU_DIST: " << maxIOUDist);
 
-  float weightsum = featureWeight + centerDistWeight + frameGapWeight + iouWeight;
-  iouWeight        /= weightsum;
-  featureWeight    /= weightsum;
-  centerDistWeight /= weightsum;
-  frameGapWeight   /= weightsum;
 }
 
 /* **************************************************************************
-* Default constructor
+*   Dump config to a stream
 *************************************************************************** */ 
 ostream& operator<< (ostream& out, const JobConfig& cfg) {
   out << "{"
-      << "\"minDetectionSize\": " << cfg.minDetectionSize 
-      << "\"confThresh\":" << cfg.confThresh 
+      << "\"minDetectionSize\": " << cfg.minDetectionSize << ","
+      << "\"confThresh\":"        << cfg.confThresh       << ","
+      <<  "\"maxFeatureDist\":"   << cfg.maxFeatureDist   << ","
+      <<  "\"maxFrameGap\":"      << cfg.maxFrameGap      << ","
+      <<  "\"maxCenterDist\":"    << cfg.maxCenterDist    << ","
+      <<  "\"maxIOUDist\":"       << cfg.maxIOUDist
       << "}";
   return out;
 }
 
 /* **************************************************************************
-* Default constructor
+*  Default constructor with default values
 *************************************************************************** */ 
 JobConfig::JobConfig():
   minDetectionSize(45),
   confThresh(0.65),
-  featureWeight(0.5),
-  centerDistWeight(0.25),
-  frameGapWeight(0.25),
-  maxFeatureDist(0.5),
-  maxCenterDist(0.5),
-  maxFrameGap(30),
+  maxFeatureDist(0.25),
+  maxCenterDist(0.1),
+  maxFrameGap(3),
+  maxIOUDist(0.6),
   frameIdx(-1),
   lastError(MPF_DETECTION_SUCCESS),
   _imreaderPtr(unique_ptr<MPFImageReader>()),
   _videocapPtr(unique_ptr<MPFVideoCapture>()){}                    
 
 /* **************************************************************************
-* ImageJob constructor
+*  Constructor that parses parameters from MPFImageJob and load image 
 *************************************************************************** */ 
 JobConfig::JobConfig(const MPFImageJob &job):
   JobConfig() {
@@ -65,13 +57,6 @@ JobConfig::JobConfig(const MPFImageJob &job):
     lastError = MPF_INVALID_DATAFILE_URI;
   }else{
     _imreaderPtr = unique_ptr<MPFImageReader>(new MPFImageReader(job));
-    /*
-    bgrFramePtr = shared_ptr<cv::Mat>(new cv::Mat(_imreaderPtr->GetImage()));   // maybe memory leak here?  check cv::Mat.ref addref() / release()
-    if(bgrFramePtr->empty()){                                                  LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not read image file: " << job.data_uri);
-      lastError = MPF_IMAGE_READ_ERROR;
-    }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] image.width  = " << bgrFramePtr->cols);
-                                                                               LOG4CXX_DEBUG(_log, "[" << job.job_name << "] image.height = " << bgrFramePtr->rows);
-    */
     bgrFrame = _imreaderPtr->GetImage();
     if(bgrFrame.empty()){                                                      LOG4CXX_ERROR(_log, "[" << job.job_name << "] Could not read image file: " << job.data_uri);
       lastError = MPF_IMAGE_READ_ERROR;
@@ -81,7 +66,8 @@ JobConfig::JobConfig(const MPFImageJob &job):
 }
 
 /* **************************************************************************
-* VideoJob constructor
+*  Constructor that parses parameters from MPFVideoJob and initializes 
+*  video caputure / reader
 *************************************************************************** */ 
 JobConfig::JobConfig(const MPFVideoJob &job):
   JobConfig() {
@@ -104,7 +90,8 @@ JobConfig::JobConfig(const MPFVideoJob &job):
 }
 
 /* **************************************************************************
-* Destructor
+*  Read next frame of video into current bgrFrame member variable and advance
+*  frame index counter.
 *************************************************************************** */ 
 bool JobConfig::nextFrame(){
   frameIdx++;
@@ -113,7 +100,7 @@ bool JobConfig::nextFrame(){
 }
 
 /* **************************************************************************
-* Destructor
+* Destructor to release image / video readers
 *************************************************************************** */ 
 JobConfig::~JobConfig(){
   if(_imreaderPtr){

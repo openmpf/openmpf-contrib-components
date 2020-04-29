@@ -23,7 +23,6 @@
         "DETECTION_FACE",
         "DETECTION_FACE_OCVSSD"
       ],
-
       "properties": [
         {
           "name": "DETECTION_CONFIDENCE_THRESHOLD",
@@ -38,22 +37,28 @@
           "defaultValue": "48"
         },
         {
-          "name": "TRACKING_FEATURE_WEIGHT",
-          "description": "Weighting factor for feature distance [0..1] used in tracking assignment cost function",
+          "name": "TRACKING_MAX_IOU_DIST",
+          "description": "Maximum intersection over union distance (1.0 - iou) between consecutive detection in a track [0..1]",
           "type": "FLOAT",
-          "defaultValue": "0.5"
+          "defaultValue": "0.6"
         },
         {
-          "name": "TRACKING_CENTER_DIST_WEIGHT",
-          "description": "Weighting factor for centroid distance [0..2] used in tracking assignment cost function",
+          "name": "TRACKING_MAX_FEATURE_DIST",
+          "description": "Maximum distance in feature space (1.0 - cos similarity) between consecutive detection in a track [0..1]",
           "type": "FLOAT",
           "defaultValue": "0.25"
         },
         {
-          "name": "TRACKING_FRAME_GAP_WEIGHT",
-          "description": "Weighting factor for frame distance used in tracking assignment cost function",
+          "name": "TRACKING_MAX_CENTER_DIST",
+          "description": "Maximum centroid to centroid distance ( [c1 - c2] / frame diag) between consecutive detection a track [0..1] as a fraction of the frame diagonal",
           "type": "FLOAT",
-          "defaultValue": "0.25"
+          "defaultValue": "0.1"
+        },
+        {
+          "name": "TRACKING_MAX_FRAME_GAP",
+          "description": "Maximum temporal distance (# of frames) between consecutive detection in a track",
+          "type": "INT",
+          "defaultValue": "3"
         }
 
       ]

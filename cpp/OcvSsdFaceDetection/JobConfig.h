@@ -16,7 +16,7 @@ namespace MPF{
 
 
   /** ****************************************************************************
-  * shorthands for getting MPF properies of various types
+  *   get MPF properies of various types
   ***************************************************************************** */
   template<typename T>
   T get(const Properties &p, const string &k, const T def){
@@ -24,8 +24,8 @@ namespace MPF{
   }
 
   /** ****************************************************************************
-  * shorthands for getting configuration from environment variables if not
-  * provided by job configuration
+  *   get configuration from environment variables if not
+  *   provided by job configuration
   ***************************************************************************** */
   template<typename T>
   T getEnv(const Properties &p, const string &k, const T def){
@@ -44,7 +44,7 @@ namespace MPF{
   }
 
   /** ****************************************************************************
-  * Macro for throwing exception so we can see where in the code it happened
+  *   exception macro so we can see where in the code it happened
   ****************************************************************************** */
   #define THROW_EXCEPTION(MSG){                                  \
   string path(__FILE__);                                         \
@@ -53,7 +53,7 @@ namespace MPF{
   }
 
   /* **************************************************************************
-  * Configuration parameters populated with appropriate values / defaults
+  *   Configuration parameters populated with appropriate values & defaults
   *************************************************************************** */
   class JobConfig{
     public:
@@ -61,11 +61,6 @@ namespace MPF{
       size_t minDetectionSize;         ///< minimum boounding box dimension
       float  confThresh;               ///< detection confidence threshold
       
-      float  featureWeight;            ///< weight for feature distance in assignment cost function
-      float  centerDistWeight;         ///< weight for centroid distance in assignment cost function
-      float  frameGapWeight;           ///< weight for frame gap distance in assignment cost function
-      float  iouWeight;                ///< weight for 1 - intersection/union cost
-
       float  maxFeatureDist;           ///< maximum feature distance to maintain track continuity
       float  maxCenterDist;            ///< maximum spatial distance normalized by diagonal to maintain track continuity
       long   maxFrameGap;              ///< maximum temporal distance (frames) to maintain track continuity
@@ -96,10 +91,7 @@ namespace MPF{
 
   };
   
-  /* **************************************************************************
-  * Conveniance operator to dump JobConfig to a stream
-  *************************************************************************** */ 
-  ostream& operator<< (ostream& out, const JobConfig& cfg);
+  ostream& operator<< (ostream& out, const JobConfig& cfg);  ///< Dump JobConfig to a stream
 
  }
 }
