@@ -5,13 +5,14 @@ using namespace MPF::COMPONENT;
 
 void JobConfig::_parse(const MPFJob &job){
   const Properties jpr = job.job_properties;
-  minDetectionSize = getEnv<int>  (jpr,"MIN_DETECTION_SIZE",             minDetectionSize);  LOG4CXX_TRACE(_log, "MIN_DETECTION_SIZE: " << minDetectionSize);
-  confThresh       = getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", confThresh);        LOG4CXX_TRACE(_log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
-  
-  maxFeatureDist   = getEnv<float>(jpr,"TRACKING_MAX_FEATURE_DIST",      maxFeatureDist);    LOG4CXX_TRACE(_log, "TRACKING_MAX_FEATURE_DIST: " << maxFeatureDist);
-  maxFrameGap      = getEnv<int>  (jpr,"TRACKING_MAX_FRAME_GAP",         maxFrameGap);       LOG4CXX_TRACE(_log, "TRACKING_MAX_FRAME_GAP: " << maxFrameGap);
-  maxCenterDist    = getEnv<float>(jpr,"TRACKING_MAX_CENTER_DIST",       maxCenterDist);     LOG4CXX_TRACE(_log, "TRACKING_MAX_CENTER_DIST: " << maxCenterDist);
-  maxIOUDist       = getEnv<float>(jpr,"TRACKING_MAX_IOU_DIST",          maxIOUDist);        LOG4CXX_TRACE(_log, "TRACKING_MAX_IOU_DIST: " << maxIOUDist);
+  minDetectionSize = abs(getEnv<int>  (jpr,"MIN_DETECTION_SIZE",             minDetectionSize));  LOG4CXX_TRACE(_log, "MIN_DETECTION_SIZE: " << minDetectionSize);
+  confThresh       = abs(getEnv<float>(jpr,"DETECTION_CONFIDENCE_THRESHOLD", confThresh));        LOG4CXX_TRACE(_log, "DETECTION_CONFIDENCE_THRESHOLD: " << confThresh);
+  detFrameInterval = abs(getEnv<int>  (jpr,"DETECTION_FRAME_INTERVAL",       detFrameInterval));  LOG4CXX_TRACE(_log, "DETECTION_FRAME_INTERVAL: " << detFrameInterval);
+
+  maxFeatureDist   = abs(getEnv<float>(jpr,"TRACKING_MAX_FEATURE_DIST",      maxFeatureDist));    LOG4CXX_TRACE(_log, "TRACKING_MAX_FEATURE_DIST: " << maxFeatureDist);
+  maxFrameGap      = abs(getEnv<int>  (jpr,"TRACKING_MAX_FRAME_GAP",         maxFrameGap));       LOG4CXX_TRACE(_log, "TRACKING_MAX_FRAME_GAP: " << maxFrameGap);
+  maxCenterDist    = abs(getEnv<float>(jpr,"TRACKING_MAX_CENTER_DIST",       maxCenterDist));     LOG4CXX_TRACE(_log, "TRACKING_MAX_CENTER_DIST: " << maxCenterDist);
+  maxIOUDist       = abs(getEnv<float>(jpr,"TRACKING_MAX_IOU_DIST",          maxIOUDist));        LOG4CXX_TRACE(_log, "TRACKING_MAX_IOU_DIST: " << maxIOUDist);
 
 }
 
@@ -22,6 +23,7 @@ ostream& operator<< (ostream& out, const JobConfig& cfg) {
   out << "{"
       << "\"minDetectionSize\": " << cfg.minDetectionSize << ","
       << "\"confThresh\":"        << cfg.confThresh       << ","
+      << "\"detFrameInterval\":"  << cfg.detFrameInterval << ","
       <<  "\"maxFeatureDist\":"   << cfg.maxFeatureDist   << ","
       <<  "\"maxFrameGap\":"      << cfg.maxFrameGap      << ","
       <<  "\"maxCenterDist\":"    << cfg.maxCenterDist    << ","
@@ -34,12 +36,13 @@ ostream& operator<< (ostream& out, const JobConfig& cfg) {
 *  Default constructor with default values
 *************************************************************************** */ 
 JobConfig::JobConfig():
-  minDetectionSize(45),
-  confThresh(0.65),
+  minDetectionSize(46),
+  confThresh(0.5),
+  maxFrameGap(4),
+  detFrameInterval(1),
   maxFeatureDist(0.25),
-  maxCenterDist(0.1),
-  maxFrameGap(3),
-  maxIOUDist(0.6),
+  maxCenterDist(0.0),
+  maxIOUDist(0.5),
   frameIdx(-1),
   lastError(MPF_DETECTION_SUCCESS),
   _imreaderPtr(unique_ptr<MPFImageReader>()),

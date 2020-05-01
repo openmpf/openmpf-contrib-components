@@ -285,56 +285,75 @@ MPFDetectionError OcvSsdFaceDetection::GetDetections(const MPFVideoJob &job,
 
     JobConfig cfg(job);
     if(cfg.lastError != MPF_DETECTION_SUCCESS) return cfg.lastError;
-                                                                               
+
+    size_t detectTrigger = 0;                                                                           
     while(cfg.nextFrame()) {                                                   LOG4CXX_TRACE(_log, ".");
-                                                                               LOG4CXX_TRACE(_log, "processing frame " << cfg.frameIdx);                                
-      DetectionLocationPtrVec detections = DetectionLocation::createDetections(cfg);
-      if(detections.size() > 0){   // found some detections in current frame
-                                                    
-        // remove any tracks too far in the past
-        trackPtrs.remove_if([&](unique_ptr<Track>& tPtr){                      
-          if(cfg.frameIdx - tPtr->back()->frameIdx > cfg.maxFrameGap){         LOG4CXX_TRACE(_log,"droping old track: " << *tPtr);
-            mpf_tracks.push_back(_convert_track(*tPtr));                       
-            return true;
-          }
-          return false;
-        });  
-
-        if(trackPtrs.size() >= 0 ){  // not all tracks were dropped  
-                                                                              LOG4CXX_TRACE(_log, detections.size() <<" detections to be matched to " << trackPtrs.size() << " tracks");
-          // intersection over union tracking and assignment
-          cv::Mat_<int> am = _calcAssignemntMatrix<&DetectionLocation::iouDist>(trackPtrs,detections,cfg.maxIOUDist);     
-          _assignDetections2Tracks(trackPtrs, detections, am);                 LOG4CXX_TRACE(_log,"IOU assignment complete"); 
-
-          // feature-based tracking tracking and assignment
-          if(detections.size() > 0){                                           LOG4CXX_TRACE(_log, detections.size() <<" detections to be matched to " << trackPtrs.size() << " tracks");  
-            am = _calcAssignemntMatrix<&DetectionLocation::featureDist>(trackPtrs,detections,cfg.maxFeatureDist);
-            _assignDetections2Tracks(trackPtrs, detections, am);               LOG4CXX_TRACE(_log,"Feature assignment complete");
-          }
-
-          // center-to-center distance tracking and assignemnt
-          if(detections.size() > 0){                                           LOG4CXX_TRACE(_log, detections.size() <<" detections to be matched to " << trackPtrs.size() << " tracks"); 
-            am = _calcAssignemntMatrix<&DetectionLocation::center2CenterDist>(trackPtrs,detections,cfg.maxCenterDist);
-            _assignDetections2Tracks(trackPtrs, detections, am);               LOG4CXX_TRACE(_log,"Center2Center assignment complete");
-          }
-
+                                                                               LOG4CXX_TRACE(_log, "processing frame " << cfg.frameIdx);                                                                             
+      // remove any tracks too far in the past
+      trackPtrs.remove_if([&](unique_ptr<Track>& tPtr){                      
+        if(cfg.frameIdx - tPtr->back()->frameIdx > cfg.maxFrameGap){           LOG4CXX_TRACE(_log,"droping old track: " << *tPtr);
+          mpf_tracks.push_back(_convert_track(*tPtr));                       
+          return true;
         }
+        return false;
+      });
+
+      if(detectTrigger == 0){                                                  LOG4CXX_TRACE(_log,"checking for new detections");
+        DetectionLocationPtrVec detections = DetectionLocation::createDetections(cfg); // look for new detections
+      
+        if(detections.size() > 0){   // found some detections in current frame
+          if(trackPtrs.size() >= 0 ){  // not all tracks were dropped  
+                                                                               LOG4CXX_TRACE(_log, detections.size() <<" detections to be matched to " << trackPtrs.size() << " tracks");
+            // intersection over union tracking and assignment
+            cv::Mat_<int> am = _calcAssignemntMatrix<&DetectionLocation::iouDist>(trackPtrs,detections,cfg.maxIOUDist);     
+            _assignDetections2Tracks(trackPtrs, detections, am);               LOG4CXX_TRACE(_log,"IOU assignment complete"); 
+
+            // feature-based tracking tracking and assignment
+            if(detections.size() > 0){                                         LOG4CXX_TRACE(_log, detections.size() <<" detections to be matched to " << trackPtrs.size() << " tracks");  
+              am = _calcAssignemntMatrix<&DetectionLocation::featureDist>(trackPtrs,detections,cfg.maxFeatureDist);
+              _assignDetections2Tracks(trackPtrs, detections, am);             LOG4CXX_TRACE(_log,"Feature assignment complete");
+            }
+
+            // center-to-center distance tracking and assignemnt
+            if(detections.size() > 0){                                         LOG4CXX_TRACE(_log, detections.size() <<" detections to be matched to " << trackPtrs.size() << " tracks"); 
+              am = _calcAssignemntMatrix<&DetectionLocation::center2CenterDist>(trackPtrs,detections,cfg.maxCenterDist);
+              _assignDetections2Tracks(trackPtrs, detections, am);             LOG4CXX_TRACE(_log,"Center2Center assignment complete");
+            }
+
+          }
                                                                                LOG4CXX_TRACE(_log, detections.size() <<" detections left for new tracks");
-        // any detection not assigned up to this point becomes a new track
-        for(auto &det:detections){                                             // make any unassigned detections into new tracks
-            trackPtrs.push_back(unique_ptr<Track>(new Track()));               // create a new empty track
-            det->getFeature();                                                 // start of tracks always get feature calculated
-            det->releaseBGRFrame();                                            // once features are calculated, won't need frame data any more.
-            trackPtrs.back()->push_back(move(det));                            LOG4CXX_TRACE(_log,"created new track " << *(trackPtrs.back()));
+          // any detection not assigned up to this point becomes a new track
+          for(auto &det:detections){                                           // make any unassigned detections into new tracks
+              trackPtrs.push_back(unique_ptr<Track>(new Track()));             // create a new empty track
+              det->getFeature();                                               // start of tracks always get feature calculated
+              det->releaseBGRFrame();                                          // once features are calculated, won't need frame data any more.
+              trackPtrs.back()->push_back(move(det));                          LOG4CXX_TRACE(_log,"created new track " << *(trackPtrs.back()));
+          }
         }
       }
+
+      // check any tracks that didn't get a detection and use tracker to continue them if possible
+      for(auto &trackPtr:trackPtrs){
+        if(trackPtr->back()->frameIdx < cfg.frameIdx){  // no detections for track in current frame, try tracking
+          unique_ptr<DetectionLocation> detPtr = trackPtr->back()->ocvTrackerPredict(cfg);
+          if(detPtr){  // tracker returned something
+            trackPtr->back()->releaseBGRFrame();
+            trackPtr->push_back(move(detPtr));
+          }
+        }
+      }
+
+      detectTrigger++;
+      detectTrigger = detectTrigger % (cfg.detFrameInterval + 1);
+
     }                                                                          LOG4CXX_DEBUG(_log, "[" << job.job_name << "] Number of tracks detected = " << trackPtrs.size());
 
-    // convert tracks to MPFVideoTracks
+    // convert any remaining active tracks to MPFVideoTracks
     for(auto &trackPtr:trackPtrs){
       mpf_tracks.push_back(_convert_track(*trackPtr));
     }
 
+    // reverse transform all mpf tracks
     for(auto &mpf_track:mpf_tracks){
       cfg.ReverseTransform(mpf_track);
     }

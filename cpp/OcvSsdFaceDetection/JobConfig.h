@@ -60,7 +60,8 @@ namespace MPF{
       static log4cxx::LoggerPtr _log;  ///< shared log opbject
       size_t minDetectionSize;         ///< minimum boounding box dimension
       float  confThresh;               ///< detection confidence threshold
-      
+      long   detFrameInterval;         ///< number of frames between looking for new detection (tracking only)    
+
       float  maxFeatureDist;           ///< maximum feature distance to maintain track continuity
       float  maxCenterDist;            ///< maximum spatial distance normalized by diagonal to maintain track continuity
       long   maxFrameGap;              ///< maximum temporal distance (frames) to maintain track continuity

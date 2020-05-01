@@ -338,12 +338,52 @@ bool DetectionLocation::Init(log4cxx::LoggerPtr log, string plugin_path){
       _openFaceNet = cv::dnn::readNetFromTorch(tr_model_path);
 
   }catch(const runtime_error& re){                                           LOG4CXX_FATAL(_log, err_msg << " Runtime error: " << re.what());
-      return false;
+    return false;
   }catch(const exception& ex){                                               LOG4CXX_FATAL(_log, err_msg << " Exception: " << ex.what());
-      return false;
+    return false;
   }catch(...){                                                               LOG4CXX_FATAL(_log, err_msg << " Unknown failure occurred. Possible memory corruption");
-      return false;
+    return false;
   } 
 
   return true;
+}
+
+
+/** **************************************************************************
+*  Get a new DetectionLocation from an existing one based on a frame
+*
+* \param
+* \returns ptr to new location based on tracker's estimation
+*
+* \note    tracker is passed on to the new location on success
+*
+**************************************************************************** */
+unique_ptr<DetectionLocation> DetectionLocation::ocvTrackerPredict(const JobConfig &cfg){
+
+  if(_trackerPtr.empty()){   // initialize a new tracker if we don't have one already
+    //_trackerPtr = cv::TrackerKCF::create(); 
+    _trackerPtr = cv::TrackerMOSSE::create();                                
+    _trackerPtr->init(_bgrFrame,cv::Rect2d(x_left_upper,y_left_upper,width,height));  LOG4CXX_TRACE(_log,"tracker created for " << (MPFImageLocation)*this);
+    _trackerStartFrameIdx = cfg.frameIdx;
+  }
+
+  cv::Rect2d p;
+  unique_ptr<DetectionLocation> detPtr; 
+  if(_trackerStartFrameIdx - cfg.frameIdx < cfg.maxFrameGap){
+    if(_trackerPtr->update(cfg.bgrFrame,p)){
+      detPtr = unique_ptr<DetectionLocation>(new DetectionLocation(
+        p.x,p.y,p.width,p.height,0.0,
+        cv::Point2f((p.x + p.width/2.0f )/static_cast<float>(cfg.bgrFrame.cols),
+                    (p.y + p.height/2.0f)/static_cast<float>(cfg.bgrFrame.rows)),
+        cfg.frameIdx,
+        cfg.bgrFrame));                                                                  LOG4CXX_TRACE(_log,"tracking " << (MPFImageLocation)*this << "to  " << (MPFImageLocation)*detPtr);
+      
+      detPtr->_trackerPtr = _trackerPtr;
+      _trackerPtr.release();
+      detPtr->_feature = getFeature();  // clone feature of prior detection                
+    }else{
+                                                                                        LOG4CXX_TRACE(_log,"could not track " << (MPFImageLocation)*this << " to new location");
+    }
+  }
+  return detPtr;
 }

@@ -45,6 +45,7 @@ find_package(OpenCV 3.4.7 EXACT
                #opencv_flann
                opencv_video
                opencv_face
+               opencv_tracking
                )
 
 find_package(dlib REQUIRED)
