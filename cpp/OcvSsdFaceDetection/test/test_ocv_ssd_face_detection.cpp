@@ -48,6 +48,9 @@
 using namespace std;
 using namespace MPF::COMPONENT;
 
+/** ***************************************************************************
+*   macros for "pretty" gtest messages
+**************************************************************************** */
 #define ANSI_TXT_GRN "\033[0;32m"
 #define ANSI_TXT_MGT "\033[0;35m" //Magenta
 #define ANSI_TXT_DFT "\033[0;0m" //Console default
@@ -61,6 +64,7 @@ using namespace MPF::COMPONENT;
 #define GOUT_GRN(MSG){                                                        \
   std::cout << ANSI_TXT_GRN << GTEST_BOX << MSG << ANSI_TXT_DFT << std::endl; \
 }
+
 /** ***************************************************************************
 *   global variable to hold the file name parameters
 **************************************************************************** */

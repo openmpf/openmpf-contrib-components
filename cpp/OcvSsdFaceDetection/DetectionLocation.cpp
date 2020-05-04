@@ -192,37 +192,30 @@ const cv::Mat& DetectionLocation::getThumbnail() const {
     const int  THUMBNAIL_SIZE_X = 96;
     const int  THUMBNAIL_SIZE_Y = 96;
     const cv::Size THUMB_SIZE(THUMBNAIL_SIZE_X,THUMBNAIL_SIZE_Y);
-      // Landmark indices for OpenFace nn4.v1
-      // const size_t lmIdx[] = {39,42,57};
-      // const cv::Mat dst = (cv::Mat_<float>(3,2)
-      //                      << 0.36378494 * THUMBNAIL_SIZE_X, 0.17794687 * THUMBNAIL_SIZE_Y,
-      //                         0.61896320 * THUMBNAIL_SIZE_X, 0.17277813 * THUMBNAIL_SIZE_Y,
-      //                         0.50020397 * THUMBNAIL_SIZE_X, 0.75058440 * THUMBNAIL_SIZE_Y); 
-      
-      // Landmark indecies for OpenFace nn4.v2, nn4.small1.v1, nn4.small2.v1
-      //const size_t lmIdx[] = {36,45,33};  // if using 68 pt landmarks
-      const size_t lmIdx[] = {2,0,4};       // if using 5 pt landmarks
-      const cv::Mat dst =  (cv::Mat_<float>(3,2)
-                            << 0.1941570 * THUMBNAIL_SIZE_X, 0.16926692 * THUMBNAIL_SIZE_Y,
-                               0.7888591 * THUMBNAIL_SIZE_X, 0.15817115 * THUMBNAIL_SIZE_Y,
-                               0.4949509 * THUMBNAIL_SIZE_X, 0.51444140 * THUMBNAIL_SIZE_Y);
+ 
+    // Landmark indecies for OpenFace nn4.v2, nn4.small1.v1, nn4.small2.v1
+    const size_t lmIdx[] = {2,0,4};       // if using 5 pt landmarks
+    const cv::Mat dst =  (cv::Mat_<float>(3,2)
+                          << 0.1941570 * THUMBNAIL_SIZE_X, 0.16926692 * THUMBNAIL_SIZE_Y,
+                              0.7888591 * THUMBNAIL_SIZE_X, 0.15817115 * THUMBNAIL_SIZE_Y,
+                              0.4949509 * THUMBNAIL_SIZE_X, 0.51444140 * THUMBNAIL_SIZE_Y);
 
-      cv::Mat src = cv::Mat_<float>(3,2);
-      for(size_t r=0; r<3; r++){
-        float* rowPtr = src.ptr<float>(r);
-        rowPtr[0] = getLandmarks()[lmIdx[r]].x; 
-        rowPtr[1] = getLandmarks()[lmIdx[r]].y;      
-      }
-      cv::Mat xfrm = cv::getAffineTransform(src,dst);
-      try{
-        _thumbnail = cv::Mat(THUMB_SIZE,_bgrFrame.type());
-        cv::warpAffine(_bgrFrame,_thumbnail,cv::getAffineTransform(src,dst),
-                      THUMB_SIZE,cv::INTER_CUBIC,cv::BORDER_REPLICATE);
-      }catch (...) { 
-        exception_ptr eptr = current_exception();                                                              
-        LOG4CXX_FATAL(_log, "failed to generate thumbnail");
-        rethrow_exception(eptr);
-      }
+    cv::Mat src = cv::Mat_<float>(3,2);
+    for(size_t r=0; r<3; r++){
+      float* rowPtr = src.ptr<float>(r);
+      rowPtr[0] = getLandmarks()[lmIdx[r]].x; 
+      rowPtr[1] = getLandmarks()[lmIdx[r]].y;      
+    }
+    cv::Mat xfrm = cv::getAffineTransform(src,dst);
+    try{
+      _thumbnail = cv::Mat(THUMB_SIZE,_bgrFrame.type());
+      cv::warpAffine(_bgrFrame,_thumbnail,cv::getAffineTransform(src,dst),
+                    THUMB_SIZE,cv::INTER_CUBIC,cv::BORDER_REPLICATE);
+    }catch (...) { 
+      exception_ptr eptr = current_exception();                                                              
+      LOG4CXX_FATAL(_log, "failed to generate thumbnail");
+      rethrow_exception(eptr);
+    }
 
   }
   return _thumbnail;
