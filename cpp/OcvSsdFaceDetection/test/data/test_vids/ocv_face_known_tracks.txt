@@ -1,4 +1,4 @@
-/home/mpf/component_src/build/test/test/test_output//ocv_face_found_tracks_2020_4_16.tracks
+ocv_face_known_tracks.txt
 #0
 0
 46

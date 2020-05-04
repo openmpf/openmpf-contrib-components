@@ -13,7 +13,6 @@ hs_err_pid*
 
 target/
 tmp/
-test_vids/
 
 # CMake Files
 CMakeCache.txt
