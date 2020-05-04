@@ -82,7 +82,6 @@ namespace MPF{
       static log4cxx::LoggerPtr                _log;                ///< shared log opbject
       static cv::dnn::Net                      _ssdNet;             ///< single shot DNN face detector network
       static cv::dnn::Net                      _openFaceNet   ;     ///< feature generator
-      static cv::Ptr<cv::face::FacemarkLBF>    _facemarkPtr;        ///< landmark detector
       static unique_ptr<dlib::shape_predictor> _shapePredFuncPtr;   ///< landmark detector
 
       cv::Mat  _bgrFrame;                                 ///< frame associated with detection (openCV memory managed :( )

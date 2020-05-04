@@ -36,7 +36,6 @@ log4cxx::LoggerPtr                DetectionLocation::_log;
 cv::dnn::Net                      DetectionLocation::_ssdNet;                     ///< single shot DNN face detector network
 cv::dnn::Net                      DetectionLocation::_openFaceNet;                ///< feature generator
 unique_ptr<dlib::shape_predictor> DetectionLocation::_shapePredFuncPtr  = NULL;   ///< landmark detector function pointer
-cv::Ptr<cv::face::FacemarkLBF>    DetectionLocation::_facemarkPtr;                ///< landmark detector
 
 /** ****************************************************************************
 *  Draw polylines to visualize landmark features
@@ -322,21 +321,14 @@ bool DetectionLocation::Init(log4cxx::LoggerPtr log, string plugin_path){
   // Load SSD Tensor Flow Network
   string  tf_model_path = plugin_path + "/data/opencv_face_detector_uint8.pb";
   string tf_config_path = plugin_path + "/data/opencv_face_detector.pbtxt";
-  string lbf_model_path = plugin_path + "/data/lbfmodel.yaml";
   
-  //string  sp_model_path = plugin_path + "/data/shape_predictor_68_face_landmarks.dat";
   string  sp_model_path = plugin_path + "/data/shape_predictor_5_face_landmarks.dat";
   string  tr_model_path = plugin_path + "/data/nn4.small2.v1.t7";
 
-  string err_msg = "Failed to load models: " + tf_config_path + ", " + tf_model_path + ", " + lbf_model_path;
-
+  string err_msg = "Failed to load models: " + tf_config_path + ", " + tf_model_path;
   try{
       // load detector net
       _ssdNet = cv::dnn::readNetFromTensorflow(tf_model_path, tf_config_path);
-      
-      // load landmark finder
-      _facemarkPtr = cv::face::FacemarkLBF::create();
-      _facemarkPtr->loadModel(lbf_model_path);
 
       _shapePredFuncPtr = unique_ptr<dlib::shape_predictor>(new dlib::shape_predictor());
       dlib::deserialize(sp_model_path) >> *_shapePredFuncPtr;
