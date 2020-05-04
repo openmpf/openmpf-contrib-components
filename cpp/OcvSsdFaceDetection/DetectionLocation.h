@@ -94,12 +94,7 @@ namespace MPF{
 
       DetectionLocation(int x,int y,int width,int height,float conf,
                         cv::Point2f center, size_t frameIdx,
-                        cv::Mat bgrFrame):
-        MPFImageLocation(x,y,width,height,conf),
-        center(center),
-        frameIdx(frameIdx),
-        _bgrFrame(bgrFrame)
-        {};              ///< private constructor for createDetections()
+                        cv::Mat bgrFrame);                ///< private constructor for createDetections()
   };
  
   /** **************************************************************************

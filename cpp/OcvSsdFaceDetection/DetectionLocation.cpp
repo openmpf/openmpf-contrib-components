@@ -376,7 +376,7 @@ unique_ptr<DetectionLocation> DetectionLocation::ocvTrackerPredict(const JobConf
 
   cv::Rect2d p;
   unique_ptr<DetectionLocation> detPtr; 
-  if(_trackerStartFrameIdx - cfg.frameIdx < cfg.maxFrameGap){
+  if(cfg.frameIdx - _trackerStartFrameIdx <= cfg.maxFrameGap){
     if(_trackerPtr->update(cfg.bgrFrame,p)){
       detPtr = unique_ptr<DetectionLocation>(new DetectionLocation(
         p.x,p.y,p.width,p.height,0.0,
@@ -386,11 +386,26 @@ unique_ptr<DetectionLocation> DetectionLocation::ocvTrackerPredict(const JobConf
         cfg.bgrFrame));                                                                  LOG4CXX_TRACE(_log,"tracking " << (MPFImageLocation)*this << "to  " << (MPFImageLocation)*detPtr);
       
       detPtr->_trackerPtr = _trackerPtr;
+      detPtr->_trackerStartFrameIdx = _trackerStartFrameIdx;
       _trackerPtr.release();
       detPtr->_feature = getFeature();  // clone feature of prior detection                
     }else{
                                                                                         LOG4CXX_TRACE(_log,"could not track " << (MPFImageLocation)*this << " to new location");
     }
+  }else{
+                                                                                        LOG4CXX_TRACE(_log,"extrapolation tracking stopped" << (MPFImageLocation)*this << " frame gap = " << cfg.frameIdx - _trackerStartFrameIdx << " > " <<  cfg.maxFrameGap); 
   }
   return detPtr;
+}
+
+/** **************************************************************************
+*   Private constructor
+**************************************************************************** */
+DetectionLocation::DetectionLocation(int x,int y,int width,int height,float conf,
+                                     cv::Point2f center, size_t frameIdx,
+                                     cv::Mat bgrFrame):
+        MPFImageLocation(x,y,width,height,conf),
+        center(center),
+        frameIdx(frameIdx){
+        _bgrFrame = bgrFrame.clone();
 }

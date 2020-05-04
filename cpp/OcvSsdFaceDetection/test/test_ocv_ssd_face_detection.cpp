@@ -44,7 +44,6 @@
 #define private public
 #include "OcvSsdFaceDetection.h"
 #include "DetectionComparisonA.h"
-
 using namespace std;
 using namespace MPF::COMPONENT;
 
@@ -301,6 +300,7 @@ TEST(OcvSsdFaceDetection, Thumbnails) {
       GOUT("feature-magnitude1:" << cv::norm(detections.front()->getFeature(),cv::NORM_L2));
       GOUT("feature-magnitude2:" << cv::norm(detections.back()->getFeature(),cv::NORM_L2));
       GOUT("self feature dist: " << detections.front()->featureDist(*detections.front()));
+      ASSERT_TRUE(detections.front()->featureDist(*detections.front()) < 1e-6);
       GOUT("cross feature dist: " << detections.front()->featureDist(*detections.back()));
       
       if(tracks.size() == 0){
