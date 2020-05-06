@@ -101,9 +101,10 @@ float DetectionLocation::iouDist(const DetectionLocation &d) const {
 	int lrx = min(x_left_upper + width , d.x_left_upper + d.width );
 	int lry = min(y_left_upper + height, d.y_left_upper + d.height);
 
-	float inter_area = max(0, lrx - ulx + 1) * max(0, lry - uly + 1);	
-  float union_area = width * height + d.width * d.height - inter_area;
-  return 1.0f - inter_area / union_area;
+	float inter_area = max(0, lrx - ulx) * max(0, lry - uly);	                   
+  float union_area = width * height + d.width * d.height - inter_area;         
+  float dist = 1.0f - inter_area / union_area;                                 LOG4CXX_TRACE(_log,"iou dist = " << dist);
+  return dist;
 }
 
 /** **************************************************************************
@@ -131,7 +132,8 @@ float DetectionLocation::frameDist(const DetectionLocation &d) const {
 float  DetectionLocation::center2CenterDist(const DetectionLocation &d) const {
   float dx = center.x - d.center.x;
   float dy = center.y - d.center.y;
-  return sqrt( dx*dx + dy*dy );
+  float dist = sqrt( dx*dx + dy*dy );                                          LOG4CXX_TRACE(_log,"center-2-center dist = " << dist);
+  return dist;
 }
 
 
@@ -144,8 +146,9 @@ float  DetectionLocation::center2CenterDist(const DetectionLocation &d) const {
 * \note Feature vectors are expected to be of unit magnitude
 *
 *************************************************************************** */
-float DetectionLocation::featureDist(const DetectionLocation &d) const { 
-  return 1.0f - max(0.0f,static_cast<float>(getFeature().dot(d.getFeature())));
+float DetectionLocation::featureDist(const DetectionLocation &d) const {
+  float dist = 1.0f - max(0.0f,static_cast<float>(getFeature().dot(d.getFeature())));  LOG4CXX_TRACE(_log,"feature dist = " << dist);
+  return dist;
 }
 
 /** **************************************************************************
