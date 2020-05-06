@@ -1,15 +1,5 @@
 version: '2.2'
 
-x-detection-component-base:
-  &detection-component-base
-  depends_on:
-    - workflow-manager
-  volumes:
-    - shared_data:/opt/mpf/share
-#  deploy:
-#    mode: replicated
-#    replicas: 1
-
 services:
   OcvSsdFaceDetection:
     cpuset: "0,1,2,3"
@@ -35,71 +25,7 @@ services:
     # Overrides default command so things don't shut down after the process ends.
     command: /bin/sh -c "while sleep 1000; do :; done"
 
-  ocv-face-detection:
-    <<: *detection-component-base
-    image: openmpf/openmpf_ocv_face_detection:latest
-        
-  db:
-    image: postgres:alpine
-    environment:
-      POSTGRES_DB: mpf
-      POSTGRES_USER: mpf
-      POSTGRES_PASSWORD: password
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    #deploy:
-    #  placement:
-    #    constraints:
-    #      - node.role == manager
-  pgadmin:
-    container_name: pgadmin_container
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: mpf@mitre.org
-      PGADMIN_DEFAULT_PASSWORD: admin
-    volumes:
-       - pgadmin:/root/.pgadmin
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
-
-  activemq:
-    image: openmpf/openmpf_activemq:latest
-    environment:
-      ACTIVE_MQ_PROFILE: default
-    ports:
-      - "8161:8161"
-
-  redis:
-    image: redis:alpine
-
-  workflow-manager:
-    image: openmpf/openmpf_workflow_manager:latest
-    depends_on:
-      - db
-      - redis
-      - activemq
-    ports:
-      - "8080:8080"
-    volumes:
-      - shared_data:/opt/mpf/share
-    #deploy:
-    #  placement:
-    #    constraints:
-    #      - node.role == manager
-
-  markup:
-    image: openmpf/openmpf_markup:latest
-    volumes:
-      - shared_data:/opt/mpf/share
-    #deploy:
-    #  mode: global
-
 networks:
   default:
     external:
       name: localdev
-
-volumes:
-  shared_data:
-  db_data:
-  pgadmin:
