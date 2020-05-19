@@ -40,73 +40,65 @@ using namespace COMPONENT;
 
 // Main program to run the SuBSENSE motion detection in standalone mode.
 
-int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
-int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
-bool parseLong(const char *str, long &val);
+void processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
+void processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]);
 
 int main(int argc, char* argv[]) {
+    try {
 
-    if (argc != 2 && argc != 4 && argc != 5) {
-        cout << "Usage (IMAGE): " << argv[0] << " <uri>" << endl;
-        cout << "Usage (VIDEO): " << argv[0] << " <uri> <start_index> <end_index> <detection_interval (optional)>" << endl;
-        return EXIT_FAILURE;
-    }
+        if (argc != 2 && argc != 4 && argc != 5) {
+            cout << "Usage (IMAGE): " << argv[0] << " <uri>" << endl;
+            cout << "Usage (VIDEO): " << argv[0] << " <uri> <start_index> <end_index> <detection_interval (optional)>"
+                 << endl;
+            return EXIT_FAILURE;
+        }
 
-    QCoreApplication *this_app = new QCoreApplication(argc, argv);
-    string app_dir = (this_app->applicationDirPath()).toStdString();
-    delete this_app;
+        QCoreApplication *this_app = new QCoreApplication(argc, argv);
+        string app_dir = (this_app->applicationDirPath()).toStdString();
+        delete this_app;
 
-    MotionDetection_Subsense subsense_motion_detection;
-    MPFDetectionComponent *detection_engine = &subsense_motion_detection;
-    detection_engine->SetRunDirectory(app_dir + "/plugin");
+        MotionDetection_Subsense subsense_motion_detection;
+        MPFDetectionComponent *detection_engine = &subsense_motion_detection;
+        detection_engine->SetRunDirectory(app_dir + "/plugin");
 
-    if (!detection_engine->Init()) {
-        cerr << "Failed to initialize." << endl;
-        return EXIT_FAILURE;
-    }
+        if (!detection_engine->Init()) {
+            cerr << "Failed to initialize." << endl;
+            return EXIT_FAILURE;
+        }
 
-    int rc;
-    if (argc == 2) {
-        rc = processImage(detection_engine, argc, argv);
-    } else {
-        rc = processVideo(detection_engine, argc, argv);
-    }
+        if (argc == 2) {
+            processImage(detection_engine, argc, argv);
+        }
+        else {
+            processVideo(detection_engine, argc, argv);
+        }
 
-    if (!detection_engine->Close()) {
-        cerr << "Failed to close." << endl;
-    }
+        if (!detection_engine->Close()) {
+            cerr << "Failed to close." << endl;
+        }
 
-    if (rc == MPF_DETECTION_SUCCESS) {
         return EXIT_SUCCESS;
-    } else {
+    }
+    catch (const std::exception &ex) {
+        std::cout << "Error: " << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
 }
 
-int processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
+void processImage(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
 
     MPFImageJob job("Testing", argv[1], { }, { });
-    vector<MPFImageLocation> locations;
 
-    MPFDetectionError rc = detection_engine->GetDetections(job, locations);
-
-    if (rc != MPF_DETECTION_SUCCESS) {
-        cerr << "Failed to get detections: rc = " << rc << endl;
-    } else {
-        cout << "Number of detections: " << locations.size() << endl;
-    }
-
-    return rc;
+    vector<MPFImageLocation> locations = detection_engine->GetDetections(job);
+    cout << "Number of detections: " << locations.size() << endl;
 }
 
-int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
+void processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]) {
 
     // get detection interval if argument is present
     long detection_interval = 1;
     if (argc > 4) {
-        if (!parseLong(argv[4], detection_interval)) {
-            return MPF_OTHER_DETECTION_ERROR_TYPE;
-         }
+        detection_interval = std::stol(argv[4]);
     }
     cout << "Using detection interval: " << detection_interval << endl;
 
@@ -120,45 +112,24 @@ int processVideo(MPFDetectionComponent *detection_engine, int argc, char* argv[]
     // algorithm_properties["SIZE_CONFIDENCE_WEIGHT_FACTOR"] = to_string(0.25);
 
     MPFVideoJob job("Testing", argv[1], stoi(argv[2]), stoi(argv[3]), algorithm_properties, { });
-    vector<MPFVideoTrack> tracks;
+    vector<MPFVideoTrack> tracks = detection_engine->GetDetections(job);
 
-    MPFDetectionError rc = detection_engine->GetDetections(job, tracks);
+    cout << "Number of video tracks = " << tracks.size() << endl;
+    for (int i = 0; i < tracks.size(); i++) {
+        cout << "\nVideo track " << i << "\n"
+             << "   start frame = " << tracks[i].start_frame << "\n"
+             << "   stop frame = " << tracks[i].stop_frame << "\n"
+             << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
+             << "   confidence = " << tracks[i].confidence << endl;
 
-    if (rc != MPFDetectionError::MPF_DETECTION_SUCCESS) {
-        cerr << "Failed to get detections: rc = " << rc << endl;
-    } else {
-        cout << "Number of video tracks = " << tracks.size() << endl;
-        for (int i = 0; i < tracks.size(); i++) {
-            cout << "\nVideo track " << i << "\n"
-                      << "   start frame = " << tracks[i].start_frame << "\n"
-                      << "   stop frame = " << tracks[i].stop_frame << "\n"
-                      << "   number of locations = " << tracks[i].frame_locations.size() << "\n"
-                      << "   confidence = " << tracks[i].confidence << endl;
-
-            for (auto it : tracks[i].frame_locations) {
-                cout << "   Image location frame = " << it.first << "\n"
-                          << "      x left upper = " << it.second.x_left_upper << "\n"
-                          << "      y left upper = " << it.second.y_left_upper << "\n"
-                          << "      width = " << it.second.width << "\n"
-                          << "      height = " << it.second.height << "\n"
-                          << "      confidence = " << it.second.confidence << endl;
-            }
+        for (auto it : tracks[i].frame_locations) {
+            cout << "   Image location frame = " << it.first << "\n"
+                 << "      x left upper = " << it.second.x_left_upper << "\n"
+                 << "      y left upper = " << it.second.y_left_upper << "\n"
+                 << "      width = " << it.second.width << "\n"
+                 << "      height = " << it.second.height << "\n"
+                 << "      confidence = " << it.second.confidence << endl;
         }
     }
-
-    return rc;
 }
 
-bool parseLong(const char *str, long &val) {
-
-    errno = 0;
-    char *temp;
-    val = strtol(str, &temp, 0);
-
-    if (temp == str || *temp != '\0' || ((val == LONG_MIN || val == LONG_MAX) && errno == ERANGE)) {
-        cerr << "Could not convert '" << str << "' to long." << endl;
-        return false;
-    }
-
-    return true;
-}

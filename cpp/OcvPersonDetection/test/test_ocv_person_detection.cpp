@@ -153,9 +153,8 @@ TEST(VideoGeneration, TestOnKnownVideo) {
 
     // 	Evaluate the known video file to generate the test tracks.
     std::cout << "\tRunning the tracker on the video: " << inVideoFile << std::endl;
-    vector<MPFVideoTrack> found_tracks;
     MPFVideoJob job("Testing", inVideoFile, start, stop, { }, { });
-    ASSERT_FALSE(person_detection->GetDetections(job, found_tracks));
+    vector<MPFVideoTrack> found_tracks = person_detection->GetDetections(job);
     EXPECT_FALSE(found_tracks.empty());
 
     // 	Compare the known and test track output.
@@ -222,9 +221,8 @@ TEST(ImageGeneration, TestOnKnownImage) {
     vector<MPFImageLocation> known_detections;
     ASSERT_TRUE(ReadDetectionsFromFile::ReadImageLocations(known_detections_file, known_detections));
 
-    vector<MPFImageLocation> found_detections;
     MPFImageJob job("Testing", known_image_file, { }, { });
-    ASSERT_FALSE(person_detection->GetDetections(job, found_detections));
+    vector<MPFImageLocation> found_detections = person_detection->GetDetections(job);
     EXPECT_FALSE(found_detections.empty());
 
     float comparison_score = DetectionComparison::CompareDetectionOutput(found_detections, known_detections);
