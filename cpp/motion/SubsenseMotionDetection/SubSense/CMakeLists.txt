@@ -1,6 +1,6 @@
 project(SubSense)
 
-find_package(OpenCV 3.4.7 EXACT REQUIRED PATHS /opt/opencv-3.4.7
+find_package(OpenCV $ENV{OPENCV_VERSION} EXACT REQUIRED PATHS /opt/opencv-$ENV{OPENCV_VERSION}
     COMPONENTS opencv_features2d)
 
 aux_source_directory(. SRC)
