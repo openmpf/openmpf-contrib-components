@@ -62,8 +62,6 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-//    std::vector<MPFVideoTrack> tracks;
-//    std::vector<MPFImageLocation> locations;
     std::map<std::string, std::string> algorithm_properties;
 
     std::string executableName = argv[0];
@@ -80,8 +78,6 @@ int main(int argc, char* argv[]) {
 
     printf("\nchecking for tracks... \n\n");
 
-    // algorithm_properties["ROTATION"] = std::to_string(270);
-
     if (argc == 4 || argc == 5) {
 
         std::ostringstream stringStream;
@@ -91,10 +87,6 @@ int main(int argc, char* argv[]) {
 
         MPFVideoJob job("Testing", uri, startFrame, stopFrame, algorithm_properties, { });
 
-//        if (detection->GetDetections(job, tracks) != 0) {
-//            printf("\nError: Failed to get tracks \n\n");
-//            return -1;
-//        }
         std::vector<MPFVideoTrack> tracks = detection->GetDetections(job);
 
         if (!tracks.empty()) {
@@ -121,10 +113,6 @@ int main(int argc, char* argv[]) {
     } else if (argc == 2) {
         MPFImageJob job("Testing", uri, algorithm_properties, { });
         std::vector<MPFImageLocation> locations = detection->GetDetections(job);
-//        if (detection->GetDetections(job, locations) != 0) {
-//            printf("\nError: Failed to get tracks \n\n");
-//            return -1;
-//        }
 
         if (!locations.empty()) {
             printf("\n\n----Locations---- \n");
