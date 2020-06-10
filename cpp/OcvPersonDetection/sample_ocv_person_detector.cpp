@@ -37,6 +37,7 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+#include <iostream>
 
 #include "PersonDetection.h"
 
@@ -137,7 +138,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     catch (const std::exception &ex) {
-        printf("Error: %s\n", ex.what());
+        std::cerr << "Error: " << ex.what() << std::endl;
         return 1;
     }
 }
