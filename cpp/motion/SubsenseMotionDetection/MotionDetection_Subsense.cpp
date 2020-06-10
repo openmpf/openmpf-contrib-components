@@ -34,6 +34,7 @@
 #include <Utils.h>
 #include <MPFImageReader.h>
 #include <MPFSimpleConfigLoader.h>
+#include <MPFDetectionException.h>
 
 #include "MotionDetection_Subsense.h"
 #include "SubSense/BackgroundSubtractorSuBSENSE.h"
@@ -81,25 +82,16 @@ bool MotionDetection_Subsense::Close() {
 }
 
 
-MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job, std::vector<MPFVideoTrack> &tracks) {
+std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetections(const MPFVideoJob &job) {
     try {
         LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Starting motion detection");
 
         LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
         GetPropertySettings(job.job_properties, parameters);
 
-        if (job.data_uri.empty()) {
-            LOG4CXX_ERROR(motion_logger, "[" << job.job_name << "] Input video file path is empty");
-            return (MPF_INVALID_DATAFILE_URI);
-        }
-
-
         MPFVideoCapture video_capture(job, true, true);
-        if (!video_capture.IsOpened()) {
-            return MPF_COULD_NOT_OPEN_DATAFILE;
-        }
 
-        MPFDetectionError detections_result = GetDetectionsFromVideoCapture(job, video_capture, tracks);
+        std::vector<MPFVideoTrack> tracks = GetDetectionsFromVideoCapture(job, video_capture);
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
         }
@@ -108,16 +100,16 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFVideoJob &job
             displayTracks(QString::fromStdString(job.data_uri), video_capture.GetFrameCount(), tracks);
         }
 
-        return detections_result;
+        return tracks;
     }
     catch (...) {
-        return Utils::HandleDetectionException(job, motion_logger);
+        Utils::LogAndReThrowException(job, motion_logger);
     }
 }
 
-MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const MPFVideoJob &job,
-                                                                          MPFVideoCapture &video_capture,
-                                                                          std::vector<MPFVideoTrack> &tracks) {
+std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCapture(
+        const MPFVideoJob &job, MPFVideoCapture &video_capture) {
+
     int downsample_count = 0;
     cv::Mat orig_frame, frame, fore;
     QMap<int, STRUCK> tracker_map;
@@ -151,7 +143,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 
 
     if (frame.empty()) {
-        return MPF_BAD_FRAME_SIZE;
+        throw MPFDetectionException(MPF_BAD_FRAME_SIZE);
     }
 
     frame.copyTo(orig_frame);
@@ -167,6 +159,7 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 
     LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Starting video processing");
 
+    std::vector<MPFVideoTrack> tracks;
     while (video_capture.Read(frame)) {
 
         if (frame.empty()) {
@@ -266,26 +259,21 @@ MPFDetectionError MotionDetection_Subsense::GetDetectionsFromVideoCapture(const 
 
     LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
 
-    return MPF_DETECTION_SUCCESS;
+    return tracks;
 }
 
-MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job, std::vector<MPFImageLocation> &locations) {
+std::vector<MPFImageLocation> MotionDetection_Subsense::GetDetections(const MPFImageJob &job) {
     try {
         LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
         GetPropertySettings(job.job_properties, parameters);
 
+        std::vector<MPFImageLocation> locations;
         // if this component is used as a preprocessor then it will return that it detects motion in every image
         // (although no actual motion detection is performed)
         if (parameters["USE_PREPROCESSOR"].toInt() == 1) {
             MPFImageLocation detection;
             MPFImageReader image_reader(job);
             cv::Mat cv_image = image_reader.GetImage();
-
-            // need to make sure it is a valid image
-            if (cv_image.empty()) {
-                LOG4CXX_ERROR(motion_logger, "[" << job.job_name << "] failed to read image file");
-                return MPF_IMAGE_READ_ERROR;
-            }
 
             detection.x_left_upper = 0;
             detection.y_left_upper = 0;
@@ -301,10 +289,10 @@ MPFDetectionError MotionDetection_Subsense::GetDetections(const MPFImageJob &job
         LOG4CXX_INFO(motion_logger,
                      "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(locations.size())
                          << " detections.");
-        return MPF_DETECTION_SUCCESS;
+        return locations;
     }
     catch (...) {
-        return Utils::HandleDetectionException(job, motion_logger);
+        Utils::LogAndReThrowException(job, motion_logger);
     }
 }
 

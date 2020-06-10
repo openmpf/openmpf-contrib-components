@@ -55,21 +55,16 @@ public:
     bool Init();
     bool Close();
 
-    MPF::COMPONENT::MPFDetectionError GetDetections(
-            const MPF::COMPONENT::MPFVideoJob &job,
-            std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks) override;
+    std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetections(const MPF::COMPONENT::MPFVideoJob &job) override;
 
-    MPF::COMPONENT::MPFDetectionError GetDetections(
-            const MPF::COMPONENT::MPFImageJob &job,
-            std::vector<MPF::COMPONENT::MPFImageLocation> &locations) override;
+    std::vector<MPF::COMPONENT::MPFImageLocation> GetDetections(const MPF::COMPONENT::MPFImageJob &job) override ;
 
     std::string GetDetectionType();
 
 private:
-    MPF::COMPONENT::MPFDetectionError GetDetectionsFromVideoCapture(
+    std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetectionsFromVideoCapture(
             const MPF::COMPONENT::MPFVideoJob &job,
-            MPF::COMPONENT::MPFVideoCapture &video_capture,
-            std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
+            MPF::COMPONENT::MPFVideoCapture &video_capture);
 
 };
 

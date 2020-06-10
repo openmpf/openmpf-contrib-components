@@ -37,6 +37,7 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+#include <iostream>
 
 #include "PersonDetection.h"
 
@@ -44,104 +45,100 @@ using namespace MPF;
 using namespace COMPONENT;
 
 int main(int argc, char* argv[]) {
-    QCoreApplication* this_app = new QCoreApplication(argc, argv);
-    std::string app_dir = (this_app->applicationDirPath()).toStdString();
-    delete this_app;
+    try {
+        QCoreApplication* this_app = new QCoreApplication(argc, argv);
+        std::string app_dir = (this_app->applicationDirPath()).toStdString();
+        delete this_app;
 
-    PersonDetection *personDetection = new PersonDetection();
-    personDetection->SetRunDirectory(app_dir  + "/plugin");
+        PersonDetection *personDetection = new PersonDetection();
+        personDetection->SetRunDirectory(app_dir  + "/plugin");
 
-    if (!personDetection->Init()) {
-        printf("\nError: OCV Face Detection failed to initialize \n\n");
-        return -1;
-    }
-
-    MPFDetectionComponent *detection = personDetection;
-    if (detection == NULL) {
-        printf("The detection component failed to initialize\n");
-        return -1;
-    }
-
-    std::vector<MPFVideoTrack> tracks;
-    std::vector<MPFImageLocation> locations;
-    std::map<std::string, std::string> algorithm_properties;
-
-    std::string executableName = argv[0];
-    std::string uri = (argc >= 2) ? argv[1] : "null";
-    int startFrame = (argc >= 4) ? atoi(argv[2]) : 0;
-    int stopFrame = (argc >= 4) ? atoi(argv[3]) : 0;
-    int detectionInterval = (argc >= 5) ? atoi(argv[4]) : 1;
-
-    printf("\tExecutable Name:     %s\n", executableName.c_str());
-    printf("\tURI:                 %s\n", uri.c_str());
-    printf("\tStart Frame:         %d\n", startFrame);
-    printf("\tStop Frame:          %d\n", stopFrame);
-    printf("\tDetection Interval: %d\n", detectionInterval);
-
-    printf("\nchecking for tracks... \n\n");
-
-    // algorithm_properties["ROTATION"] = std::to_string(270);
-
-    if (argc == 4 || argc == 5) {
-
-        std::ostringstream stringStream;
-        stringStream << detectionInterval;
-
-        algorithm_properties["FRAME_INTERVAL"] = stringStream.str();
-
-        MPFVideoJob job("Testing", uri, startFrame, stopFrame, algorithm_properties, { });
-
-        if (detection->GetDetections(job, tracks) != 0) {
-            printf("\nError: Failed to get tracks \n\n");
-            return -1;
+        if (!personDetection->Init()) {
+            printf("\nError: OCV Face Detection failed to initialize \n\n");
+            return 1;
         }
 
-        if (!tracks.empty()) {
-            printf("\n\n----Tracks---- \n");
-            for (unsigned int i = 0; i < tracks.size(); i++) {
-                printf("track index: %i \n", i);
-                printf("track start frame: %i \n", tracks[i].start_frame);
-                printf("track end frame: %i \n", tracks[i].stop_frame);
-                printf("locations size : %i \n", static_cast<int>(tracks[i].frame_locations.size()));;
+        MPFDetectionComponent *detection = personDetection;
+        if (detection == NULL) {
+            printf("The detection component failed to initialize\n");
+            return 1;
+        }
 
-                int count = 0;
-                for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
-                    printf("\tdetection index: %i \n", count);
-                    printf("\tframe num: %i\n", it->first);
-                    printf("\tconfidence: %d\n", it->second.confidence);
-                    printf("\tcorner: %i %i\n", it->second.x_left_upper, it->second.y_left_upper);
-                    printf("\tsize: %i %i\n", it->second.width, it->second.height);
-                    count++;
+        std::map<std::string, std::string> algorithm_properties;
+
+        std::string executableName = argv[0];
+        std::string uri = (argc >= 2) ? argv[1] : "null";
+        int startFrame = (argc >= 4) ? atoi(argv[2]) : 0;
+        int stopFrame = (argc >= 4) ? atoi(argv[3]) : 0;
+        int detectionInterval = (argc >= 5) ? atoi(argv[4]) : 1;
+
+        printf("\tExecutable Name:     %s\n", executableName.c_str());
+        printf("\tURI:                 %s\n", uri.c_str());
+        printf("\tStart Frame:         %d\n", startFrame);
+        printf("\tStop Frame:          %d\n", stopFrame);
+        printf("\tDetection Interval: %d\n", detectionInterval);
+
+        printf("\nchecking for tracks... \n\n");
+
+        if (argc == 4 || argc == 5) {
+
+            std::ostringstream stringStream;
+            stringStream << detectionInterval;
+
+            algorithm_properties["FRAME_INTERVAL"] = stringStream.str();
+
+            MPFVideoJob job("Testing", uri, startFrame, stopFrame, algorithm_properties, { });
+
+            std::vector<MPFVideoTrack> tracks = detection->GetDetections(job);
+
+            if (!tracks.empty()) {
+                printf("\n\n----Tracks---- \n");
+                for (unsigned int i = 0; i < tracks.size(); i++) {
+                    printf("track index: %i \n", i);
+                    printf("track start frame: %i \n", tracks[i].start_frame);
+                    printf("track end frame: %i \n", tracks[i].stop_frame);
+                    printf("locations size : %i \n", static_cast<int>(tracks[i].frame_locations.size()));;
+
+                    int count = 0;
+                    for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
+                        printf("\tdetection index: %i \n", count);
+                        printf("\tframe num: %i\n", it->first);
+                        printf("\tconfidence: %d\n", it->second.confidence);
+                        printf("\tcorner: %i %i\n", it->second.x_left_upper, it->second.y_left_upper);
+                        printf("\tsize: %i %i\n", it->second.width, it->second.height);
+                        count++;
+                    }
                 }
+            } else {
+                printf("\n\n--No tracks found--\n");
+            }
+        } else if (argc == 2) {
+            MPFImageJob job("Testing", uri, algorithm_properties, { });
+            std::vector<MPFImageLocation> locations = detection->GetDetections(job);
+
+            if (!locations.empty()) {
+                printf("\n\n----Locations---- \n");
+                for (unsigned int i = 0; i < locations.size(); i++) {
+                    printf("location index: %i \n", i);
+                    printf("\tcorner: %i %i\n", locations[i].x_left_upper,locations[i].y_left_upper);
+                    printf("\tsize: %i %i\n", locations[i].width,locations[i].height);
+                }
+            } else {
+                printf("\n\n--No locations found--\n");
             }
         } else {
-            printf("\n\n--No tracks found--\n");
-        }
-    } else if (argc == 2) {
-        MPFImageJob job("Testing", uri, algorithm_properties, { });
-        if (detection->GetDetections(job, locations) != 0) {
-            printf("\nError: Failed to get tracks \n\n");
-            return -1;
+            printf("\nError: The number of command line parameters was incorrect: %d \n\n", argc);
+            printf("\t\tUsage (IMAGE): %s <uri> \n", executableName.c_str());
+            printf("\t\tUsage (VIDEO): %s <uri> <start_frame> <end_frame> <detection_interval (optional)>\n", executableName.c_str());
         }
 
-        if (!locations.empty()) {
-            printf("\n\n----Locations---- \n");
-            for (unsigned int i = 0; i < locations.size(); i++) {
-                printf("location index: %i \n", i);
-                printf("\tcorner: %i %i\n", locations[i].x_left_upper,locations[i].y_left_upper);
-                printf("\tsize: %i %i\n", locations[i].width,locations[i].height);
-            }
-        } else {
-            printf("\n\n--No locations found--\n");
-        }
-    } else {
-        printf("\nError: The number of command line parameters was incorrect: %d \n\n", argc);
-        printf("\t\tUsage (IMAGE): %s <uri> \n", executableName.c_str());
-        printf("\t\tUsage (VIDEO): %s <uri> <start_frame> <end_frame> <detection_interval (optional)>\n", executableName.c_str());
+        printf("Deleting the detector in main.cpp\n");
+        delete detection;
+
+        return 0;
     }
-
-    printf("Deleting the detector in main.cpp\n");
-    delete detection;
-
-    return 0;
+    catch (const std::exception &ex) {
+        std::cerr << "Error: " << ex.what() << std::endl;
+        return 1;
+    }
 }

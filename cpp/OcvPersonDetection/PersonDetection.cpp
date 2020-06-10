@@ -101,42 +101,32 @@ bool PersonDetection::Close() {
 }
 
 
-MPFDetectionError PersonDetection::GetDetections(const MPFVideoJob &job, vector<MPFVideoTrack> &tracks) {
+vector<MPFVideoTrack> PersonDetection::GetDetections(const MPFVideoJob &job) {
     try {
         LOG4CXX_TRACE(personLogger, "[" << job.job_name << "] Beginning the GetDetectionsFromVideo() function");
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Data_uri: " << job.data_uri);
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Start_index: " << job.start_frame);
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Stop_index: " << job.stop_frame);
 
-        if (job.data_uri.empty()) {
-            LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] Input video file path is empty");
-            return MPF_INVALID_DATAFILE_URI;
-        }
-
         MPFVideoCapture video_capture(job, true, true);
-        if (!video_capture.IsOpened()) {
-            LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] Video failed to open.");
-            return MPF_COULD_NOT_OPEN_DATAFILE;
-        }
 
-        MPFDetectionError detection_result = GetDetectionsFromVideoCapture(job, video_capture, tracks);
+        vector<MPFVideoTrack> tracks = GetDetectionsFromVideoCapture(job, video_capture);
 
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
         }
 
-        return detection_result;
+        return tracks;
     }
     catch (...) {
-        return Utils::HandleDetectionException(job, personLogger);
+        Utils::LogAndReThrowException(job, personLogger);
     }
 
 }
 
 
-MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJob &job,
-                                                                 MPFVideoCapture &video_capture,
-                                                                 vector<MPFVideoTrack> &tracks) {
+vector<MPFVideoTrack> PersonDetection::GetDetectionsFromVideoCapture(
+        const MPFVideoJob &job, MPFVideoCapture &video_capture) {
 
     int total_frames = video_capture.GetFrameCount();
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Video frames: " << total_frames);
@@ -152,6 +142,7 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
     HogDetector detector;
     TrakerManager mTrack(&detector, frame, 5);
 
+    vector<MPFVideoTrack> tracks;
     LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Starting video processing");
     while (video_capture.Read(frame)) {
         if (frame.empty() || frame.rows == 0 || frame.cols == 0) {
@@ -188,20 +179,14 @@ MPFDetectionError PersonDetection::GetDetectionsFromVideoCapture(const MPFVideoJ
 
     LOG4CXX_INFO(personLogger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
 
-    return MPF_DETECTION_SUCCESS;
+    return tracks;
 }
 
 
 
-MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<MPFImageLocation> &locations) {
+vector<MPFImageLocation> PersonDetection::GetDetections(const MPFImageJob &job) {
     try {
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Image file: " << job.data_uri);
-
-        // Check that the input arguments are sensible
-        if (job.data_uri.empty()) {
-            LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The data_uri was empty.");
-            return MPF_INVALID_DATAFILE_URI;
-        }
 
         if (imshow_on) {
             cv::namedWindow("PersonTracker", 1);
@@ -211,11 +196,6 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         MPFImageReader image_reader(job);
         cv::Mat image = image_reader.GetImage();
 
-        if (image.empty()) {
-            LOG4CXX_ERROR(personLogger, "[" << job.job_name << "] The image did not load properly.");
-            return MPF_IMAGE_READ_ERROR;
-        }
-
         //	Get the detections.
         LOG4CXX_DEBUG(personLogger, "[" << job.job_name << "] Getting detections");
         cv::HOGDescriptor hog;
@@ -223,6 +203,7 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
         vector<cv::Rect> found;
         hog.detectMultiScale(image, found, 0, cv::Size(8, 8), cv::Size(32, 32), 1.05, 2);
 
+        vector<MPFImageLocation> locations;
         cv::Rect imageRect(cv::Point(0, 0), image.size());
         for (const cv::Rect &detection : found) {
             cv::Rect intersection = detection & imageRect;
@@ -249,10 +230,10 @@ MPFDetectionError PersonDetection::GetDetections(const MPFImageJob &job, vector<
                      "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(locations.size())
                          << " detections.");
 
-        return MPF_DETECTION_SUCCESS;
+        return locations;
     }
     catch (...) {
-        return Utils::HandleDetectionException(job, personLogger);
+        Utils::LogAndReThrowException(job, personLogger);
     }
 }
 

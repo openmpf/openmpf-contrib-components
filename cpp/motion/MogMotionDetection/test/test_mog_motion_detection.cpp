@@ -121,9 +121,8 @@ TEST(VideoGeneration, TestOnKnownVideo) {
     ASSERT_TRUE(motion_detection->Init());
 
     cout << "\tRunning the tracker on the video: " << inVideoFile << endl;
-    std::vector<MPFVideoTrack> found_tracks;
     MPFVideoJob job("Testing", inVideoFile, start, stop, { }, { });
-    ASSERT_EQ(MPFDetectionError::MPF_DETECTION_SUCCESS,motion_detection->GetDetections(job, found_tracks));
+    std::vector<MPFVideoTrack> found_tracks = motion_detection->GetDetections(job);
 
     ASSERT_FALSE(found_tracks.empty());
     cout << "\tFound " << found_tracks.size() << " tracks" << endl;
