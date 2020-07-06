@@ -382,7 +382,7 @@ void EnsembleTracker::updateMatchHist(Mat& frame)
 		hist=temp;
 		return;
 	}
-	hist_match_score=compareHist(hist,temp,CV_COMP_INTERSECT);
+	hist_match_score=compareHist(hist,temp,cv::HISTCMP_INTERSECT);
 	hist+=HIST_MATCH_UPDATE*temp;
 	normalize(hist,hist,1,0,NORM_L1);
 }
@@ -395,7 +395,7 @@ double EnsembleTracker::compareHisto(Mat& frame, Rect win)
 	ellipse(mask_win,Point((int)(0.5*mask_win.cols),(int)(0.5*mask_win.rows)),Size((int)(0.35*mask_win.cols),(int)(0.35*mask_win.rows)),0,0,360,Scalar(1),-1);
 	calcHist(&roi,1,channels,Mat(),temp,3,histSize,hRange);
 	normalize(temp,temp,1,0,NORM_L1);
-	return compareHist(hist,temp,CV_COMP_INTERSECT);
+	return compareHist(hist,temp,cv::HISTCMP_INTERSECT);
 }
 void EnsembleTracker::registerTrackResult()
 {

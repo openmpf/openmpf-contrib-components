@@ -36,7 +36,7 @@ int main(int argc, const char** argv) {
     else {
         oVideoInput.open(sVideoFilePath);
         oVideoInput >> oCurrInputFrame;
-        oVideoInput.set(CV_CAP_PROP_POS_FRAMES,0);
+        oVideoInput.set(cv::CAP_PROP_POS_FRAMES,0);
     }
     //    parser.printParams();
     if(!oVideoInput.isOpened() || oCurrInputFrame.empty()) {
