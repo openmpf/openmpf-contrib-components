@@ -40,7 +40,7 @@ RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./SubsenseMotion
 
 FROM ${BUILD_REGISTRY}openmpf_cpp_executor:${BUILD_TAG} as install_component
 
-ENV COMPONENT_LOG_NAME subsense-motion-detection.log
+ENV LD_LIBRARY_PATH $PLUGINS_DIR/SubsenseMotionDetection/lib
 
 COPY --from=build_component $BUILD_DIR/plugin/SubsenseMotionDetection $PLUGINS_DIR/SubsenseMotionDetection
 

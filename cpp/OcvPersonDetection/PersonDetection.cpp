@@ -29,9 +29,6 @@
 
 #include <iostream>
 
-#include <log4cxx/logmanager.h>
-#include <log4cxx/xml/domconfigurator.h>
-
 #include <MPFImageReader.h>
 #include <MPFSimpleConfigLoader.h>
 #include <detectionComponentUtils.h>
@@ -52,8 +49,6 @@ using cv::Scalar;
 using cv::Size;
 using cv::VideoWriter;
 
-using log4cxx::LogManager;
-
 using log4cxx::Logger;
 using log4cxx::LoggerPtr;
 
@@ -72,7 +67,6 @@ bool PersonDetection::Init() {
         string plugin_path = run_dir + "/OcvPersonDetection";
         string config_path = plugin_path + "/config";
 
-        log4cxx::xml::DOMConfigurator::configure(config_path + "/Log4cxxConfig.xml");
         personLogger = log4cxx::Logger::getLogger("OcvPersonDetection");
         string config_file = config_path + "/mpfOcvPersonDetection.ini";
         LOG4CXX_DEBUG(personLogger, "Looking for config file in" << config_path.c_str());

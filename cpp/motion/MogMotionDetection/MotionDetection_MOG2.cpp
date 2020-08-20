@@ -62,8 +62,6 @@ std::string MotionDetection_MOG2::GetDetectionType() {
 
 bool MotionDetection_MOG2::Init() {
     std::string plugin_path = GetRunDirectory() + "/MogMotionDetection";
-    std::string logger_file = plugin_path + "/config/Log4cxxConfig.xml";
-    log4cxx::xml::DOMConfigurator::configure(logger_file);
     motion_logger = log4cxx::Logger::getLogger("MogMotionDetection");
 
     std::string config_file = plugin_path + "/config/mpfMogMotionDetection.ini";
