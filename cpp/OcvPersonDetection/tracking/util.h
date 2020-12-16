@@ -26,7 +26,7 @@
 #ifndef UTIL_
 #define  UTIL_
 
-#include <opencv2/opencv.hpp>
+#include <opencv2/core/types_c.h>
 #include <stdio.h>
 
 // fast image data access wrapper

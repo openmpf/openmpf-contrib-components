@@ -159,7 +159,7 @@ vector<MPFVideoTrack> PersonDetection::GetDetectionsFromVideoCapture(
         //	Update the screen.
         if (imshow_on) {
             imshow("PersonTracker", frame);
-            cvWaitKey(10);
+            cv::waitKey(10);
         }
 
         frame_index++;
@@ -216,12 +216,12 @@ vector<MPFImageLocation> PersonDetection::GetDetections(const MPFImageJob &job) 
 
         //	Display the image with detections.
         if (imshow_on) {
-            cv::Mat raw_image = cv::imread(job.data_uri, CV_LOAD_IMAGE_IGNORE_ORIENTATION + CV_LOAD_IMAGE_COLOR);
+            cv::Mat raw_image = cv::imread(job.data_uri, cv::IMREAD_IGNORE_ORIENTATION + cv::IMREAD_COLOR);
             for (auto &location : locations) {
                 rectangle(raw_image, Rect(location.x_left_upper, location.y_left_upper, location.width, location.height), Scalar(255, 255, 0));
             }
             imshow("PersonTracker", raw_image);
-            cvWaitKey(1000);
+            cv::waitKey(1000);
             cv::destroyWindow("PersonTracker");
         }
 

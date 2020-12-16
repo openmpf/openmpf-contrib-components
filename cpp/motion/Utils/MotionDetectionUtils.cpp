@@ -105,7 +105,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
     std::vector<std::vector<cv::Point> > contours;
     // Find the contours and then make bounding rects
     LOG4CXX_TRACE(logger, "[" << job_name << "] Finding contours and combine overlaps");
-    cv::findContours(fore, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+    cv::findContours(fore, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
 
     foreach (const std::vector<cv::Point> &contour, contours) {

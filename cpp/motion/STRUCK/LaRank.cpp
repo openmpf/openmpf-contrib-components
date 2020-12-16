@@ -506,7 +506,7 @@ void LaRank::UpdateDebugImage()
 			
 			Mat I = m_debugImage(cv::Rect(x, y, tileSize, tileSize));
 			resize(m_svs[i]->x->images[m_svs[i]->y], temp, temp.size());
-			cvtColor(temp, I, CV_GRAY2RGB);
+			cvtColor(temp, I, cv::COLOR_GRAY2RGB);
 			double w = 1.0;
 			rectangle(I, Point(0, 0), Point(tileSize-1, tileSize-1), (m_svs[i]->b > 0.0) ? CV_RGB(0, (uchar)(255*w), 0) : CV_RGB((uchar)(255*w), 0, 0), 3);
 			x += tileSize;
@@ -545,7 +545,7 @@ void LaRank::UpdateDebugImage()
 	
 	Mat I = m_debugImage(cv::Rect(0, m_debugImage.rows - 200, m_debugImage.cols-kernelSize, 200));
 	I.setTo(Scalar(255,255,255));
-	IplImage II = I;
+	IplImage II = cvIplImage(I);
 	setGraphColor(0);
 	drawFloatGraph(vals, n, &II, 0.f, 0.f, I.cols, I.rows);
 }

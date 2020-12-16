@@ -305,10 +305,10 @@ void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> 
     cv::Mat frame;
     std::vector<MPFVideoTrack>::iterator it = tracks.begin();
 
-    while (capture.get(CV_CAP_PROP_POS_FRAMES) < frameCount) {
+    while (capture.get(cv::CAP_PROP_POS_FRAMES) < frameCount) {
         capture >> frame;
 
-        while (it != tracks.end() && it->start_frame == capture.get(CV_CAP_PROP_POS_FRAMES)-1) {
+        while (it != tracks.end() && it->start_frame == capture.get(cv::CAP_PROP_POS_FRAMES)-1) {
             cv::Rect rect;
 
             rect.x = it->frame_locations.begin()->second.x_left_upper;

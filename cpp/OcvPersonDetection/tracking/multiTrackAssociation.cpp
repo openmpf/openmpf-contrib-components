@@ -424,8 +424,8 @@ void TrakerManager::doWork(Mat& frame, int frame_index, vector<MPFVideoTrack>& t
 {
 	Mat bgr,hsv,lab;
 	frame.copyTo(bgr);
-	cvtColor(frame,hsv,CV_RGB2HSV);
-	cvtColor(frame,lab,CV_RGB2Lab);
+	cvtColor(frame,hsv,cv::COLOR_RGB2HSV);
+	cvtColor(frame,lab,cv::COLOR_RGB2Lab );
 	Mat frame_set[]={bgr,hsv,lab};
 	_frame_set=frame_set;
 

@@ -31,7 +31,7 @@ project(STRUCK)
 
 if(NOT TARGET STRUCK)
     find_package(Qt4 REQUIRED)
-    find_package(OpenCV 3.4.7 EXACT REQUIRED PATHS /opt/opencv-3.4.7 COMPONENTS opencv_core opencv_imgproc)
+    find_package(OpenCV 4.5.0 EXACT REQUIRED PATHS /opt/opencv-4.5.0 COMPONENTS opencv_core opencv_imgproc)
 
     # Need to use absolute paths so that both Mog and Subsense can build STRUCK
     set(STRUCK_SRC
