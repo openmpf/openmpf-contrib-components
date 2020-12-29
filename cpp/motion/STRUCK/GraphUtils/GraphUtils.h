@@ -6,6 +6,8 @@
 #ifndef GRAPH_UTILS_H
 #define GRAPH_UTILS_H
 
+#include <opencv2/core/types_c.h>
+
 #ifdef __cplusplus
 extern "C"
 {

@@ -145,7 +145,7 @@ private:
 	}
 	inline double compareHisto(cv::Mat& h)
 	{
-		return compareHist(hist,h,CV_COMP_INTERSECT);
+		return compareHist(hist,h,cv::HISTCMP_INTERSECT);
 	}
 
 	typedef struct TraResult

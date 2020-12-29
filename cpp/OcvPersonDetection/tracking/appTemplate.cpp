@@ -142,7 +142,7 @@ AppTemplate::AppTemplate(const Mat* frame_set, const Rect iniWin,int ID)
 	normalize(temp_hist,temp_hist,255,0,NORM_L1);
 	Mat final_mask;//mask for sampling
 	calcBackProject(roi_set,3,channels,temp_hist,final_mask,hRange);
-	threshold(final_mask,final_mask,5,255,CV_THRESH_BINARY_INV);
+	threshold(final_mask,final_mask,5,255,cv::THRESH_BINARY_INV);
 	          
 	final_mask=min(final_mask,mask_roi);
 
@@ -166,7 +166,7 @@ AppTemplate::AppTemplate(const Mat* frame_set, const Rect iniWin,int ID)
 		log(temp_hist,temp_hist);		
 		log(temp_hist_neg,temp_hist_neg);
 		temp_hist=temp_hist-temp_hist_neg;
-		threshold(temp_hist,temp_hist,0,255,CV_THRESH_TOZERO);
+		threshold(temp_hist,temp_hist,0,255,cv::THRESH_TOZERO);
 		normalize(temp_hist,temp_hist,255,0.0,NORM_L1);//scale to 255 for display
 
 		calcBackProject(roi_set,3,&i,temp_hist,temp_bp,hist_range);
@@ -260,7 +260,7 @@ void AppTemplate::calcScore(Rect b_inner,Rect b_outer)//*******************
 		score=0;
 		return;
 	}
-	matchTemplate(cm,Mat(b_inner.height,b_inner.width,CV_32FC1,Scalar(255)),matching_map,CV_TM_SQDIFF);
+	matchTemplate(cm,Mat(b_inner.height,b_inner.width,CV_32FC1,Scalar(255)),matching_map,cv::TM_SQDIFF);
 	Point minloc;
 	minMaxLoc(matching_map,0,0,&minloc);
 	Scalar bg=mean(cm(Rect(minloc.x,minloc.y,b_inner.width,b_inner.height)));
