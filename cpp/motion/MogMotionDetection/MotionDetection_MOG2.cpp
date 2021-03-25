@@ -32,7 +32,6 @@
 #include <QMap>
 
 #include <opencv2/opencv.hpp>
-#include <log4cxx/xml/domconfigurator.h>
 
 #include <MPFImageReader.h>
 #include <MPFSimpleConfigLoader.h>
