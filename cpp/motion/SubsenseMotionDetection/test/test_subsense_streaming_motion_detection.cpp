@@ -34,6 +34,7 @@
 #include "gtest/gtest.h"
 
 #include <opencv2/opencv.hpp>
+#include <log4cxx/basicconfigurator.h>
 
 #include <Utils.h>
 
@@ -53,6 +54,12 @@ using std::pair;
 
 using namespace MPF;
 using namespace COMPONENT;
+
+bool init_logging() {
+    log4cxx::BasicConfigurator::configure();
+    return true;
+}
+bool logging_initialized = init_logging();
 
 class StreamingDetectionTest : public ::testing::Test {
   protected:
