@@ -26,9 +26,6 @@
 
 #include <stdexcept>
 
-#include <log4cxx/logmanager.h>
-#include <log4cxx/xml/domconfigurator.h>
-
 #include <MPFSimpleConfigLoader.h>
 #include "StreamingMotionDetection_Subsense.h"
 #include "MotionDetectionUtils.h"
@@ -47,12 +44,9 @@ SubsenseStreamingDetection::SubsenseStreamingDetection(const MPFStreamingVideoJo
     job_name_ = job.job_name;
     msg_prefix_ =  "[" + job_name_ + "] ";
 
-    string plugin_path = job.run_directory + "/SubsenseMotionDetection";
-    string logger_file = plugin_path + "/config/Log4cxxConfig.xml";
-    log4cxx::xml::DOMConfigurator::configure(logger_file);
     motion_logger_ = log4cxx::Logger::getLogger("SubsenseStreamingMotionDetection");
 
-    string config_file = plugin_path + "/config/mpfSubsenseMotionDetection.ini";
+    string config_file = job.run_directory + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini";
 
     int rc = LoadConfig(config_file, parameters_);
     if (rc) {

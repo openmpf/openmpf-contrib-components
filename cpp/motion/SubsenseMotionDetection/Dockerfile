@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.2
+
 #############################################################################
 # NOTICE                                                                    #
 #                                                                           #
@@ -28,11 +30,10 @@ ARG BUILD_REGISTRY
 ARG BUILD_TAG=latest
 FROM ${BUILD_REGISTRY}openmpf_cpp_component_build:${BUILD_TAG} as build_component
 
-COPY SubsenseMotionDetection SubsenseMotionDetection
-COPY STRUCK STRUCK
-COPY Utils Utils
-
-RUN SRC_DIR=$SRC_DIR/SubsenseMotionDetection build-component.sh
+RUN --mount=source=SubsenseMotionDetection,target=SubsenseMotionDetection \
+    --mount=source=STRUCK,target=STRUCK \
+    --mount=source=Utils,target=Utils \
+    SRC_DIR=$SRC_DIR/SubsenseMotionDetection build-component.sh
 
 ARG RUN_TESTS=false
 RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./SubsenseMotionDetectionTest; fi
@@ -40,7 +41,7 @@ RUN if [ "${RUN_TESTS,,}" == true ]; then cd $BUILD_DIR/test && ./SubsenseMotion
 
 FROM ${BUILD_REGISTRY}openmpf_cpp_executor:${BUILD_TAG} as install_component
 
-ENV COMPONENT_LOG_NAME subsense-motion-detection.log
+ENV LD_LIBRARY_PATH $PLUGINS_DIR/SubsenseMotionDetection/lib
 
 COPY --from=build_component $BUILD_DIR/plugin/SubsenseMotionDetection $PLUGINS_DIR/SubsenseMotionDetection
 

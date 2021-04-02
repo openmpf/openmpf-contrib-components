@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <log4cxx/basicconfigurator.h>
 
 #include <QDir>
 
@@ -71,6 +72,12 @@ static string GetCurrentWorkingDirectory() {
         return "";
     }
 }
+
+bool init_logging() {
+    log4cxx::BasicConfigurator::configure();
+    return true;
+}
+bool logging_initialized = init_logging();
 
 TEST(Detection, Init) {
 

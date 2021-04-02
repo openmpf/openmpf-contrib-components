@@ -29,7 +29,6 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
-#include <log4cxx/xml/domconfigurator.h>
 
 #include <Utils.h>
 #include <MPFImageReader.h>
@@ -60,8 +59,6 @@ std::string MotionDetection_Subsense::GetDetectionType() {
 
 bool MotionDetection_Subsense::Init() {
     std::string plugin_path = GetRunDirectory() + "/SubsenseMotionDetection";
-    std::string logger_file = plugin_path + "/config/Log4cxxConfig.xml";
-    log4cxx::xml::DOMConfigurator::configure(logger_file);
     motion_logger = log4cxx::Logger::getLogger("SubsenseMotionDetection");
 
     std::string config_file = plugin_path + "/config/mpfSubsenseMotionDetection.ini";
