@@ -24,10 +24,6 @@ Integrate into your existing environment or use OpenMPF as a standalone applicat
 
 This repository contains source code for Open Media Processing Framework (OpenMPF) components licensed under a copyleft license, such as GPL, a restrictive license, or a license that is not compatible with Apache 2.0.
 
-Included in this repository are the following C++ algorithms:
-- OpenCV-based person
-- OpenCV-based motion detection
-
 ## Where Am I?
 
 - [Parent OpenMPF Project](https://github.com/openmpf/openmpf-projects)
@@ -45,10 +41,24 @@ Included in this repository are the following C++ algorithms:
 
 ## Getting Started
 
-### Building All C++ Components
+### Creating New Components
 
-- In order to build the C++ components you must first install the  [OpenMPF C++ Component SDK](https://github.com/openmpf/openmpf-cpp-component-sdk).
-- cd into the `openmpf-contrib-components/cpp directory`.
+- [How to Create a C++ Component](https://openmpf.github.io/docs/site/CPP-Batch-Component-API/index.html#getting-started)
+- [How to Create a Python Component](https://openmpf.github.io/docs/site/Python-Batch-Component-API/index.html#how-to-create-a-python-component)
+- [How to Create a Java Component](https://openmpf.github.io/docs/site/Java-Batch-Component-API/index.html#getting-started)
+
+### Building a Component Using Docker
+
+- `cd` into the component directory that contains the `Dockerfile`.
+- Run the following command where "openmpf_component_name" is the name of the component image you want to generate. For a list of component image names, refer to [docker-compose.components.yml](https://github.com/openmpf/openmpf-docker/blob/master/docker-compose.components.yml):
+```
+DOCKER_BUILDKIT=1 docker build . -t openmpf_component_name
+```
+
+### Building C++ Components Outside of Docker
+
+- In order to build the C++ components you must first install the [OpenMPF C++ Component SDK](https://github.com/openmpf/openmpf-cpp-component-sdk#build-and-install-the-component-sdk).
+- `cd` into the `openmpf-components/cpp` directory.
 - Run the following commands:
 ```
 mkdir build
@@ -57,17 +67,36 @@ cmake3 ..
 make install
 ```
 
-- The built plugin packages will be created in `openmpf-contrib-components/cpp/build/plugin-packages`.
+- The built plugin packages will be created in: `openmpf-components/cpp/build/plugin-packages`.
 
-**Building Individual C++ Components**
+**Building an Individual C++ Component**
 
-If you would like to only build a single component, you can cd into that component's directory and run the build commands listed above.
+If you would like to only build a single component, you can `cd` into that component's directory and run the build commands listed above.
 
-### Installing and Registering a Component
+### Building a Python Component Outside of Docker
 
-Once a component is built, follow the Installing and Registering a Component
-[Installing and Registering a Component](https://openmpf.github.io/docs/site/Packaging-and-Registering-a-Component/#installing-and-registering-a-component)
-instructions to utilize the component in OpenMPF
+- In order to build the Python components you must first install the [OpenMPF Python Component SDK](https://github.com/openmpf/openmpf-python-component-sdk#build-and-install-the-component-sdk).
+- `cd` into the Python component directory that contains the `setup.py` file
+- Run the following commands to install the component in a virtual environment:
+```
+python3 -m venv venv
+. ./venv/bin/activate
+pip3 install --upgrade pip
+pip3 install openmpf-python-component-sdk/detection/api
+pip3 install openmpf-projects/openmpf-python-component-sdk/detection/component_util
+pip3 install .
+```
+
+### Building Java Components Outside of Docker
+
+- In order to build the Java components you must first install the [OpenMPF Java Components SDK](https://github.com/openmpf/openmpf-java-component-sdk#build-and-install-the-component-sdk).
+- `cd` into the `openmpf-components/java` directory.
+- Run `mvn package`.
+- The built plugin packages will be in each components' `target/plugin-packages` directory.
+
+**Building an Individual Java Component**
+
+If you would like to only build a single component, you can `cd` into that component's directory and run `mvn package`.
 
 ### Project Website
 
