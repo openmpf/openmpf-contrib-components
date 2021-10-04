@@ -31,7 +31,7 @@
 #include <string>
 #include <iostream>
 
-#include <QCoreApplication>
+#include <detectionComponentUtils.h>
 
 using namespace std;
 
@@ -64,9 +64,7 @@ int main(int argc, char* argv[]) {
     }
     cout << "Processing " << num_segments << " segments" << endl;
 
-    QCoreApplication *this_app = new QCoreApplication(argc, argv);
-    string app_dir = (this_app->applicationDirPath()).toStdString() + "/plugin";
-    delete this_app;
+    string app_dir = DetectionComponentUtils::GetAppDir(argv[0]);
 
     try {
         Properties job_props, media_props;

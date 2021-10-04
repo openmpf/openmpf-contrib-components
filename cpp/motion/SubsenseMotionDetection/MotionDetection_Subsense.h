@@ -31,40 +31,38 @@
 #ifndef OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
 #define OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_SUBSENSE_H
 
-
 #include <string>
 #include <vector>
 
 #include <log4cxx/logger.h>
 
-#include <QHash>
-#include <QString>
-
-#include <MPFDetectionComponent.h>
+#include <MPFDetectionObjects.h>
 #include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
 #include <MPFVideoCapture.h>
 
+#include "SubsenseUtils.h"
+
 class MotionDetection_Subsense : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
 
-    log4cxx::LoggerPtr motion_logger;
-    QHash<QString, QString> parameters;
-
 public:
-    MotionDetection_Subsense();
-    ~MotionDetection_Subsense();
-    bool Init();
-    bool Close();
+    bool Init() override;
+    bool Close() override;
 
-    std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetections(const MPF::COMPONENT::MPFVideoJob &job) override;
+    std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetections(
+            const MPF::COMPONENT::MPFVideoJob &job) override;
 
-    std::vector<MPF::COMPONENT::MPFImageLocation> GetDetections(const MPF::COMPONENT::MPFImageJob &job) override ;
+    std::vector<MPF::COMPONENT::MPFImageLocation> GetDetections(
+            const MPF::COMPONENT::MPFImageJob &job) override ;
 
-    std::string GetDetectionType();
+    std::string GetDetectionType() override;
 
 private:
+    log4cxx::LoggerPtr motion_logger_;
+
     std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetectionsFromVideoCapture(
             const MPF::COMPONENT::MPFVideoJob &job,
-            MPF::COMPONENT::MPFVideoCapture &video_capture);
+            MPF::COMPONENT::MPFVideoCapture &video_capture,
+            const SubsenseConfig &config);
 
 };
 

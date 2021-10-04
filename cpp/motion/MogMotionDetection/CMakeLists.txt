@@ -41,7 +41,6 @@ find_package(OpenCV 4.5.0 EXACT REQUIRED PATHS /opt/opencv-4.5.0
 find_package(mpfComponentInterface REQUIRED)
 find_package(mpfDetectionComponentApi REQUIRED)
 find_package(mpfComponentUtils REQUIRED)
-find_package(Qt4 REQUIRED)
 
 include(../STRUCK/CMakeLists.txt)
 

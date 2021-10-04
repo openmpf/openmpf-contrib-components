@@ -41,17 +41,16 @@ find_package(OpenCV 4.5.0 EXACT REQUIRED PATHS /opt/opencv-4.5.0
 find_package(mpfComponentInterface REQUIRED)
 find_package(mpfDetectionComponentApi REQUIRED)
 find_package(mpfComponentUtils REQUIRED)
-find_package(Qt4 REQUIRED)
 
 add_subdirectory(SubSense)
 
 include(../STRUCK/CMakeLists.txt)
 
-set(MOTION_UTILS_DIR ../Utils)
-set(MOTION_UTILS_SRC ${MOTION_UTILS_DIR}/MotionDetectionUtils.cpp ${MOTION_UTILS_DIR}/MotionDetectionUtils.h)
-include_directories(${MOTION_UTILS_DIR})
-
-set(SUBSENSE_MOTION_SOURCE_FILES MotionDetection_Subsense.cpp MotionDetection_Subsense.h ${MOTION_UTILS_SRC})
+set(SUBSENSE_MOTION_SOURCE_FILES
+        MotionDetection_Subsense.cpp
+        MotionDetection_Subsense.h
+        SubsenseUtils.cpp
+        SubsenseUtils.h)
 
 add_library(mpfSubsenseMotionDetection SHARED ${SUBSENSE_MOTION_SOURCE_FILES})
 target_link_libraries(mpfSubsenseMotionDetection
@@ -59,8 +58,11 @@ target_link_libraries(mpfSubsenseMotionDetection
     mpfComponentInterface mpfDetectionComponentApi mpfComponentUtils)
 
 
-set(SUBSENSE_STREAMING_MOTION_SOURCE_FILES StreamingMotionDetection_Subsense.cpp
-  StreamingMotionDetection_Subsense.h ${MOTION_UTILS_SRC})
+set(SUBSENSE_STREAMING_MOTION_SOURCE_FILES
+        StreamingMotionDetection_Subsense.cpp
+        StreamingMotionDetection_Subsense.h
+        SubsenseUtils.cpp
+        SubsenseUtils.h)
 
 add_library(mpfSubsenseStreamingMotionDetection SHARED ${SUBSENSE_STREAMING_MOTION_SOURCE_FILES})
 target_link_libraries(mpfSubsenseStreamingMotionDetection

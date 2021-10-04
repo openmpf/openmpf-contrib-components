@@ -27,45 +27,80 @@
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
 
-#ifndef OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
-#define OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
+#ifndef OPENMPF_CONTRIB_COMPONENTS_SUBSENSE_UTILS_H
+#define OPENMPF_CONTRIB_COMPONENTS_SUBSENSE_UTILS_H
 
 #include <map>
+#include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 
-#include <QHash>
-#include <QString>
-#include <QMap>
-
 #include <log4cxx/logger.h>
 
-#include <MPFDetectionComponent.h>
+#include <MPFDetectionObjects.h>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
 #include <struck.h>
-
-void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties,
-                         QHash<QString, QString> &parameters);
+#pragma GCC diagnostic pop
 
 
-void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
+struct SubsenseConfig {
+    int verbose;
+    float f_rel_lbsp_threshold;
+    size_t n_min_desc_dist_threshold;
+    size_t n_min_color_dist_threshold;
+    size_t n_bg_samples;
+    size_t n_required_bg_samples;
+    size_t n_samples_for_moving_avgs;
+    int maximum_frame_width;
+    int maximum_frame_height;
+    int erode_anchor_x;
+    int erode_anchor_y;
+    int erode_iterations;
+    int dilate_anchor_x;
+    int dilate_anchor_y;
+    int dilate_iterations;
+    int median_blur_k_size;
+    int group_rectangles_group_threshold;
+    double group_rectangles_eps;
+    int min_rect_width;
+    int min_rect_height;
+    bool use_preprocessor;
+    bool use_motion_tracking;
+    float distance_confidence_weight_factor;
+    float size_confidence_weight_factor;
+    double tracking_max_object_percentage;
+    double tracking_threshold;
+    double tracking_min_overlap_percentage;
+
+
+    explicit SubsenseConfig(const std::map<std::string, std::string> &props);
+};
+
+
+void SetPreprocessorTrack(const cv::Mat &fore, int frame_index,
                           int frame_cols, int frame_rows,
                           MPF::COMPONENT::MPFVideoTrack &track,
                           std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
+
 std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
                                       const log4cxx::LoggerPtr &logger,
-                                      const QHash<QString, QString> &parameters,
+                                      const SubsenseConfig &config,
                                       cv::Mat &fore,
                                       int frame_cols,
                                       int frame_rows,
                                       int downsample_count);
 
-void ProcessMotionTracks(const QHash<QString, QString> &parameters,
+
+void ProcessMotionTracks(const SubsenseConfig &config,
                          const std::vector<cv::Rect> &resized_rects,
                          const cv::Mat &orig_frame,
                          int frame_index, int &tracker_id,
-                         QMap<int, STRUCK> &tracker_map,
-                         QMap<int, MPF::COMPONENT::MPFVideoTrack> &track_map,
+                         std::map<int, STRUCK> &tracker_map,
+                         std::map<int, MPF::COMPONENT::MPFVideoTrack> &track_map,
                          std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
 cv::Rect Upscale(const cv::Rect &rect,
@@ -76,4 +111,5 @@ void AssignDetectionConfidence(MPF::COMPONENT::MPFVideoTrack &track,
                                float distance_factor,
                                float size_factor);
 
-#endif   // OPENMPF_CONTRIB_COMPONENTS_MOTION_UTILS_H
+
+#endif   // OPENMPF_CONTRIB_COMPONENTS_SUBSENSE_UTILS_H

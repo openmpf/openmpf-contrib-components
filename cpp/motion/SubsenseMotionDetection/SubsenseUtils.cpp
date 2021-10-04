@@ -27,27 +27,50 @@
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
 
-#include <vector>
+#include "SubsenseUtils.h"
 
-#include "MotionDetectionUtils.h"
+#include <tuple>
+
+#include <detectionComponentUtils.h>
 
 using namespace MPF;
 using namespace COMPONENT;
 
-void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties,
-                         QHash<QString, QString> &parameters) {
-    std::string property;
-    std::string str_value;
+using DetectionComponentUtils::GetProperty;
 
-    for (std::map<std::string,std::string>::const_iterator imap = algorithm_properties.begin(); imap != algorithm_properties.end(); imap++) {
-        property = imap->first;
-        str_value = imap->second;
-        parameters.insert(QString::fromStdString(property), QString::fromStdString(str_value));
-    }
+SubsenseConfig::SubsenseConfig(const std::map<std::string, std::string> &props)
+        : verbose(GetProperty(props, "VERBOSE", 0))
+        , f_rel_lbsp_threshold(GetProperty(props, "F_REL_LBSP_THRESHOLD", 0.333f))
+        , n_min_desc_dist_threshold(GetProperty(props, "N_MIN_DESC_DIST_THRESHOLD", 3))
+        , n_min_color_dist_threshold(GetProperty(props, "N_MIN_COLOR_DIST_THRESHOLD", 30))
+        , n_bg_samples(GetProperty(props, "N_BG_SAMPLES", 50))
+        , n_required_bg_samples(GetProperty(props, "N_REQUIRED_BG_SAMPLES", 2))
+        , n_samples_for_moving_avgs(GetProperty(props, "N_SAMPLES_FOR_MOVING_AVGS", 25))
+        , maximum_frame_width(GetProperty(props, "MAXIMUM_FRAME_WIDTH", 128))
+        , maximum_frame_height(GetProperty(props, "MAXIMUM_FRAME_HEIGHT", 128))
+        , erode_anchor_x(GetProperty(props, "ERODE_ANCHOR_X", -1))
+        , erode_anchor_y(GetProperty(props, "ERODE_ANCHOR_Y", -1))
+        , erode_iterations(GetProperty(props, "ERODE_ITERATIONS", 1))
+        , dilate_anchor_x(GetProperty(props, "DILATE_ANCHOR_X", -1))
+        , dilate_anchor_y(GetProperty(props, "DILATE_ANCHOR_Y", -1))
+        , dilate_iterations(GetProperty(props, "DILATE_ITERATIONS", 4))
+        , median_blur_k_size(GetProperty(props, "MEDIAN_BLUR_K_SIZE", 3))
+        , group_rectangles_group_threshold(GetProperty(props, "GROUP_RECTANGLES_GROUP_THRESHOLD", 1))
+        , group_rectangles_eps(GetProperty(props, "GROUP_RECTANGLES_EPS", 0.4))
+        , min_rect_width(GetProperty(props, "MIN_RECT_WIDTH", 16))
+        , min_rect_height(GetProperty(props, "MIN_RECT_HEIGHT", 16))
+        , use_preprocessor(GetProperty(props, "USE_PREPROCESSOR", false))
+        , use_motion_tracking(GetProperty(props, "USE_MOTION_TRACKING", false))
+        , distance_confidence_weight_factor(GetProperty(props, "DISTANCE_CONFIDENCE_WEIGHT_FACTOR", 0.0f))
+        , size_confidence_weight_factor(GetProperty(props, "SIZE_CONFIDENCE_WEIGHT_FACTOR", 0.0f))
+        , tracking_max_object_percentage(GetProperty(props, "TRACKING_MAX_OBJECT_PERCENTAGE", 0.9f))
+        , tracking_threshold(GetProperty(props, "TRACKING_THRESHOLD", -1))
+        , tracking_min_overlap_percentage(GetProperty(props, "TRACKING_MIN_OVERLAP_PERCENTAGE", 0.0))
+{
 }
 
 
-void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
+void SetPreprocessorTrack(const cv::Mat &fore, int frame_index,
                           int frame_cols, int frame_rows,
                           MPFVideoTrack &track,
                           std::vector<MPFVideoTrack> &tracks) {
@@ -56,18 +79,14 @@ void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
         if (track.start_frame == -1) {
             track.start_frame = frame_index;
             track.stop_frame = track.start_frame;
-            track.frame_locations.insert(
-                std::pair<int, MPFImageLocation>(frame_index,
-                                                 MPFImageLocation(0, 0,
-                                                                  frame_cols,
-                                                                  frame_rows)));
+            track.frame_locations.emplace(
+                    frame_index,
+                    MPFImageLocation(0, 0, frame_cols, frame_rows));
         } else {
             track.stop_frame = frame_index;
-            track.frame_locations.insert(
-                std::pair<int, MPFImageLocation>(frame_index,
-                                                 MPFImageLocation(0, 0,
-                                                                  frame_cols,
-                                                                  frame_rows)));
+            track.frame_locations.emplace(
+                    frame_index,
+                MPFImageLocation(0, 0, frame_cols, frame_rows));
         }
     } else {
         if (track.start_frame != -1) {
@@ -82,11 +101,9 @@ void SetPreprocessorTrack(const cv::Mat fore, int frame_index,
 
 }
 
-
-
 std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
                                       const log4cxx::LoggerPtr &logger,
-                                      const QHash<QString, QString> &parameters,
+                                      const SubsenseConfig &config,
                                       cv::Mat &fore,
                                       int frame_cols,
                                       int frame_rows,
@@ -95,11 +112,13 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
     std::vector<cv::Rect> rects;
     // Make motion larger objects
     LOG4CXX_TRACE(logger, "[" << job_name << "] Eroding and blurring background");
-    cv::erode(fore, fore, cv::Mat(), cv::Point(parameters["ERODE_ANCHOR_X"].toInt(), parameters["ERODE_ANCHOR_Y"].toInt()),
-              parameters["ERODE_ITERATIONS"].toInt());
-    cv::dilate(fore, fore, cv::Mat(), cv::Point(parameters["DILATE_ANCHOR_X"].toInt(), parameters["DILATE_ANCHOR_Y"].toInt()),
-               parameters["DILATE_ITERATIONS"].toInt());
-    cv::medianBlur(fore, fore, parameters["MEDIAN_BLUR_K_SIZE"].toInt());
+    cv::erode(fore, fore, cv::Mat(),
+              cv::Point(config.erode_anchor_x, config.erode_anchor_y),
+              config.erode_iterations);
+    cv::dilate(fore, fore, cv::Mat(),
+               cv::Point(config.dilate_anchor_x, config.dilate_anchor_y),
+               config.dilate_iterations);
+    cv::medianBlur(fore, fore, config.median_blur_k_size);
 
 
     std::vector<std::vector<cv::Point> > contours;
@@ -108,7 +127,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
     cv::findContours(fore, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
 
-    foreach (const std::vector<cv::Point> &contour, contours) {
+    for (const std::vector<cv::Point> &contour : contours) {
         // Need to add the rect twice so that it doesnt get removed
         rects.push_back(cv::boundingRect(contour));
         rects.push_back(cv::boundingRect(contour));
@@ -117,83 +136,96 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
     // Combines overlapping rects together
     LOG4CXX_TRACE(logger, "[" << job_name << "] Converting contours to rects");
 
-    cv::groupRectangles(rects, parameters["GROUP_RECTANGLES_GROUP_THRESHOLD"].toInt(), parameters["GROUP_RECTANGLES_EPS"].toDouble());
+    cv::groupRectangles(rects, config.group_rectangles_group_threshold,
+                        config.group_rectangles_eps);
 
     LOG4CXX_TRACE(logger, "[" << job_name << "] Resizing rects");
     std::vector<cv::Rect> resized_rects;
-    foreach (const cv::Rect &rect, rects) {
-        if ((rect.width * pow(2, downsample_count)) >= parameters["MIN_RECT_WIDTH"].toInt() &&
-            rect.height * pow(2, downsample_count) >= parameters["MIN_RECT_HEIGHT"].toInt()) {
+    for (const cv::Rect &rect : rects) {
+        if ((rect.width * pow(2, downsample_count)) >= config.min_rect_width &&
+            rect.height * pow(2, downsample_count) >= config.min_rect_height) {
             resized_rects.push_back(Upscale(rect, frame_cols, frame_rows, downsample_count));
         }
     }
     return resized_rects;
 }
 
+struct RectLessThan {
+    bool operator() (const cv::Rect &r1, const cv::Rect &r2) const {
+        return std::tie(r1.x, r1.y, r1.width, r1.height)
+               < std::tie(r2.x, r2.y, r2.width, r2.height);
+    }
+};
 
-void ProcessMotionTracks(const QHash<QString, QString> &parameters,
+
+void ProcessMotionTracks(const SubsenseConfig &config,
                          const std::vector<cv::Rect> &resized_rects,
                          const cv::Mat &orig_frame,
                          int frame_index, int &tracker_id,
-                         QMap<int, STRUCK> &tracker_map,
-                         QMap<int, MPFVideoTrack> &track_map,
+                         std::map<int, STRUCK> &tracker_map,
+                         std::map<int, MPFVideoTrack> &track_map,
                          std::vector<MPFVideoTrack> &tracks) {
 
-    QMultiMap<cv::Rect, int> tracked_rects;
+    std::map<cv::Rect, std::vector<int>, RectLessThan> tracked_rects;
+    size_t total_tracked_rects = 0;
 
     // Append to tracks
-    for(QMap<int, STRUCK>::iterator it= tracker_map.begin(); it != tracker_map.end(); it++) {
-
-        cv::Rect track = it.value().nextFrame(orig_frame, resized_rects);
-
+    for (auto tracker_it = tracker_map.begin(); tracker_it != tracker_map.end();) {
+        cv::Rect rect = tracker_it->second.nextFrame(orig_frame, resized_rects);
         // A rect with starting point 0,0 and w/h of 1,1 will mark the end of the track
-        if (track == cv::Rect(0, 0, 1, 1)) {
-            tracks.push_back(track_map.value(it.key()));
-            track_map.erase(track_map.find(it.key()));
-            it = tracker_map.erase(it);
-            it--;
-        } else {
-            track_map.find(it.key()).value().stop_frame = frame_index;
-            track_map.find(it.key()).value().frame_locations.insert(
-                std::pair<int, MPFImageLocation>(frame_index,
-                                                 MPFImageLocation(track.x, track.y, track.width, track.height)));
-            tracked_rects.insert(track, it.key());
+        if (rect == cv::Rect(0, 0, 1, 1)) {
+            tracks.push_back(std::move(track_map.at(tracker_it->first)));
+            track_map.erase(tracker_it->first);
+            tracker_it = tracker_map.erase(tracker_it);
+        }
+        else {
+            auto &track = track_map.at(tracker_it->first);
+            track.stop_frame = frame_index;
+            track.frame_locations.emplace(
+                    frame_index, MPFImageLocation(rect.x, rect.y, rect.width, rect.height));
+
+            tracked_rects[rect].push_back(tracker_it->first);
+            total_tracked_rects++;
+            ++tracker_it;
         }
     }
 
     // Create new tracks
-    if (tracked_rects.size() != resized_rects.size()) {
-        foreach (cv::Rect rect, resized_rects) {
-            if (!tracked_rects.keys().contains(rect)) {
-                if ((orig_frame.rows * orig_frame.cols * parameters["TRACKING_MAX_OBJECT_PERCENTAGE"].toDouble()) < rect.area()) {
+    if (total_tracked_rects != resized_rects.size()) {
+        for (const cv::Rect &rect : resized_rects) {
+            if (tracked_rects.count(rect) == 0 || tracked_rects.at(rect).empty()) {
+                if ((orig_frame.rows * orig_frame.cols * config.tracking_max_object_percentage) < rect.area()) {
                     continue;
                 }
-                tracker_map.insert(++tracker_id, STRUCK());
-                tracker_map.find(tracker_id).value().initialize(orig_frame, rect, parameters["TRACKING_THRESHOLD"].toDouble(), parameters["TRACKING_MIN_OVERLAP_PERCENTAGE"].toDouble());
-                MPFVideoTrack temp(frame_index, frame_index);
-                temp.frame_locations.insert(
-                    std::pair<int, MPFImageLocation>(frame_index,
-                                                     MPFImageLocation(rect.x, rect.y, rect.width, rect.height)));
+                auto& new_struck = tracker_map.emplace(++tracker_id, STRUCK()).first->second;
+                new_struck.initialize(
+                        orig_frame, rect,
+                        config.tracking_threshold,
+                        config.tracking_min_overlap_percentage);
 
-                track_map.insert(tracker_id, temp);
-                tracked_rects.insert(rect, tracker_id);
+                MPFVideoTrack temp(frame_index, frame_index);
+                temp.frame_locations.emplace(
+                        frame_index, MPFImageLocation(rect.x, rect.y, rect.width, rect.height));
+
+                track_map.emplace(tracker_id, std::move(temp));
+                tracked_rects[rect].push_back(tracker_id);
             }
         }
     }
 
     // Remove merged tracks
-    foreach (const cv::Rect &rect, tracked_rects.keys()) {
-        for (int x = 1; x < tracked_rects.values(rect).size(); x++) {
-            int id = tracked_rects.values(rect)[x];
-            tracks.push_back(track_map.value(id));
+    for (const auto& pair : tracked_rects) {
+        const cv::Rect &rect = pair.first;
+        const std::vector<int> &ids = pair.second;
+        for (int id_idx = 1; id_idx < ids.size(); id_idx++) {
+            int id = ids.at(id_idx);
+            tracks.push_back(std::move(track_map.at(id)));
 
-            tracker_map.erase(tracker_map.find(id));
-            track_map.erase(track_map.find(id));
-            tracked_rects.erase(tracked_rects.find(rect, id));
+            tracker_map.erase(id);
+            track_map.erase(id);
         }
     }
 }
-
 
 
 cv::Rect Upscale(const cv::Rect &rect,
@@ -223,11 +255,6 @@ cv::Rect Upscale(const cv::Rect &rect,
     }
 
     return resized;
-}
-
-
-bool operator <(const cv::Rect &r1, const cv::Rect &r2) {
-    return r1.x != r2.x || r1.y != r2.y || r1.area() < r2.area();
 }
 
 
@@ -298,4 +325,3 @@ void AssignDetectionConfidence(MPFVideoTrack &track, float distance_factor,
         }
     }
 }
-

@@ -24,33 +24,17 @@
  * limitations under the License.                                             *
  ******************************************************************************/
 
-#include <stdio.h>
+#include <exception>
 #include <iostream>
-#include <map>
 #include <string>
 #include <vector>
 
-#include <QDir>
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include <opencv2/opencv.hpp>
 #include <log4cxx/basicconfigurator.h>
 
-#include <Utils.h>
-
-#include <DetectionComparison.h>
-#include <ReadDetectionsFromFile.h>
-#include <WriteDetectionsToFile.h>
-#include <VideoGeneration.h>
-#include <ImageGeneration.h>
-#include "MPFSimpleConfigLoader.h"
-
 #include "StreamingMotionDetection_Subsense.h"
-
-using std::string;
-using std::vector;
-using std::map;
-using std::pair;
 
 using namespace MPF;
 using namespace COMPONENT;
@@ -61,102 +45,15 @@ bool init_logging() {
 }
 bool logging_initialized = init_logging();
 
-class StreamingDetectionTest : public ::testing::Test {
-  protected:
-    StreamingDetectionTest() = default;
-
-    static std::shared_ptr<QHash<QString, QString> > parameters_;
-    static string plugin_dir_;
-
-    static void SetUpTestCase() {
-
-        string base_path(QDir::currentPath().toStdString());
-
-        plugin_dir_ = base_path + "/../plugin";
-        std::cout << "plugin_dir: " << plugin_dir_ << std::endl;
-
-        // Read the parameters file
-        string config_path(base_path + "/config/test_subsense_motion_config.ini");
-        std::cout << "config path: " << config_path << std::endl;
-
-        parameters_.reset(new QHash<QString, QString>);
-
-        int rc = LoadConfig(config_path, *parameters_);
-        ASSERT_EQ(0, rc);
-        std::cout << "StreamingDetectionTest::SetupTestCase config file loaded" << std::endl;
-    }
-
-    static void TearDownTestCase() {
-    }
-};
-
-std::shared_ptr<QHash<QString, QString> > StreamingDetectionTest::parameters_ = NULL;
-string StreamingDetectionTest::plugin_dir_ = "";
+constexpr auto plugin_dir = "../plugin";
 
 
-TEST_F(StreamingDetectionTest, TestConstructor) {
+TEST(StreamingDetectionTest, TestProcessFrame) {
 
     Properties job_props, media_props;
+    MPFStreamingVideoJob job("TestProcessFrame", plugin_dir, job_props, media_props);
 
-    MPFStreamingVideoJob job("TestConstructor", plugin_dir_, job_props, media_props);
-    SubsenseStreamingDetection *streaming_motion_detection;
-    try {
-        streaming_motion_detection = new SubsenseStreamingDetection(job);
-    }
-    catch (std::exception &e) {
-        FAIL() << "Exception thrown from constructor: " << e.what();
-    }
-    
-    ASSERT_TRUE(NULL != streaming_motion_detection);
-
-    string detection_type = streaming_motion_detection->GetDetectionType();
-    ASSERT_EQ("MOTION", detection_type);
-
-    delete streaming_motion_detection;
-}
-
-TEST_F(StreamingDetectionTest, TestBeginSegment) {
-
-    Properties job_props, media_props;
-    MPFStreamingVideoJob job("TestBeginSegment", plugin_dir_, job_props, media_props);
-
-    // 	Create a Subsense streaming motion detection object.
-    SubsenseStreamingDetection *streaming_motion_detection;
-    try {
-        streaming_motion_detection = new SubsenseStreamingDetection(job);
-    }
-    catch (std::exception &e) {
-        FAIL() << "Exception thrown from constructor: " << e.what();
-    }
-
-    ASSERT_TRUE(NULL != streaming_motion_detection);
-    VideoSegmentInfo seg_info(0, 0, 100, 500, 500);
-
-    try {
-        streaming_motion_detection->BeginSegment(seg_info);
-    }
-    catch (std::exception &e) {
-        delete streaming_motion_detection;
-        FAIL() << "Exception thrown from BeginSegment: " << e.what();
-    }
-
-    delete streaming_motion_detection;
-}
-
-TEST_F(StreamingDetectionTest, TestProcessFrame) {
-
-    Properties job_props, media_props;
-    MPFStreamingVideoJob job("TestProcessFrame", plugin_dir_, job_props, media_props);
-
-    SubsenseStreamingDetection *streaming_motion_detection;
-    try {
-        streaming_motion_detection = new SubsenseStreamingDetection(job);
-    }
-    catch (std::exception &e) {
-        FAIL() << "Exception thrown from constructor: " << e.what();
-    }
-
-    ASSERT_TRUE(NULL != streaming_motion_detection);
+    SubsenseStreamingDetection streaming_motion_detection(job);
 
     // The motion detector requires at least two frames to detect
     // motion. The first frame will be used to initialize the
@@ -169,9 +66,9 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
     // is some number of frames after the initialization frame. This
     // works with the specified input test video, in which the motion
     // is continuous after an initial period of time.
-    string inVideoFile = parameters_->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
-    int init_frame_index = parameters_->value("SUBSENSE_STREAMING_MOTION_INIT_FRAME").toInt();
-    int process_frame_index = parameters_->value("SUBSENSE_STREAMING_MOTION_PROCESS_FRAME").toInt();
+    std::string inVideoFile = "test/test_vids/ff-region-motion-face.avi";
+    int init_frame_index = 50;
+    int process_frame_index = 80;
 
     cv::VideoCapture cap(inVideoFile);
     ASSERT_TRUE(cap.isOpened());
@@ -191,10 +88,9 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
                               frame.cols, frame.rows);
 
     try {
-        streaming_motion_detection->BeginSegment(seg_info);
+        streaming_motion_detection.BeginSegment(seg_info);
     }
     catch (std::exception &e) {
-        delete streaming_motion_detection;
         FAIL() << "Exception thrown from BeginSegment: " << e.what();
     }
 
@@ -202,10 +98,9 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
     // detector and will not produce an activity alert.
     bool activity_alert;
     try {
-        activity_alert = streaming_motion_detection->ProcessFrame(frame, 0);
+        activity_alert = streaming_motion_detection.ProcessFrame(frame, 0);
     }
     catch (std::exception &e) {
-        delete streaming_motion_detection;
         FAIL() << "Exception thrown from ProcessFrame: " << e.what();
     }
 
@@ -220,38 +115,27 @@ TEST_F(StreamingDetectionTest, TestProcessFrame) {
     ASSERT_FALSE(frame.empty());
 
     try {
-        activity_alert = streaming_motion_detection->ProcessFrame(frame, 1);
+        activity_alert = streaming_motion_detection.ProcessFrame(frame, 1);
     }
     catch (std::exception &e) {
-        delete streaming_motion_detection;
         FAIL() << "Exception thrown from ProcessFrame: " << e.what();
     }
 
     ASSERT_TRUE(activity_alert);
-
-    delete streaming_motion_detection;
 }
 
 
-static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameters, MPFStreamingVideoJob &job) {
+static void runStreamingTest(const MPFStreamingVideoJob &job) {
 
-    int segment_length = parameters->value("SUBSENSE_STREAMING_MOTION_SEGMENT_LENGTH").toInt();
-    int num_segments = parameters->value("SUBSENSE_STREAMING_MOTION_NUM_SEGMENTS").toInt();
-    string inVideoFile = parameters->value("SUBSENSE_STREAMING_MOTION_VIDEO_FILE").toStdString();
+    int segment_length = 50;
+    int num_segments = 2;
+    std::string inVideoFile = "test/test_vids/ff-region-motion-face.avi";
 
     std::cout << "Segment length:\t" << segment_length << std::endl;
     std::cout << "Num segments:\t" << num_segments << std::endl;
     std::cout << "inVideo:\t" << inVideoFile << std::endl;
 
-    SubsenseStreamingDetection *streaming_motion_detection;
-    try {
-        streaming_motion_detection = new SubsenseStreamingDetection(job);
-    }
-    catch (std::exception &e) {
-        FAIL() << "Exception thrown from constructor: " << e.what();
-    }
-
-    ASSERT_TRUE(NULL != streaming_motion_detection);
+    SubsenseStreamingDetection streaming_motion_detection(job);
 
     cv::VideoCapture cap(inVideoFile);
     ASSERT_TRUE(cap.isOpened());
@@ -265,7 +149,7 @@ static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameter
     }
     int segment_frame_count = 0;
     int frame_index = 0;
-    vector<MPFVideoTrack> found_tracks;
+    std::vector<MPFVideoTrack> found_tracks;
     int num_activity_alerts = 0;
 
     for (int seg_index = 0; seg_index < num_segments; seg_index++) {
@@ -275,10 +159,9 @@ static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameter
                                   frame.cols, frame.rows);
 
         try {
-            streaming_motion_detection->BeginSegment(seg_info);
+            streaming_motion_detection.BeginSegment(seg_info);
         }
         catch (std::exception &e) {
-            delete streaming_motion_detection;
             FAIL() << "Exception thrown from BeginSegment: " << e.what();
         }
         bool first_track_reported = false;
@@ -287,10 +170,9 @@ static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameter
             if (!frame.empty()) {
                 bool activity_alert;
                 try {
-                    activity_alert = streaming_motion_detection->ProcessFrame(frame, frame_index);
+                    activity_alert = streaming_motion_detection.ProcessFrame(frame, frame_index);
                 }
                 catch (std::exception &e) {
-                    delete streaming_motion_detection;
                     FAIL() << "Exception thrown from ProcessFrame: " << e.what();
                 }
 
@@ -306,12 +188,11 @@ static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameter
             }
         } while (cap.read(frame) && (segment_frame_count < segment_length));
 
-        vector<MPFVideoTrack> tracks;
+        std::vector<MPFVideoTrack> tracks;
         try {
-            tracks = streaming_motion_detection->EndSegment();
+            tracks = streaming_motion_detection.EndSegment();
         }
         catch (std::exception &e) {
-            delete streaming_motion_detection;
             FAIL() << "Exception thrown from EndSegment: " << e.what();
         }
 
@@ -331,18 +212,18 @@ static void runStreamingTest(std::shared_ptr<QHash<QString, QString>> &parameter
     for (MPFVideoTrack &track:  found_tracks) {
         ASSERT_TRUE(track.start_frame >= 30); // motion starts on frame 31
     }
-
-    delete streaming_motion_detection;
 }
 
 
-TEST_F(StreamingDetectionTest, TestMultipleSegments) {
-    MPFStreamingVideoJob job("TestMultipleSegments", plugin_dir_, {}, {});
-    ASSERT_NO_FATAL_FAILURE(runStreamingTest(parameters_, job));
+TEST(StreamingDetectionTest, TestMultipleSegments) {
+    MPFStreamingVideoJob job("TestMultipleSegments", plugin_dir, {}, {});
+    ASSERT_NO_FATAL_FAILURE(runStreamingTest(job));
 }
 
 
-TEST_F(StreamingDetectionTest, TestMotionTracking) {
-    MPFStreamingVideoJob job("TestMotionTracking", plugin_dir_, { std::make_pair("USE_MOTION_TRACKING", "1") }, {});
-    ASSERT_NO_FATAL_FAILURE(runStreamingTest(parameters_, job));
+TEST(StreamingDetectionTest, TestMotionTracking) {
+    MPFStreamingVideoJob job(
+            "TestMotionTracking", plugin_dir,
+            { {"USE_MOTION_TRACKING", "TRUE"} }, {});
+    ASSERT_NO_FATAL_FAILURE(runStreamingTest(job));
 }

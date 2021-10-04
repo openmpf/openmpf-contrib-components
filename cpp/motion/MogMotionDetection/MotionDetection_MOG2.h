@@ -31,48 +31,46 @@
 #ifndef OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_MOG2_H
 #define OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_MOG2_H
 
-
-#include <log4cxx/logmanager.h>
-#include <log4cxx/fileappender.h>
-#include <log4cxx/simplelayout.h>
-#include <log4cxx/consoleappender.h>
-
-#include <QHash>
-#include <QString>
-
 #include <string>
 #include <vector>
 
+#include <opencv2/opencv.hpp>
+
+#include <log4cxx/logger.h>
+
 #include <MPFDetectionComponent.h>
+#include <MPFDetectionObjects.h>
 #include <adapters/MPFImageAndVideoDetectionComponentAdapter.h>
 #include <MPFVideoCapture.h>
 
+
+struct MogConfig;
+
 class MotionDetection_MOG2 : public MPF::COMPONENT::MPFImageAndVideoDetectionComponentAdapter {
 
-    log4cxx::LoggerPtr motion_logger;
-    QHash<QString, QString> parameters;
-
 public:
-    MotionDetection_MOG2();
-    ~MotionDetection_MOG2();
-    bool Init();
-    bool Close();
+    bool Init() override;
+    bool Close() override;
 
-    std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetections(const MPF::COMPONENT::MPFVideoJob &job) override;
+    std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetections(
+            const MPF::COMPONENT::MPFVideoJob &job) override;
 
-    std::vector<MPF::COMPONENT::MPFImageLocation> GetDetections(const MPF::COMPONENT::MPFImageJob &job) override;
+    std::vector<MPF::COMPONENT::MPFImageLocation> GetDetections(
+            const MPF::COMPONENT::MPFImageJob &job) override;
 
-    std::string GetDetectionType();
+    std::string GetDetectionType() override;
 
 private:
+    log4cxx::LoggerPtr motion_logger_;
+
     std::vector<MPF::COMPONENT::MPFVideoTrack> GetDetectionsFromVideoCapture(
             const MPF::COMPONENT::MPFVideoJob &job,
+            const MogConfig &mog_config,
             MPF::COMPONENT::MPFVideoCapture &video_capture);
-
-    void GetPropertySettings(const std::map<std::string, std::string> &algorithm_properties);
 
     static cv::Rect Upscale(const cv::Rect &rect, const cv::Mat &orig_frame, int downsample_count);
 };
+
 
 
 #endif //OPENMPF_CONTRIB_COMPONENTS_MOTIONDETECTION_MOG2_H

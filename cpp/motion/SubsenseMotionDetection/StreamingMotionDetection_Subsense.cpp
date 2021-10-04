@@ -28,7 +28,7 @@
 
 #include <MPFSimpleConfigLoader.h>
 #include "StreamingMotionDetection_Subsense.h"
-#include "MotionDetectionUtils.h"
+#include "SubsenseUtils.h"
 
 using namespace MPF;
 using namespace COMPONENT;
@@ -39,46 +39,29 @@ using std::pair;
 using std::vector;
 
 SubsenseStreamingDetection::SubsenseStreamingDetection(const MPFStreamingVideoJob &job)
-        : MPFStreamingDetectionComponent(job) {
-
-    job_name_ = job.job_name;
-    msg_prefix_ =  "[" + job_name_ + "] ";
-
-    motion_logger_ = log4cxx::Logger::getLogger("SubsenseStreamingMotionDetection");
-
-    string config_file = job.run_directory + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini";
-
-    int rc = LoadConfig(config_file, parameters_);
-    if (rc) {
-        string tmp = "failed to load config file: " + config_file;
-        LOG4CXX_ERROR(motion_logger_, msg_prefix_ << tmp);
-        throw std::runtime_error(tmp);
-    }
-
-    verbose_ = parameters_["VERBOSE"].toUInt();
-
-    if (verbose_ > 0)
-        motion_logger_->setLevel(log4cxx::Level::getDebug());
-
-    GetPropertySettings(job.job_properties, parameters_);
-
-    segment_activity_reported_ = false;
-
-    // Create background subtractor
-    LOG4CXX_TRACE(motion_logger_, msg_prefix_ << "Creating background subtractor");
-
-    BackgroundSubtractorSuBSENSE bg_(parameters_["F_REL_LBSP_THRESHOLD"].toFloat(),
-                                     static_cast<size_t>(parameters_["N_MIN_DESC_DIST_THRESHOLD"].toInt()),
-                                     static_cast<size_t>(parameters_["N_MIN_COLOR_DIST_THRESHOLD"].toInt()),
-                                     static_cast<size_t>(parameters_["N_BG_SAMPLES"].toInt()),
-                                     static_cast<size_t>(parameters_["N_REQUIRED_BG_SAMPLES"].toInt()),
-                                     static_cast<size_t>(parameters_["N_SAMPLES_FOR_MOVING_AVGS"].toInt()));
-    bg_initialized_ = false;
-    downsample_count_ = 0;
-    tracker_id_ = 0;
-    previous_segment_number_ = -1;
-
+        : SubsenseStreamingDetection(job, SubsenseConfig(job.job_properties)) {
 }
+
+
+SubsenseStreamingDetection::SubsenseStreamingDetection(
+            const MPFStreamingVideoJob &job, const SubsenseConfig &config)
+        : MPFStreamingDetectionComponent(job)
+        , config_(config)
+        , job_name_(job.job_name)
+        , msg_prefix_("[" + job_name_ + "] ")
+        , motion_logger_(log4cxx::Logger::getLogger("SubsenseStreamingMotionDetection"))
+        , bg_(config_.f_rel_lbsp_threshold,
+              config_.n_min_desc_dist_threshold,
+              config_.n_min_color_dist_threshold,
+              config_.n_bg_samples,
+              config_.n_required_bg_samples,
+              config_.n_samples_for_moving_avgs) {
+    if (config_.verbose > 0) {
+        motion_logger_->setLevel(log4cxx::Level::getDebug());
+    }
+}
+
+
 
 void SubsenseStreamingDetection::BeginSegment(const VideoSegmentInfo &segment_info) {
 
@@ -108,7 +91,6 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
                                               int frame_number) {
 
     bool frame_activity_found = false;
-    int downsample_count = 0;
     cv::Mat frame, fore;
 
     // Initialization: Use this frame to initialize but don't do detection.
@@ -116,8 +98,8 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         // Downsample frame and initialize the downsample count.
         // Since the input frame is read only, the first call to
         // pyrDown() needs to be out of place.
-        if (orig_frame.rows > parameters_["MAXIMUM_FRAME_HEIGHT"].toInt() ||
-            orig_frame.cols > parameters_["MAXIMUM_FRAME_WIDTH"].toInt()) {
+        if (orig_frame.rows > config_.maximum_frame_height ||
+            orig_frame.cols > config_.maximum_frame_width) {
             cv::pyrDown(orig_frame, frame);
             downsample_count_++;
         }
@@ -125,8 +107,8 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
             orig_frame.copyTo(frame);
         }
 
-        while (frame.rows > parameters_["MAXIMUM_FRAME_HEIGHT"].toInt() ||
-               frame.cols > parameters_["MAXIMUM_FRAME_WIDTH"].toInt()) {
+        while (frame.rows > config_.maximum_frame_height ||
+               frame.cols > config_.maximum_frame_width) {
             cv::pyrDown(frame, frame);
             downsample_count_++;
         }
@@ -157,7 +139,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
     LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__ << ": Apply");
     bg_.apply(frame, fore);
 
-    if (parameters_["USE_PREPROCESSOR"].toInt() == 1) {
+    if (config_.use_preprocessor) {
         LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
         SetPreprocessorTrack(fore, segment_frame_index_,
                              frame_width_, frame_height_,
@@ -174,15 +156,15 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
         LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
         vector<cv::Rect> resized_rects = GetResizedRects(job_name_,
                                                          motion_logger_,
-                                                         parameters_,
+                                                         config_,
                                                          fore,
                                                          frame_width_,
                                                          frame_height_,
                                                          downsample_count_);
 
-        if (parameters_["USE_MOTION_TRACKING"].toInt() == 1) {
+        if (config_.use_motion_tracking) {
             LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
-            ProcessMotionTracks(parameters_, resized_rects, orig_frame,
+            ProcessMotionTracks(config_, resized_rects, orig_frame,
                                 segment_frame_index_, tracker_id_,
                                 tracker_map_, track_map_, tracks_);
             if (!segment_activity_reported_) {
@@ -202,7 +184,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
                 }
             }
 
-            foreach(const cv::Rect &rect, resized_rects) {
+            for (const cv::Rect &rect : resized_rects) {
                 MPFVideoTrack track;
                 track.start_frame = segment_frame_index_;
                 track.stop_frame = track.start_frame;
@@ -225,15 +207,15 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     segment_activity_reported_ = false;
 
     // Finish the last track if we ended iteration through the video with an open track.
-    if (parameters_["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track_.start_frame != -1) {
+    if (config_.use_preprocessor && preprocessor_track_.start_frame != -1) {
         tracks_.push_back(std::move(preprocessor_track_));
     }
 
     preprocessor_track_ = MPFVideoTrack();
 
     // Complete open tracks
-    for(QMap<int, STRUCK>::iterator it= tracker_map_.begin(); it != tracker_map_.end(); it++) {
-        tracks_.push_back(std::move(track_map_.value(it.key())));
+    for (const auto &pair : tracker_map_) {
+        tracks_.push_back(track_map_.at(pair.first));
     }
 
     // The frame numbers in the track are segment frame indices; i.e.,
@@ -254,8 +236,8 @@ vector<MPFVideoTrack> SubsenseStreamingDetection::EndSegment() {
     }
 
     // Assign a confidence value to each detection
-    float distance_factor = parameters_["DISTANCE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
-    float size_factor = parameters_["SIZE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
+    float distance_factor = config_.distance_confidence_weight_factor;
+    float size_factor = config_.size_confidence_weight_factor;
     for(MPFVideoTrack &track : tracks_) {
         AssignDetectionConfidence(track, distance_factor, size_factor);
     }

@@ -30,9 +30,9 @@ ARG BUILD_REGISTRY
 ARG BUILD_TAG=latest
 FROM ${BUILD_REGISTRY}openmpf_cpp_component_build:${BUILD_TAG} as build_component
 
+
 RUN --mount=source=SubsenseMotionDetection,target=SubsenseMotionDetection \
     --mount=source=STRUCK,target=STRUCK \
-    --mount=source=Utils,target=Utils \
     SRC_DIR=$SRC_DIR/SubsenseMotionDetection build-component.sh
 
 ARG RUN_TESTS=false

@@ -27,50 +27,34 @@
  * <http://www.gnu.org/licenses/>.                                            *
  ******************************************************************************/
 
+#include "MotionDetection_Subsense.h"
+
+#include <map>
+
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
 #include <Utils.h>
 #include <MPFImageReader.h>
-#include <MPFSimpleConfigLoader.h>
 #include <MPFDetectionException.h>
 
-#include "MotionDetection_Subsense.h"
 #include "SubSense/BackgroundSubtractorSuBSENSE.h"
 #include "struck.h"
-#include "MotionDetectionUtils.h"
+#include "SubsenseUtils.h"
 
-using std::pair;
 
 using namespace MPF;
 using namespace COMPONENT;
 
-void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks);
-
-MotionDetection_Subsense::MotionDetection_Subsense() {
-}
-
-MotionDetection_Subsense::~MotionDetection_Subsense() {
-}
+void displayTracks(const std::string &origPath, int frameCount,
+                   const std::vector<MPFVideoTrack> &tracks);
 
 std::string MotionDetection_Subsense::GetDetectionType() {
     return "MOTION";
 }
 
 bool MotionDetection_Subsense::Init() {
-    std::string plugin_path = GetRunDirectory() + "/SubsenseMotionDetection";
-    motion_logger = log4cxx::Logger::getLogger("SubsenseMotionDetection");
-
-    std::string config_file = plugin_path + "/config/mpfSubsenseMotionDetection.ini";
-
-    if (LoadConfig(config_file, parameters) == -1) {
-        LOG4CXX_ERROR(motion_logger, "failed to load config file " << config_file);
-        return false;
-    }
-
-    if (parameters["VERBOSE"].toInt() > 0)
-        motion_logger->setLevel(log4cxx::Level::getDebug());
-
+    motion_logger_ = log4cxx::Logger::getLogger("SubsenseMotionDetection");
     return true;
 }
 
@@ -81,36 +65,35 @@ bool MotionDetection_Subsense::Close() {
 
 std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetections(const MPFVideoJob &job) {
     try {
-        LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Starting motion detection");
-
-        LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
-        GetPropertySettings(job.job_properties, parameters);
+        LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Starting motion detection");
+        SubsenseConfig config(job.job_properties);
 
         MPFVideoCapture video_capture(job, true, true);
 
-        std::vector<MPFVideoTrack> tracks = GetDetectionsFromVideoCapture(job, video_capture);
+        std::vector<MPFVideoTrack> tracks = GetDetectionsFromVideoCapture(
+                job, video_capture, config);
         for (auto &track : tracks) {
             video_capture.ReverseTransform(track);
         }
 
-        if (parameters["VERBOSE"].toInt() > 1) {
-            displayTracks(QString::fromStdString(job.data_uri), video_capture.GetFrameCount(), tracks);
+        if (config.verbose > 1) {
+            displayTracks(job.data_uri, video_capture.GetFrameCount(), tracks);
         }
 
         return tracks;
     }
     catch (...) {
-        Utils::LogAndReThrowException(job, motion_logger);
+        Utils::LogAndReThrowException(job, motion_logger_);
     }
 }
 
 std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCapture(
-        const MPFVideoJob &job, MPFVideoCapture &video_capture) {
+        const MPFVideoJob &job, MPFVideoCapture &video_capture, const SubsenseConfig &config) {
 
     int downsample_count = 0;
     cv::Mat orig_frame, frame, fore;
-    QMap<int, STRUCK> tracker_map;
-    QMap<int, MPFVideoTrack> track_map;
+    std::map<int, STRUCK> tracker_map;
+    std::map<int, MPFVideoTrack> track_map;
     MPFVideoTrack preprocessor_track;
     int tracker_id = 0;
 
@@ -119,10 +102,14 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
 
 
     // Create background subtractor
-    LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Creating background subtractor");
-    BackgroundSubtractorSuBSENSE bg(parameters["F_REL_LBSP_THRESHOLD"].toFloat(), static_cast<size_t>(parameters["N_MIN_DESC_DIST_THRESHOLD"].toInt()),
-                                    static_cast<size_t>(parameters["N_MIN_COLOR_DIST_THRESHOLD"].toInt()), static_cast<size_t>(parameters["N_BG_SAMPLES"].toInt()),
-                                    static_cast<size_t>(parameters["N_REQUIRED_BG_SAMPLES"].toInt()), static_cast<size_t>(parameters["N_SAMPLES_FOR_MOVING_AVGS"].toInt()));
+    LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Creating background subtractor");
+    BackgroundSubtractorSuBSENSE bg(
+            config.f_rel_lbsp_threshold,
+            config.n_min_desc_dist_threshold,
+            config.n_min_color_dist_threshold,
+            config.n_bg_samples,
+            config.n_required_bg_samples,
+            config.n_samples_for_moving_avgs);
 
 
     int frame_index;
@@ -145,7 +132,7 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
 
     frame.copyTo(orig_frame);
     // Downsample frame
-    while (frame.rows > parameters["MAXIMUM_FRAME_HEIGHT"].toInt() || frame.cols > parameters["MAXIMUM_FRAME_WIDTH"].toInt()) {
+    while (frame.rows > config.maximum_frame_height || frame.cols > config.maximum_frame_width) {
         cv::pyrDown(frame, frame);
         downsample_count++;
     }
@@ -154,16 +141,16 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
     bg.initialize(frame, Roi);
 
 
-    LOG4CXX_TRACE(motion_logger, "[" << job.job_name << "] Starting video processing");
+    LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Starting video processing");
 
     std::vector<MPFVideoTrack> tracks;
     while (video_capture.Read(frame)) {
 
         if (frame.empty()) {
-            LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
+            LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
             break;
         }
-        LOG4CXX_DEBUG(motion_logger, "frame index = " << frame_index);
+        LOG4CXX_DEBUG(motion_logger_, "frame index = " << frame_index);
 
         // Downsample frame
         for (int x = 0; x < downsample_count; ++x) {
@@ -172,35 +159,33 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
 
         bg.apply(frame, fore);
 
-        if (parameters["USE_PREPROCESSOR"].toInt() == 1) {
+        if (config.use_preprocessor) {
             SetPreprocessorTrack(fore, frame_index,
                                  orig_frame.cols, orig_frame.rows,
                                  preprocessor_track, tracks);
         }
         else {
             std::vector<cv::Rect> resized_rects = GetResizedRects(job.job_name,
-                                                                  motion_logger,
-                                                                  parameters,
+                                                                  motion_logger_,
+                                                                  config,
                                                                   fore,
                                                                   orig_frame.cols,
                                                                   orig_frame.rows,
                                                                   downsample_count);
 
-            if (parameters["USE_MOTION_TRACKING"].toInt() == 1) {
-                ProcessMotionTracks(parameters, resized_rects, orig_frame,
+            if (config.use_motion_tracking) {
+                ProcessMotionTracks(config, resized_rects, orig_frame,
                                     frame_index, tracker_id,
                                     tracker_map, track_map, tracks);
             }
             else {
-                foreach(const cv::Rect &rect, resized_rects) {
+                for(const cv::Rect &rect : resized_rects) {
                     MPFVideoTrack track;
                     track.start_frame = frame_index;
                     track.stop_frame = track.start_frame;
-                    track.frame_locations.insert(
-                        std::pair<int, MPFImageLocation>(frame_index,
-                                                         MPFImageLocation(rect.x, rect.y,
-                                                                          rect.width,
-                                                                          rect.height)));
+                    track.frame_locations.emplace(
+                            frame_index,
+                            MPFImageLocation(rect.x, rect.y, rect.width, rect.height));
 
                     tracks.push_back(track);
                 }
@@ -210,64 +195,60 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
     }
 
     // Finish the last track if we ended iteration through the video with an open track.
-    if (parameters["USE_PREPROCESSOR"].toInt() == 1 && preprocessor_track.start_frame != -1) {
+    if (config.use_preprocessor && preprocessor_track.start_frame != -1) {
         tracks.push_back(preprocessor_track);
     }
 
     // Complete open tracks
-    for(QMap<int, STRUCK>::iterator it= tracker_map.begin(); it != tracker_map.end(); it++) {
-        tracks.push_back(track_map.value(it.key()));
-        track_map.erase(track_map.find(it.key()));
-        it = tracker_map.erase(it);
-        it--;
+    for (const auto& pair : tracker_map) {
+        tracks.push_back(std::move(track_map.at(pair.first)));
     }
 
     // Close video capture
     video_capture.Release();
 
     // Assign a confidence value to each detection
-    float distance_factor = parameters["DISTANCE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
-    float size_factor = parameters["SIZE_CONFIDENCE_WEIGHT_FACTOR"].toFloat();
+    float distance_factor = config.distance_confidence_weight_factor;
+    float size_factor = config.size_confidence_weight_factor;
     for(MPFVideoTrack &track : tracks) {
         AssignDetectionConfidence(track, distance_factor, size_factor);
     }
 
-    if (parameters["VERBOSE"].toInt() > 0) {
+    if (config.verbose > 0) {
         //now print tracks if available
         if (!tracks.empty()) {
             for (unsigned int i=0; i<tracks.size(); i++) {
-                LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track index: " << i);
-                LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
-                LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
+                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track index: " << i);
+                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
+                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
 
                 for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
-                    LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Frame num: " << it->first);
-                    LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
+                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Frame num: " << it->first);
+                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
                                                      it->second.y_left_upper << ", " << it->second.width << ", " << it->second.height <<
                                                      ")");
-                    LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] Confidence: " << it->second.confidence);
+                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Confidence: " << it->second.confidence);
                 }
             }
         }
         else {
-            LOG4CXX_DEBUG(motion_logger, "[" << job.job_name << "] No tracks found");
+            LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] No tracks found");
         }
     }
 
-    LOG4CXX_INFO(motion_logger, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
+    LOG4CXX_INFO(motion_logger_, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
 
     return tracks;
 }
 
 std::vector<MPFImageLocation> MotionDetection_Subsense::GetDetections(const MPFImageJob &job) {
     try {
-        LoadConfig(GetRunDirectory() + "/SubsenseMotionDetection/config/mpfSubsenseMotionDetection.ini", parameters);
-        GetPropertySettings(job.job_properties, parameters);
+        SubsenseConfig config(job.job_properties);
 
         std::vector<MPFImageLocation> locations;
         // if this component is used as a preprocessor then it will return that it detects motion in every image
         // (although no actual motion detection is performed)
-        if (parameters["USE_PREPROCESSOR"].toInt() == 1) {
+        if (config.use_preprocessor) {
             MPFImageLocation detection;
             MPFImageReader image_reader(job);
             cv::Mat cv_image = image_reader.GetImage();
@@ -283,24 +264,25 @@ std::vector<MPFImageLocation> MotionDetection_Subsense::GetDetections(const MPFI
             }
         }
 
-        LOG4CXX_INFO(motion_logger,
+        LOG4CXX_INFO(motion_logger_,
                      "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(locations.size())
                          << " detections.");
         return locations;
     }
     catch (...) {
-        Utils::LogAndReThrowException(job, motion_logger);
+        Utils::LogAndReThrowException(job, motion_logger_);
     }
 }
 
 
 
 // NOTE: This only draws a bounding box around the first detection in each track
-void displayTracks(QString origPath, int frameCount, std::vector<MPFVideoTrack> tracks) {
-    cv::VideoCapture capture(qPrintable(origPath));
+void displayTracks(const std::string &origPath, int frameCount,
+                   const std::vector<MPFVideoTrack> &tracks) {
+    cv::VideoCapture capture(origPath);
 
     cv::Mat frame;
-    std::vector<MPFVideoTrack>::iterator it = tracks.begin();
+    auto it = tracks.begin();
 
     while (capture.get(cv::CAP_PROP_POS_FRAMES) < frameCount) {
         capture >> frame;
