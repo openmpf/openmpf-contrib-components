@@ -1,7 +1,6 @@
 
 // minimalistic foreground-background segmentation sample, based off OpenCV's bgfg_segm sample
 
-/*
 #include "BackgroundSubtractorSuBSENSE.h"
 
 #include <opencv2/core.hpp>
@@ -69,4 +68,4 @@ int main(int argc, const char** argv) {
     }
     return 0;
 }
-*/
+
