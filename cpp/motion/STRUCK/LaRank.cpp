@@ -61,6 +61,12 @@ LaRank::LaRank(const Config& conf, const Features& features, const Kernel& kerne
 
 LaRank::~LaRank()
 {
+    for (auto *support_vector : m_svs) {
+        delete support_vector;
+    }
+    for (auto *support_pattern : m_sps) {
+        delete support_pattern;
+    }
 }
 
 double LaRank::Evaluate(const Eigen::VectorXd& x, const FloatRect& y) const

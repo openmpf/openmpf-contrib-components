@@ -30,7 +30,6 @@
 project(STRUCK)
 
 if(NOT TARGET STRUCK)
-    find_package(Qt4 REQUIRED)
     find_package(OpenCV 4.5.0 EXACT REQUIRED PATHS /opt/opencv-4.5.0 COMPONENTS opencv_core opencv_imgproc)
 
     # Need to use absolute paths so that both Mog and Subsense can build STRUCK
@@ -60,8 +59,10 @@ if(NOT TARGET STRUCK)
         ${CMAKE_CURRENT_LIST_DIR}/Tracker.h
         ${CMAKE_CURRENT_LIST_DIR}/Tracker.cpp)
 
-    add_library(STRUCK SHARED ${STRUCK_SRC} ${CMAKE_CURRENT_LIST_DIR}/GraphUtils/GraphUtils.cpp)
-    target_link_libraries(STRUCK ${OpenCV_LIBS} Qt4::QtCore)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    add_library(STRUCK OBJECT ${STRUCK_SRC} ${CMAKE_CURRENT_LIST_DIR}/GraphUtils/GraphUtils.cpp)
+
+    target_link_libraries(STRUCK ${OpenCV_LIBS})
     target_include_directories(STRUCK PUBLIC ${CMAKE_CURRENT_LIST_DIR}/GraphUtils ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/eigen)
 endif()
 

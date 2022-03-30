@@ -32,7 +32,6 @@
 #include <iostream>
 #include <fstream>
 
-#include <QtCore>
 
 
 
@@ -79,7 +78,7 @@ void STRUCK::initialize(Mat first_frame, cv::Rect detection, double threshold, d
 cv::Rect STRUCK::nextFrame(Mat frame, vector<cv::Rect> detections) {
     vector<FloatRect> rects;
     cv::Rect init_BB_opencv(init_BB.XMin(), init_BB.YMin(), init_BB.Width(), init_BB.Height());
-    foreach (cv::Rect detection, detections) {
+    for (cv::Rect detection : detections) {
         if ((detection & init_BB_opencv).area() > (init_BB_opencv.area() * min_overlap)) {
             rects.push_back(FloatRect(detection.x, detection.y, detection.width, detection.height));
         }

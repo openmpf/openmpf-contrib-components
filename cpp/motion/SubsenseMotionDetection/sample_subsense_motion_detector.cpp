@@ -31,7 +31,7 @@
 #include <string>
 #include <iostream>
 
-#include <QCoreApplication>
+#include <detectionComponentUtils.h>
 
 using namespace std;
 
@@ -53,9 +53,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
-        QCoreApplication *this_app = new QCoreApplication(argc, argv);
-        string app_dir = (this_app->applicationDirPath()).toStdString();
-        delete this_app;
+        std::string app_dir = DetectionComponentUtils::GetAppDir(argv[0]);
 
         MotionDetection_Subsense subsense_motion_detection;
         MPFDetectionComponent *detection_engine = &subsense_motion_detection;

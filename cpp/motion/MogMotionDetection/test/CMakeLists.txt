@@ -31,13 +31,12 @@
 cmake_minimum_required(VERSION 3.6)
 project(mog-motion-detection-tests)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(GTest)
 if (${GTEST_FOUND})
 
     enable_testing()
-    find_package(Qt4 REQUIRED)
     find_package(mpfComponentTestUtils REQUIRED)
 
     include_directories(..)
@@ -45,12 +44,9 @@ if (${GTEST_FOUND})
     add_executable(MogMotionDetectionTest test_mog_motion_detection.cpp)
     target_link_libraries(MogMotionDetectionTest
         mpfMogMotionDetection mpfComponentTestUtils
-        GTest::GTest GTest::Main Qt4::QtCore)
+        GTest::GTest GTest::Main)
 
     add_test(NAME MogMotionDetectionTest COMMAND MogMotionDetectionTest)
-
-    # Install config file
-    file(COPY test_mog_motion_config.ini DESTINATION config)
 
     # Install test videos
     file(GLOB MOG_TEST_VIDEO_FILES data/test_vids/*)

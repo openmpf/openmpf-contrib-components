@@ -31,13 +31,12 @@
 cmake_minimum_required(VERSION 3.6)
 project(subsense-motion-detection-tests)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(GTest)
 if (${GTEST_FOUND})
 
     enable_testing()
-    find_package(Qt4 REQUIRED)
     find_package(mpfComponentTestUtils REQUIRED)
 
     include_directories(..)
@@ -45,7 +44,7 @@ if (${GTEST_FOUND})
     add_executable(SubsenseMotionDetectionTest test_subsense_motion_detection.cpp)
     target_link_libraries(SubsenseMotionDetectionTest
         mpfSubsenseMotionDetection mpfComponentTestUtils
-        GTest::GTest GTest::Main Qt4::QtCore)
+        GTest::GTest GTest::Main)
 
     add_test(NAME SubsenseMotionDetectionTest COMMAND SubsenseMotionDetectionTest)
 
@@ -54,13 +53,10 @@ if (${GTEST_FOUND})
 
     target_link_libraries(SubsenseStreamingMotionDetectionTest
         mpfSubsenseStreamingMotionDetection mpfComponentTestUtils
-        GTest::GTest GTest::Main Qt4::QtCore)
+        GTest::GTest GTest::Main)
 
     add_test(NAME SubsenseStreamingMotionDetectionTest
              COMMAND SubsenseStreamingMotionDetectionTest)
-
-    # Install config file
-    file(COPY test_subsense_motion_config.ini DESTINATION config)
 
     # Install test videos
     file(GLOB SUBSENSE_TEST_VIDEO_FILES data/test_vids/*)

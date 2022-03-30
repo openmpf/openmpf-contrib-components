@@ -32,7 +32,6 @@ FROM ${BUILD_REGISTRY}openmpf_cpp_component_build:${BUILD_TAG} as build_componen
 
 RUN --mount=source=MogMotionDetection,target=MogMotionDetection \
     --mount=source=STRUCK,target=STRUCK \
-    --mount=source=Utils,target=Utils \
     SRC_DIR=$SRC_DIR/MogMotionDetection build-component.sh
 
 ARG RUN_TESTS=false
