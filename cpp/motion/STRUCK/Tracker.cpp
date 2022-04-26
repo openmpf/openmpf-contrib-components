@@ -52,7 +52,7 @@ using namespace cv;
 using namespace std;
 using namespace Eigen;
 
-Tracker::Tracker(const Config& conf, double threshold) :
+::Tracker::Tracker(const Config& conf, double threshold) :
 	m_config(conf),
 	m_initialised(false),
 	m_pLearner(0),
@@ -63,7 +63,7 @@ Tracker::Tracker(const Config& conf, double threshold) :
 	Reset();
 }
 
-Tracker::~Tracker()
+::Tracker::~Tracker()
 {
 	delete m_pLearner;
 	for (int i = 0; i < (int)m_features.size(); ++i)
@@ -73,7 +73,7 @@ Tracker::~Tracker()
 	}
 }
 
-void Tracker::Reset()
+void ::Tracker::Reset()
 {
 	m_initialised = false;
 	m_debugImage.setTo(0);
@@ -139,7 +139,7 @@ void Tracker::Reset()
 }
 	
 
-void Tracker::Initialise(const cv::Mat& frame, FloatRect bb)
+void ::Tracker::Initialise(const cv::Mat& frame, FloatRect bb)
 {
 	m_bb = IntRect(bb);
 	ImageRep image(frame, m_needsIntegralImage, m_needsIntegralHist);
@@ -150,7 +150,7 @@ void Tracker::Initialise(const cv::Mat& frame, FloatRect bb)
 	m_initialised = true;
 }
 
-void Tracker::Track(const cv::Mat& frame, vector<FloatRect> rects)
+void ::Tracker::Track(const cv::Mat& frame, vector<FloatRect> rects)
 {
 	assert(m_initialised);
 	
@@ -196,7 +196,7 @@ void Tracker::Track(const cv::Mat& frame, vector<FloatRect> rects)
     }
 }
 
-void Tracker::UpdateDebugImage(const vector<FloatRect>& samples, const FloatRect& centre, const vector<double>& scores)
+void ::Tracker::UpdateDebugImage(const vector<FloatRect>& samples, const FloatRect& centre, const vector<double>& scores)
 {
 	double mn = VectorXd::Map(&scores[0], scores.size()).minCoeff();
 	double mx = VectorXd::Map(&scores[0], scores.size()).maxCoeff();
@@ -209,13 +209,13 @@ void Tracker::UpdateDebugImage(const vector<FloatRect>& samples, const FloatRect
 	}
 }
 
-void Tracker::Debug()
+void ::Tracker::Debug()
 {
 	imshow("tracker", m_debugImage);
 	m_pLearner->Debug();
 }
 
-void Tracker::UpdateLearner(const ImageRep& image)
+void ::Tracker::UpdateLearner(const ImageRep& image)
 {
 	// note these return the centre sample at index 0
 	vector<FloatRect> rects = Sampler::RadialSamples(m_bb, 2*m_config.searchRadius, 5, 16);
