@@ -69,7 +69,7 @@ void STRUCK::initialize(Mat first_frame, cv::Rect detection, double threshold, d
     conf.features.push_back(pair);
     this->min_overlap = min_overlap;
 
-    tracker = new Tracker(conf, threshold);
+    tracker = new ::Tracker(conf, threshold);
     init_BB = FloatRect(detection.x, detection.y, detection.width, detection.height);
     tracker->Initialise(first_frame, init_BB);
 
