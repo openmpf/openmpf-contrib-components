@@ -1,6 +1,6 @@
 *.class
 
-# Package Files #
+# Package Files
 *.jar
 *.war
 *.ear
@@ -55,3 +55,6 @@ cmake-build-debug/
 *.out
 *.app
 
+# Python
+*.egg-info
+*.pyc
