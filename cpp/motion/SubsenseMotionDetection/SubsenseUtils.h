@@ -86,8 +86,7 @@ void SetPreprocessorTrack(const cv::Mat &fore, int frame_index,
                           std::vector<MPF::COMPONENT::MPFVideoTrack> &tracks);
 
 
-std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
-                                      const log4cxx::LoggerPtr &logger,
+std::vector<cv::Rect> GetResizedRects(const log4cxx::LoggerPtr &logger,
                                       const SubsenseConfig &config,
                                       cv::Mat &fore,
                                       int frame_cols,

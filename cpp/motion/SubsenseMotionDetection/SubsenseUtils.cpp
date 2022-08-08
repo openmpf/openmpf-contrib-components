@@ -101,8 +101,7 @@ void SetPreprocessorTrack(const cv::Mat &fore, int frame_index,
 
 }
 
-std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
-                                      const log4cxx::LoggerPtr &logger,
+std::vector<cv::Rect> GetResizedRects(const log4cxx::LoggerPtr &logger,
                                       const SubsenseConfig &config,
                                       cv::Mat &fore,
                                       int frame_cols,
@@ -111,7 +110,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
 
     std::vector<cv::Rect> rects;
     // Make motion larger objects
-    LOG4CXX_TRACE(logger, "[" << job_name << "] Eroding and blurring background");
+    LOG4CXX_TRACE(logger, "Eroding and blurring background");
     cv::erode(fore, fore, cv::Mat(),
               cv::Point(config.erode_anchor_x, config.erode_anchor_y),
               config.erode_iterations);
@@ -123,7 +122,7 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
 
     std::vector<std::vector<cv::Point> > contours;
     // Find the contours and then make bounding rects
-    LOG4CXX_TRACE(logger, "[" << job_name << "] Finding contours and combine overlaps");
+    LOG4CXX_TRACE(logger, "Finding contours and combine overlaps");
     cv::findContours(fore, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
 
@@ -134,12 +133,12 @@ std::vector<cv::Rect> GetResizedRects(const std::string &job_name,
     }
 
     // Combines overlapping rects together
-    LOG4CXX_TRACE(logger, "[" << job_name << "] Converting contours to rects");
+    LOG4CXX_TRACE(logger, "Converting contours to rects");
 
     cv::groupRectangles(rects, config.group_rectangles_group_threshold,
                         config.group_rectangles_eps);
 
-    LOG4CXX_TRACE(logger, "[" << job_name << "] Resizing rects");
+    LOG4CXX_TRACE(logger, "Resizing rects");
     std::vector<cv::Rect> resized_rects;
     for (const cv::Rect &rect : rects) {
         if ((rect.width * pow(2, downsample_count)) >= config.min_rect_width &&
