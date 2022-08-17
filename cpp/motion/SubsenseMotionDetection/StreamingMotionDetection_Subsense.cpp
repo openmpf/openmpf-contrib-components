@@ -154,8 +154,7 @@ bool SubsenseStreamingDetection::ProcessFrame(const cv::Mat &orig_frame,
     }
     else {
         LOG4CXX_TRACE(motion_logger_, msg_prefix_ << __FUNCTION__ << ": " << __LINE__);
-        vector<cv::Rect> resized_rects = GetResizedRects(job_name_,
-                                                         motion_logger_,
+        vector<cv::Rect> resized_rects = GetResizedRects(motion_logger_,
                                                          config_,
                                                          fore,
                                                          frame_width_,

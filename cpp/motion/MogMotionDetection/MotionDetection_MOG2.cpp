@@ -126,7 +126,7 @@ bool MotionDetection_MOG2::Close() {
 
 std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetections(const MPFVideoJob &job) {
     try {
-        LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Starting motion detection");
+        LOG4CXX_DEBUG(motion_logger_, "Starting motion detection");
 
         MogConfig config(job.job_properties);
 
@@ -166,7 +166,7 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
 
 
     // Create background subtractor
-    LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Creating background subtractor");
+    LOG4CXX_TRACE(motion_logger_, "Creating background subtractor");
     int history_length = config.history_length;
     int var_threshold = config.var_threshold;
     bool detectShadows = config.background_shadow_detection;
@@ -209,7 +209,7 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
     bg->apply(frame, fore);
 
 
-    LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Starting video processing");
+    LOG4CXX_TRACE(motion_logger_, "Starting video processing");
 
     std::vector<MPFVideoTrack> tracks;
     while (video_capture.Read(frame)) {
@@ -217,7 +217,7 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
         LOG4CXX_DEBUG(motion_logger_, "frame index = " << frame_index);
 
         if (frame.empty()) {
-            LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
+            LOG4CXX_DEBUG(motion_logger_, "Empty frame encountered at frame " << frame_index);
             break;
         }
 
@@ -259,7 +259,7 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
         } else {
 
             // Make motion larger objects
-            LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Eroding and blurring background");
+            LOG4CXX_TRACE(motion_logger_, "Eroding and blurring background");
             cv::erode(fore, fore, cv::Mat(),
                       cv::Point(config.erode_anchor_x, config.erode_anchor_y),
                       config.erode_iterations);
@@ -269,7 +269,7 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
             cv::medianBlur(fore, fore, config.median_blur_k_size);
 
             // Find the contours and then make bounding rects
-            LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Finding contours and combine overlaps");
+            LOG4CXX_TRACE(motion_logger_, "Finding contours and combine overlaps");
             cv::findContours(fore, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
 
@@ -280,12 +280,12 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
             }
 
             // Combines overlapping rects together
-            LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Converting contours to rects");
+            LOG4CXX_TRACE(motion_logger_, "Converting contours to rects");
 
             cv::groupRectangles(
                     rects, config.group_rectangles_group_threshold, config.group_rectangles_eps);
 
-            LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Writing rects to VideoTrack");
+            LOG4CXX_TRACE(motion_logger_, "Writing rects to VideoTrack");
             std::vector<cv::Rect> resized_rects;
             for (const cv::Rect &rect : rects) {
                 if ((rect.width * pow(2, downsample_count)) >= config.min_rect_width &&
@@ -393,24 +393,24 @@ std::vector<MPFVideoTrack> MotionDetection_MOG2::GetDetectionsFromVideoCapture(
         // Now print tracks if available
         if (!tracks.empty()) {
             for (unsigned int i=0; i<tracks.size(); i++) {
-                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track index: " << i);
-                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
-                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
+                LOG4CXX_DEBUG(motion_logger_, "Track index: " << i);
+                LOG4CXX_DEBUG(motion_logger_, "Track start frame: " << tracks[i].start_frame);
+                LOG4CXX_DEBUG(motion_logger_, "Track end frame: " << tracks[i].stop_frame);
 
                 for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
-                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Frame num: " << it->first);
-                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
+                    LOG4CXX_DEBUG(motion_logger_, "Frame num: " << it->first);
+                    LOG4CXX_DEBUG(motion_logger_, "Bounding rect: (" << it->second.x_left_upper << ", " <<
                                                       it->second.y_left_upper << ", " << it->second.width << ", " << it->second.height <<
                                                       ")");
-                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Confidence: " << it->second.confidence);
+                    LOG4CXX_DEBUG(motion_logger_, "Confidence: " << it->second.confidence);
                 }
             }
         } else {
-            LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] No tracks found");
+            LOG4CXX_DEBUG(motion_logger_, "No tracks found");
         }
     }
 
-    LOG4CXX_INFO(motion_logger_, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
+    LOG4CXX_INFO(motion_logger_, "Processing complete. Found " << tracks.size() << " tracks.");
 
     return tracks;
 }
@@ -440,8 +440,7 @@ std::vector<MPFImageLocation> MotionDetection_MOG2::GetDetections(const MPFImage
 
 
         LOG4CXX_INFO(motion_logger_,
-                     "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(locations.size())
-                         << " detections.");
+                     "Processing complete. Found " << locations.size() << " detections.");
         return locations;
     }
     catch (...) {

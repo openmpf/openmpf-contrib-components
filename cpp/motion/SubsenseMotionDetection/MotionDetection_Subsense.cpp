@@ -65,7 +65,7 @@ bool MotionDetection_Subsense::Close() {
 
 std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetections(const MPFVideoJob &job) {
     try {
-        LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Starting motion detection");
+        LOG4CXX_DEBUG(motion_logger_, "Starting motion detection");
         SubsenseConfig config(job.job_properties);
 
         MPFVideoCapture video_capture(job, true, true);
@@ -102,7 +102,7 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
 
 
     // Create background subtractor
-    LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Creating background subtractor");
+    LOG4CXX_TRACE(motion_logger_, "Creating background subtractor");
     BackgroundSubtractorSuBSENSE bg(
             config.f_rel_lbsp_threshold,
             config.n_min_desc_dist_threshold,
@@ -141,13 +141,13 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
     bg.initialize(frame, Roi);
 
 
-    LOG4CXX_TRACE(motion_logger_, "[" << job.job_name << "] Starting video processing");
+    LOG4CXX_TRACE(motion_logger_, " Starting video processing");
 
     std::vector<MPFVideoTrack> tracks;
     while (video_capture.Read(frame)) {
 
         if (frame.empty()) {
-            LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Empty frame encountered at frame " << frame_index);
+            LOG4CXX_DEBUG(motion_logger_, "Empty frame encountered at frame " << frame_index);
             break;
         }
         LOG4CXX_DEBUG(motion_logger_, "frame index = " << frame_index);
@@ -165,8 +165,7 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
                                  preprocessor_track, tracks);
         }
         else {
-            std::vector<cv::Rect> resized_rects = GetResizedRects(job.job_name,
-                                                                  motion_logger_,
+            std::vector<cv::Rect> resized_rects = GetResizedRects(motion_logger_,
                                                                   config,
                                                                   fore,
                                                                   orig_frame.cols,
@@ -218,25 +217,25 @@ std::vector<MPFVideoTrack> MotionDetection_Subsense::GetDetectionsFromVideoCaptu
         //now print tracks if available
         if (!tracks.empty()) {
             for (unsigned int i=0; i<tracks.size(); i++) {
-                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track index: " << i);
-                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track start frame: " << tracks[i].start_frame);
-                LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Track end frame: " << tracks[i].stop_frame);
+                LOG4CXX_DEBUG(motion_logger_, "Track index: " << i);
+                LOG4CXX_DEBUG(motion_logger_, "Track start frame: " << tracks[i].start_frame);
+                LOG4CXX_DEBUG(motion_logger_, "Track end frame: " << tracks[i].stop_frame);
 
                 for (std::map<int, MPFImageLocation>::const_iterator it = tracks[i].frame_locations.begin(); it != tracks[i].frame_locations.end(); ++it) {
-                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Frame num: " << it->first);
-                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Bounding rect: (" << it->second.x_left_upper << ", " <<
+                    LOG4CXX_DEBUG(motion_logger_, "Frame num: " << it->first);
+                    LOG4CXX_DEBUG(motion_logger_, "Bounding rect: (" << it->second.x_left_upper << ", " <<
                                                      it->second.y_left_upper << ", " << it->second.width << ", " << it->second.height <<
                                                      ")");
-                    LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] Confidence: " << it->second.confidence);
+                    LOG4CXX_DEBUG(motion_logger_, "Confidence: " << it->second.confidence);
                 }
             }
         }
         else {
-            LOG4CXX_DEBUG(motion_logger_, "[" << job.job_name << "] No tracks found");
+            LOG4CXX_DEBUG(motion_logger_, "No tracks found");
         }
     }
 
-    LOG4CXX_INFO(motion_logger_, "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(tracks.size()) << " tracks.");
+    LOG4CXX_INFO(motion_logger_, "Processing complete. Found " << tracks.size() << " tracks.");
 
     return tracks;
 }
@@ -265,8 +264,7 @@ std::vector<MPFImageLocation> MotionDetection_Subsense::GetDetections(const MPFI
         }
 
         LOG4CXX_INFO(motion_logger_,
-                     "[" << job.job_name << "] Processing complete. Found " << static_cast<int>(locations.size())
-                         << " detections.");
+                     "Processing complete. Found " << locations.size() << " detections.");
         return locations;
     }
     catch (...) {
