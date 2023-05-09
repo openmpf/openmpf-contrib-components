@@ -1,7 +1,7 @@
 {
   "componentName": "SubsenseMotionDetection",
-  "componentVersion": "7.1",
-  "middlewareVersion": "7.1",
+  "componentVersion": "7.2",
+  "middlewareVersion": "7.2",
   "sourceLanguage": "c++",
   "batchLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseMotionDetection.so",
   "streamLibrary": "${MPF_HOME}/plugins/SubsenseMotionDetection/lib/libmpfSubsenseStreamingMotionDetection.so",
@@ -15,6 +15,7 @@
     "name": "SUBSENSE",
     "description": "Detects motion in videos using a Self-Balanced SENsitivity SEgmenter (SuBSENSE).",
     "actionType": "DETECTION",
+    "outputChangedCounter" : 1,
     "requiresCollection": {
       "states": []
     },
