@@ -109,11 +109,6 @@ void displayTracks(const std::string& origPath, int frameCount,
                    const std::vector<MPFVideoTrack> &tracks);
 
 
-
-std::string MotionDetection_MOG2::GetDetectionType() {
-    return "MOTION";
-}
-
 bool MotionDetection_MOG2::Init() {
     motion_logger_ = log4cxx::Logger::getLogger("MogMotionDetection");
     return true;

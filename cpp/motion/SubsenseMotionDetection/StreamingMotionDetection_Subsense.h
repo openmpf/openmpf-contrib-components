@@ -57,8 +57,6 @@ class SubsenseStreamingDetection : public MPF::COMPONENT::MPFStreamingDetectionC
     bool ProcessFrame(const cv::Mat &frame, int frame_number) override;
     std::vector<MPF::COMPONENT::MPFVideoTrack> EndSegment() override;
 
-    std::string GetDetectionType() override { return "MOTION"; }
-
   private:
     SubsenseStreamingDetection(const MPF::COMPONENT::MPFStreamingVideoJob &job,
                                const SubsenseConfig &config);

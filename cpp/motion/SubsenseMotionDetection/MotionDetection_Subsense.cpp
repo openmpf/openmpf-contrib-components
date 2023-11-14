@@ -49,10 +49,6 @@ using namespace COMPONENT;
 void displayTracks(const std::string &origPath, int frameCount,
                    const std::vector<MPFVideoTrack> &tracks);
 
-std::string MotionDetection_Subsense::GetDetectionType() {
-    return "MOTION";
-}
-
 bool MotionDetection_Subsense::Init() {
     motion_logger_ = log4cxx::Logger::getLogger("SubsenseMotionDetection");
     return true;
