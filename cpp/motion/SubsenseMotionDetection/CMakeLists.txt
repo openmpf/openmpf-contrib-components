@@ -35,7 +35,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 include(../../ComponentSetup.cmake)
 
-find_package(OpenCV 4.5.5 EXACT REQUIRED PATHS /opt/opencv-4.5.5
+find_package(OpenCV 4.9.0 EXACT REQUIRED PATHS /opt/opencv-4.9.0
     COMPONENTS opencv_objdetect opencv_video opencv_features2d opencv_flann opencv_ml opencv_highgui)
 
 find_package(mpfComponentInterface REQUIRED)
