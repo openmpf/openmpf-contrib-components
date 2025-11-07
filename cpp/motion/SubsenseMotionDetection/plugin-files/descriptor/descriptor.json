@@ -232,6 +232,10 @@
         {
           "name": "USE_PREPROCESSOR",
           "value": 1
+        },
+        {
+          "name": "SUPPRESS_TRACKS",
+          "value": "true"
         }
       ]
     },
@@ -270,6 +274,10 @@
         },
         {
           "name": "AUTO_FLIP",
+          "value": "true"
+        },
+        {
+          "name": "SUPPRESS_TRACKS",
           "value": "true"
         }
       ]
