@@ -698,6 +698,12 @@ void BackgroundSubtractorSuBSENSE::apply(cv::InputArray _image, cv::OutputArray 
 	}
 }
 
+void BackgroundSubtractorSuBSENSE::apply(
+		cv::InputArray image, cv::InputArray knownForegroundMask, cv::OutputArray fgmask,
+		double learningRate) {
+	throw std::runtime_error("knownForegroundMask is not supported.");
+}
+
 void BackgroundSubtractorSuBSENSE::getBackgroundImage(cv::OutputArray backgroundImage) const {
 	CV_Assert(m_bInitialized);
 	cv::Mat oAvgBGImg = cv::Mat::zeros(m_oImgSize,CV_32FC((int)m_nImgChannels));
